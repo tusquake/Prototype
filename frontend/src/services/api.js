@@ -2511,43 +2511,79 @@ export async function getCurrentUser(email) {
 }
 
 export async function submitTask(taskId, actorId = 'usr-tushar-304', comment = '') {
-  const res = await fetchJson(`/tasks/${taskId}/submit`, {
+  let id = taskId;
+  let actor = actorId;
+  let comm = comment;
+
+  if (typeof taskId === 'object' && taskId !== null) {
+    id = taskId.taskId || taskId.id || taskId.recordNo;
+    if (typeof actorId === 'string' && !comment) {
+      comm = actorId;
+      actor = 'usr-tushar-304';
+    }
+  }
+
+  const res = await fetchJson(`/tasks/${id}/submit`, {
     method: 'PUT',
-    body: JSON.stringify({ actorId, comment }),
+    body: JSON.stringify({ actorId: actor, comment: comm }),
   }).catch(() => null);
 
-  const mock = MOCK_TASKS.find(t => t.taskId === taskId || t.id === taskId);
+  const mock = MOCK_TASKS.find(t => t.taskId === id || t.id === id || t.recordNo === id);
   if (mock) {
     mock.status = 'PENDING_REVIEW';
-    mock.actualMaker = actorId === 'usr-prayasa-410' ? 'Prayasa Sharma' : 'Tushar Seth';
+    mock.actualMaker = actor === 'usr-prayasa-410' ? 'Prayasa Sharma' : 'Tushar Seth';
   }
   return res;
 }
 
 export async function approveTask(taskId, actorId = 'usr-mainak-215', comment = '') {
-  const res = await fetchJson(`/tasks/${taskId}/approve`, {
+  let id = taskId;
+  let actor = actorId;
+  let comm = comment;
+
+  if (typeof taskId === 'object' && taskId !== null) {
+    id = taskId.taskId || taskId.id || taskId.recordNo;
+    if (typeof actorId === 'string' && !comment) {
+      comm = actorId;
+      actor = 'usr-mainak-215';
+    }
+  }
+
+  const res = await fetchJson(`/tasks/${id}/approve`, {
     method: 'PUT',
-    body: JSON.stringify({ actorId, comment }),
+    body: JSON.stringify({ actorId: actor, comment: comm }),
   }).catch(() => null);
 
-  const mock = MOCK_TASKS.find(t => t.taskId === taskId || t.id === taskId);
+  const mock = MOCK_TASKS.find(t => t.taskId === id || t.id === id || t.recordNo === id);
   if (mock) {
     mock.status = 'APPROVED';
-    mock.actualChecker = actorId === 'usr-vivek-108' ? 'Vivek Raj' : 'Mainak Gupta';
+    mock.actualChecker = actor === 'usr-vivek-108' ? 'Vivek Raj' : 'Mainak Gupta';
   }
   return res;
 }
 
 export async function rejectTask(taskId, actorId = 'usr-mainak-215', comment = 'Requires correction') {
-  const res = await fetchJson(`/tasks/${taskId}/reject`, {
+  let id = taskId;
+  let actor = actorId;
+  let comm = comment;
+
+  if (typeof taskId === 'object' && taskId !== null) {
+    id = taskId.taskId || taskId.id || taskId.recordNo;
+    if (typeof actorId === 'string' && !comment) {
+      comm = actorId;
+      actor = 'usr-mainak-215';
+    }
+  }
+
+  const res = await fetchJson(`/tasks/${id}/reject`, {
     method: 'PUT',
-    body: JSON.stringify({ actorId, comment }),
+    body: JSON.stringify({ actorId: actor, comment: comm }),
   }).catch(() => null);
 
-  const mock = MOCK_TASKS.find(t => t.taskId === taskId || t.id === taskId);
+  const mock = MOCK_TASKS.find(t => t.taskId === id || t.id === id || t.recordNo === id);
   if (mock) {
     mock.status = 'REJECTED';
-    mock.actualChecker = actorId === 'usr-vivek-108' ? 'Vivek Raj' : 'Mainak Gupta';
+    mock.actualChecker = actor === 'usr-vivek-108' ? 'Vivek Raj' : 'Mainak Gupta';
   }
   return res;
 }

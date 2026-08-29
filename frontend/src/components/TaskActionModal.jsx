@@ -64,10 +64,13 @@ export default function TaskActionModal({
     setActionError('');
     try {
       setSubmitting(true);
+      const targetId = task.taskId || task.id || task.recordNo;
+      const targetActor = currentUser?.id || currentUser?.userId || currentUser?.name || 'usr-tushar-304';
+
       if (actionType === 'SUBMIT') {
-        await onSubmitTask(task, comment);
+        await onSubmitTask(targetId, targetActor, comment);
       } else if (actionType === 'APPROVE') {
-        await onApproveTask(task, comment);
+        await onApproveTask(targetId, targetActor, comment);
       } else if (actionType === 'REJECT') {
         if (!comment.trim()) {
           setActionError('Please provide a mandatory reason for rejection.');
@@ -75,7 +78,7 @@ export default function TaskActionModal({
           setPendingConfirm(null);
           return;
         }
-        await onRejectTask(task, comment);
+        await onRejectTask(targetId, targetActor, comment);
       }
       onClose();
     } catch (err) {
