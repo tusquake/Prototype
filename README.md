@@ -38,7 +38,7 @@ The platform is designed as a **production-ready modular monolith application** 
 
 | Layer | Component | Description |
 | :--- | :--- | :--- |
-| **Frontend SPA** | React 18, Vite 5, Vanilla CSS Modules | Modular SPA featuring CSS-scoped styling, full-width top header strips, floating auto-dismissing toasts, custom select dropdowns, mini-calendar date pickers, and table pagination. |
+| **Frontend SPA** | React 18, Vite 5, Vanilla CSS Modules, GCS Bucket | Modular SPA hosted on Google Cloud Storage (GCS) Bucket with Cloud CDN edge distribution, featuring full-width top header strips, floating toasts, custom select dropdowns, mini-calendar date pickers, and table pagination. |
 | **Backend Core** | Spring Boot 3.2, Java 17, Jakarta EE, Hibernate ORM | Enterprise REST API engine implementing Gang of Four State and Strategy design patterns, Spring Application Events, and JPA persistence. |
 | **Database & Migrations** | PostgreSQL 15 (prod) / H2 in-memory (local dev), Flyway | Versioned database schema migrations (`V1__init_schema.sql`, `V2__seed_dummy_sops_and_tasks.sql`) maintaining constraints and pre-populating 60 compliance tasks & 60 audit logs. |
 | **Security & Access** | Spring Security, RBAC Engine | Role-Based Access Control enforcing `ADMIN`, `MAKER`, `CHECKER`, `MAKER_CHECKER`, and `VIEWER` permissions at route and method levels. |

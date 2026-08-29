@@ -1,6 +1,6 @@
 # RAVAND FinOps — Google Cloud Platform (GCP) Deployment Guide
 
-This guide provides end-to-end instructions for deploying the RAVAND FinOps platform to Google Cloud Platform using serverless Cloud Run microservices, Cloud SQL PostgreSQL, GCP Secret Manager, Cloud Armor WAF, and Global Application Load Balancing.
+This guide provides end-to-end instructions for deploying the RAVAND FinOps platform to Google Cloud Platform using serverless Cloud Run for the Spring Boot backend, Google Cloud Storage (GCS) static website hosting with Cloud CDN for the React SPA frontend, Cloud SQL PostgreSQL, GCP Secret Manager, Cloud Armor WAF, and Global Application Load Balancing.
 
 ---
 
@@ -18,19 +18,16 @@ This guide provides end-to-end instructions for deploying the RAVAND FinOps plat
                                 ▼
            Cloud Armor WAF (OWASP SQLi, XSS, Rate Limiting)
                                 │
-                                ▼
-               Serverless Network Endpoint Group (NEG)
-                                │
-      ┌─────────────────────────┴─────────────────────────┐
-      ▼                                                   ▼
-Cloud Run Frontend                                Cloud Run Backend
-(Vite React SPA / Nginx)                          (Spring Boot 3 REST API)
-      │                                                   │
-      └─────────────────────────┬─────────────────────────┘
-                                │ (VPC Private Access)
-                                ▼
-                 Cloud SQL PostgreSQL 15 Instance
-                 (Private IP Only, High Availability, PITR)
+       ┌────────────────────────┴────────────────────────┐
+       │ (Path: /*)                                      │ (Path: /finsop/v1/*)
+       ▼                                                 ▼
+Google Cloud Storage (GCS) Bucket                Serverless NEG / Cloud Run Backend
+(Static Web Hosting + Cloud CDN Edge)            (Spring Boot 3 REST API Engine)
+       │                                                 │
+       │ (React SPA Assets)                              │ (VPC Private Access)
+       │                                                 ▼
+       └───────────────────────────────────> Cloud SQL PostgreSQL 15 Instance
+                                             (Private IP Only, High Availability, PITR)
 ```
 
 ---
@@ -49,6 +46,7 @@ Set environment variables for the deployment session:
 export PROJECT_ID="ravand-finops-prod"
 export REGION="us-central1"
 export DB_PASS="SecureCloudSqlPassword2026!"
+export BUCKET_NAME="app.ravand.com"
 
 gcloud config set project $PROJECT_ID
 ```
@@ -61,11 +59,11 @@ gcloud services enable \
   run.googleapis.com \
   sqladmin.googleapis.com \
   secretmanager.googleapis.com \
+  storage-component.googleapis.com \
   compute.googleapis.com \
   vpcaccess.googleapis.com \
   servicenetworking.googleapis.com \
   cloudscheduler.googleapis.com \
-  artifactregistry.googleapis.com \
   cloudbuild.googleapis.com
 ```
 
@@ -176,21 +174,81 @@ Save the output backend URL (e.g. `https://ravand-backend-xyz-uc.a.run.app`).
 
 ---
 
-## Step 7: Deploy Frontend Application to Cloud Run
+## Step 7: Deploy React SPA Frontend to Google Cloud Storage (GCS) Bucket
 
-Deploy the React SPA / Nginx frontend container:
+Host the frontend static web assets in a Google Cloud Storage bucket configured for static web hosting and global Cloud CDN edge distribution.
 
+### 1. Create Public GCS Bucket for Static Hosting
 ```bash
-gcloud run deploy ravand-frontend \
-    --source ./frontend \
-    --region $REGION \
-    --platform managed \
-    --allow-unauthenticated
+# Create GCS Bucket with Uniform Bucket-Level Access
+gcloud storage buckets create gs://$BUCKET_NAME \
+    --location=$REGION \
+    --uniform-bucket-level-access
+
+# Grant Public Read Permissions to allUsers
+gcloud storage buckets add-iam-policy-binding gs://$BUCKET_NAME \
+    --member=allUsers \
+    --role=roles/storage.objectViewer
+
+# Configure Bucket for Static Web Hosting (Index Page and Client-Side Routing Fallback)
+gcloud storage buckets update gs://$BUCKET_NAME \
+    --web-main-page-suffix=index.html \
+    --web-error-page=index.html
+```
+
+### 2. Build and Upload Production SPA Bundle
+```bash
+# Navigate to frontend directory and build SPA bundle
+cd frontend
+npm install
+npm run build
+
+# Synchronize production build assets to GCS Bucket
+gcloud storage rsync -r -d dist/ gs://$BUCKET_NAME/
+cd ..
 ```
 
 ---
 
-## Step 8: Configure Edge Security & Web Application Firewall (WAF)
+## Step 8: Configure Load Balancer URL Routing (GCS Bucket + Cloud Run Backend)
+
+Create a Global HTTP(S) Load Balancer that routes frontend static assets (`/*`) to the GCS Bucket with Cloud CDN, and API requests (`/finsop/v1/*`) to the Cloud Run backend:
+
+```bash
+# 1. Create Backend Bucket for GCS with Cloud CDN Enabled
+gcloud compute backend-buckets create ravand-frontend-backend-bucket \
+    --gcs-bucket-name=$BUCKET_NAME \
+    --enable-cdn
+
+# 2. Create Serverless NEG for Cloud Run Backend
+gcloud compute network-endpoint-groups create ravand-backend-neg \
+    --region=$REGION \
+    --network-endpoint-type=serverless \
+    --cloud-run-service=ravand-backend
+
+# 3. Create Backend Service for Cloud Run
+gcloud compute backend-services create ravand-backend-service \
+    --global
+
+gcloud compute backend-services add-backend ravand-backend-service \
+    --global \
+    --network-endpoint-group=ravand-backend-neg \
+    --network-endpoint-group-region=$REGION
+
+# 4. Create URL Map Routing Requests
+gcloud compute url-maps create ravand-global-url-map \
+    --default-backend-bucket=ravand-frontend-backend-bucket
+
+# Add Path Matcher for API Requests (/finsop/v1/* -> Cloud Run Backend Service)
+gcloud compute url-maps add-path-matcher ravand-global-url-map \
+    --path-matcher-name=api-matcher \
+    --default-backend-bucket=ravand-frontend-backend-bucket \
+    --backend-service-path-rules="/finsop/v1/*=ravand-backend-service"
+```
+
+---
+
+## Step 9: Configure Edge Security & Web Application Firewall (WAF)
 
 Create Cloud Armor security rules to protect application endpoints from OWASP Top 10 vulnerabilities and rate abuse:
 
@@ -224,11 +282,16 @@ gcloud compute security-policies rules create 2000 \
     --exceed-action="deny(429)" \
     --enforce-on-key="IP" \
     --description="Rate Limit 100 req/min"
+
+# Attach WAF Security Policy to Backend Service
+gcloud compute backend-services update ravand-backend-service \
+    --global \
+    --security-policy=ravand-waf-policy
 ```
 
 ---
 
-## Step 9: Configure Automated Nightly Cron Scheduler
+## Step 10: Configure Automated Nightly Cron Scheduler
 
 Create a GCP Cloud Scheduler job to invoke the backend's task scheduling engine nightly at midnight:
 
@@ -245,15 +308,15 @@ gcloud scheduler jobs create http ravand-nightly-task-generator \
 
 ---
 
-## Step 10: Production Deployment Verification Checklist
+## Step 11: Production Deployment Verification Checklist
 
 Verify deployment health across all components:
 
 | Component | Verification Command / Target | Expected Output |
 | :--- | :--- | :--- |
 | **Backend Health** | `curl $BACKEND_URL/finsop/v1/health` | `{"success":true,"data":{"status":"UP"}}` |
+| **GCS Static Frontend** | `gcloud storage ls gs://$BUCKET_NAME/` | Index.html & assets listing |
 | **Cloud SQL Status** | `gcloud sql instances describe ravand-postgres-prod --format="value(state)"` | `RUNNING` |
 | **Cloud Run Backend** | `gcloud run services describe ravand-backend --region $REGION` | `Ready: True` |
-| **Cloud Run Frontend** | `gcloud run services describe ravand-frontend --region $REGION` | `Ready: True` |
 | **WAF Status** | `gcloud compute security-policies describe ravand-waf-policy` | Active rules list |
 | **Nightly Scheduler** | `gcloud scheduler jobs execute ravand-nightly-task-generator` | HTTP 200 OK |
