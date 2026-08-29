@@ -315,6 +315,13 @@
   box-sizing: border-box;
 }
 
+.assignmentColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
 .assignmentTitle {
   font-size: 13px;
   font-weight: 700;

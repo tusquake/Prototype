@@ -479,11 +479,11 @@ export default function Sops() {
                   </div>
                 </div>
 
-                {/* Maker & Checker Pool Assignments */}
+                {/* Maker & Checker Pool Assignments (Vertical Stack) */}
                 <div className={`${styles.assignmentSection} ${styles.fullWidth}`}>
                   <div className={styles.assignmentTitle}>Pool Assignments</div>
 
-                  <div className={styles.formRow}>
+                  <div className={styles.assignmentColumn}>
                     <div className={styles.formGroup}>
                       <div className={styles.pickerHeader}>
                         <label>ASSIGNED MAKER POOL *</label>
