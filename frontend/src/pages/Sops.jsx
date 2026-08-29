@@ -9,7 +9,7 @@ import SopDetailModal from '../components/SopDetailModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { ENTITIES, getSops, createSop, updateSop, deleteSop, getUsers } from '../services/api';
+import { ENTITIES, getSops, createSop, updateSop, deleteSop, getUsers, generateScheduledTasks } from '../services/api';
 import styles from './Sops.module.css';
 
 const FREQ_LABEL = { MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', ANNUAL: 'Annual', DAILY: 'Daily', WEEKLY: 'Weekly' };
@@ -240,6 +240,24 @@ export default function Sops() {
     });
   }
 
+  const [runningScheduler, setRunningScheduler] = useState(false);
+
+  async function handleRunScheduler() {
+    if (!isAdmin) return;
+    try {
+      setRunningScheduler(true);
+      setErrorMsg('');
+      setSuccessMsg('');
+      await generateScheduledTasks();
+      setSuccessMsg('Task Scheduler executed successfully! Compliance tasks for all active SOPs generated.');
+      await loadData();
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to run task scheduler');
+    } finally {
+      setRunningScheduler(false);
+    }
+  }
+
   const filtered = sopList.filter(s => selected.includes(s.entityCode));
   const paginatedSops = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
@@ -273,13 +291,42 @@ export default function Sops() {
                 Master Operating Procedures
               </span>
               {isAdmin && (
-                <button className={styles.createBtn} onClick={openCreateModal}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                  <span>Create SOP</span>
-                </button>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '8px 16px',
+                      borderRadius: 8,
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: runningScheduler ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                      transition: 'all 0.15s ease',
+                    }}
+                    disabled={runningScheduler}
+                    onClick={handleRunScheduler}
+                    title="Manually trigger backend SOP task scheduler"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                    </svg>
+                    <span>{runningScheduler ? 'Generating Tasks...' : 'Run Task Scheduler'}</span>
+                  </button>
+
+                  <button className={styles.createBtn} onClick={openCreateModal}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    <span>Create SOP</span>
+                  </button>
+                </div>
               )}
             </div>
 

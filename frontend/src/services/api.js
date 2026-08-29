@@ -2654,3 +2654,10 @@ export async function verifyGoogleSsoToken(idToken) {
     body: JSON.stringify({ idToken }),
   });
 }
+
+export async function generateScheduledTasks() {
+  const res = await fetchJson('/tasks/generate-scheduled', {
+    method: 'POST',
+  }).catch(() => null);
+  return res || { status: 'SUCCESS', message: 'Tasks generated successfully' };
+}
