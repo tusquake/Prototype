@@ -2502,13 +2502,7 @@ export async function getUsers(entityCode = null, targetRole = null) {
     ],
   })) : MOCK_ORGANIZATION_USERS;
 
-  if (!entityCode || !targetRole) return allUsers;
-
-  const requiredGroup = `fin_sop_${entityCode.toLowerCase()}_${targetRole.toLowerCase()}`;
-  return allUsers.filter(user => {
-    const userGroups = user.groups || [];
-    return userGroups.includes('fin_sop_admin') || userGroups.includes(requiredGroup);
-  });
+  return allUsers;
 }
 
 export async function getCurrentUser(email) {

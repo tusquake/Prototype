@@ -106,6 +106,11 @@ export default function Sops() {
   }, [selected]);
 
   function openCreateModal() {
+    if (!isAdmin) {
+      setSuccessMsg('');
+      setErrorMsg('Access Denied: Only Admin users have permission to create SOPs.');
+      return;
+    }
     setEditingSop(null);
     setFormData(INITIAL_FORM);
     setErrorMsg('');
@@ -113,7 +118,27 @@ export default function Sops() {
   }
 
   function openEditModal(sop) {
+    if (!isAdmin) {
+      setSuccessMsg('');
+      setErrorMsg('Access Denied: Only Admin users have permission to edit SOPs.');
+      return;
+    }
     setEditingSop(sop);
+
+    const ID_MAP = {
+      'Tushar Seth': 'usr-tushar',
+      'Prayasa Sharma': 'usr-prayasa',
+      'Vivek Raj': 'usr-vivek',
+      'Mainak Gupta': 'usr-mainak',
+      'Manoj Agarwal': 'usr-manoj',
+    };
+
+    let rawMakers = sop.defaultMakerIds || (sop.defaultMakerNames ? sop.defaultMakerNames.map(n => ID_MAP[n] || n) : (sop.defaultMakerId ? [sop.defaultMakerId] : ['usr-tushar']));
+    let rawCheckers = sop.defaultCheckerIds || (sop.defaultCheckerNames ? sop.defaultCheckerNames.map(n => ID_MAP[n] || n) : (sop.defaultCheckerId ? [sop.defaultCheckerId] : ['usr-mainak']));
+
+    const makers = Array.from(new Set(rawMakers.map(id => ID_MAP[id] || id)));
+    const checkers = Array.from(new Set(rawCheckers.map(id => ID_MAP[id] || id)));
+
     setFormData({
       sopCode: sop.code || sop.sopCode || '',
       title: sop.name || sop.title || '',
@@ -122,8 +147,8 @@ export default function Sops() {
       entityCode: sop.entityCode || 'CK_INDIA',
       frequency: sop.frequency || 'MONTHLY',
       dueDayOffset: sop.dueDay || sop.dueDayOffset || 15,
-      defaultMakerIds: sop.defaultMakerIds || ['usr-tushar', 'usr-prayasa'],
-      defaultCheckerIds: sop.defaultCheckerIds || ['usr-vivek', 'usr-mainak'],
+      defaultMakerIds: makers,
+      defaultCheckerIds: checkers,
     });
     setErrorMsg('');
     setShowModal(true);
@@ -193,6 +218,26 @@ export default function Sops() {
   function getNamesForIds(ids = []) {
     if (!ids.length) return 'None assigned';
     return ids.map(id => userMap[id] || id).join(', ');
+  }
+
+  function removeMakerUser(userId) {
+    setFormData(prev => {
+      if (prev.defaultMakerIds.length <= 1) return prev;
+      return {
+        ...prev,
+        defaultMakerIds: prev.defaultMakerIds.filter(id => id !== userId)
+      };
+    });
+  }
+
+  function removeCheckerUser(userId) {
+    setFormData(prev => {
+      if (prev.defaultCheckerIds.length <= 1) return prev;
+      return {
+        ...prev,
+        defaultCheckerIds: prev.defaultCheckerIds.filter(id => id !== userId)
+      };
+    });
   }
 
   const filtered = sopList.filter(s => selected.includes(s.entityCode));
@@ -508,7 +553,21 @@ export default function Sops() {
                               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                               <circle cx="12" cy="7" r="4" />
                             </svg>
-                            {userMap[id] || id}
+                            <span>{userMap[id] || id}</span>
+                            <button
+                              type="button"
+                              className={styles.removeUserBtn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeMakerUser(id);
+                              }}
+                              title="Remove user from pool"
+                            >
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
                           </span>
                         ))}
                       </div>
@@ -538,7 +597,21 @@ export default function Sops() {
                               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                               <circle cx="12" cy="7" r="4" />
                             </svg>
-                            {userMap[id] || id}
+                            <span>{userMap[id] || id}</span>
+                            <button
+                              type="button"
+                              className={styles.removeUserBtn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeCheckerUser(id);
+                              }}
+                              title="Remove user from pool"
+                            >
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
                           </span>
                         ))}
                       </div>
@@ -576,6 +649,10 @@ export default function Sops() {
         targetRole="MAKER"
         selectedUserIds={formData.defaultMakerIds}
         onClose={() => setShowMakerPicker(false)}
+        onConfirm={selectedIds => {
+          setFormData(prev => ({ ...prev, defaultMakerIds: selectedIds }));
+          setShowMakerPicker(false);
+        }}
         onSelect={selectedIds => {
           setFormData(prev => ({ ...prev, defaultMakerIds: selectedIds }));
           setShowMakerPicker(false);
@@ -590,6 +667,10 @@ export default function Sops() {
         targetRole="CHECKER"
         selectedUserIds={formData.defaultCheckerIds}
         onClose={() => setShowCheckerPicker(false)}
+        onConfirm={selectedIds => {
+          setFormData(prev => ({ ...prev, defaultCheckerIds: selectedIds }));
+          setShowCheckerPicker(false);
+        }}
         onSelect={selectedIds => {
           setFormData(prev => ({ ...prev, defaultCheckerIds: selectedIds }));
           setShowCheckerPicker(false);

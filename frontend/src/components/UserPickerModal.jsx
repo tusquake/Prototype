@@ -16,12 +16,22 @@ export default function UserPickerModal({
   const [searchTerm, setSearchTerm] = useState('');
   const [tempSelected, setTempSelected] = useState(selectedUserIds);
 
+  const ID_MAP = {
+    'Tushar Seth': 'usr-tushar',
+    'Prayasa Sharma': 'usr-prayasa',
+    'Vivek Raj': 'usr-vivek',
+    'Mainak Gupta': 'usr-mainak',
+    'Manoj Agarwal': 'usr-manoj',
+  };
+
   useEffect(() => {
     if (isOpen) {
-      setTempSelected(selectedUserIds);
+      // Normalize selectedUserIds to standard IDs
+      const normalized = (selectedUserIds || []).map(id => ID_MAP[id] || id);
+      setTempSelected(normalized);
       loadApiUsers();
     }
-  }, [isOpen, entityCode, targetRole]);
+  }, [isOpen, selectedUserIds, entityCode, targetRole]);
 
   async function loadApiUsers() {
     setLoading(true);
@@ -46,13 +56,20 @@ export default function UserPickerModal({
     );
   });
 
-  function toggleUser(id) {
+  function isUserSelected(user) {
+    const stdId = ID_MAP[user.name] || user.id;
+    return tempSelected.includes(stdId) || tempSelected.includes(user.id) || tempSelected.includes(user.name);
+  }
+
+  function toggleUser(user) {
+    const targetId = user.id || ID_MAP[user.name] || user.name;
     setTempSelected(prev => {
-      if (prev.includes(id)) {
-        if (prev.length === 1) return prev; // Keep at least 1 user selected
-        return prev.filter(x => x !== id);
+      const selected = isUserSelected(user);
+      if (selected) {
+        if (prev.length <= 1) return prev; // Keep at least 1 user selected
+        return prev.filter(x => x !== targetId && x !== user.id && x !== user.name && x !== ID_MAP[user.name]);
       }
-      return [...prev, id];
+      return Array.from(new Set([...prev, targetId]));
     });
   }
 
@@ -67,7 +84,8 @@ export default function UserPickerModal({
   }
 
   function handleConfirm() {
-    onConfirm(tempSelected);
+    if (onConfirm) onConfirm(tempSelected);
+    if (onSelect) onSelect(tempSelected);
     onClose();
   }
 
@@ -150,12 +168,12 @@ export default function UserPickerModal({
             </div>
           ) : (
             filteredUsers.map(user => {
-              const isChecked = tempSelected.includes(user.id);
+              const isChecked = isUserSelected(user);
               return (
                 <div
-                  key={user.id}
+                  key={user.id || user.name}
                   className={`${styles.userRow} ${isChecked ? styles.userRowSelected : ''}`}
-                  onClick={() => toggleUser(user.id)}
+                  onClick={() => toggleUser(user)}
                 >
                   <div className={styles.userRowLeft}>
                     <div className={`${styles.checkbox} ${isChecked ? styles.checkboxChecked : ''}`}>

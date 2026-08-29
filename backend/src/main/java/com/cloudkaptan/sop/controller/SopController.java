@@ -36,6 +36,7 @@ public class SopController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
     public ResponseEntity<ApiResponse<SopDto>> createSop(
         @Valid @RequestBody CreateSopRequest request
     ) {
@@ -45,6 +46,7 @@ public class SopController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
     public ResponseEntity<ApiResponse<SopDto>> updateSop(
         @PathVariable("id") java.util.UUID id,
         @Valid @RequestBody CreateSopRequest request
@@ -54,6 +56,7 @@ public class SopController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
     public ResponseEntity<ApiResponse<Void>> deleteSop(
         @PathVariable("id") java.util.UUID id
     ) {

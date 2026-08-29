@@ -52,6 +52,7 @@ public class TaskController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
     public ResponseEntity<ApiResponse<Void>> deleteTask(
         @PathVariable("id") UUID id
     ) {
@@ -60,6 +61,7 @@ public class TaskController {
     }
 
     @PostMapping("/generate-scheduled")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
     public ResponseEntity<ApiResponse<Void>> generateScheduledTasks() {
         taskSchedulerService.generateScheduledTasks();
         return ResponseEntity.ok(ApiResponse.success(null, "Scheduled tasks generated successfully"));

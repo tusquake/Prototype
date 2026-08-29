@@ -377,13 +377,34 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
+  padding: 4px 8px 4px 10px;
   border-radius: 16px;
   background: #f1f5f9;
   border: 1px solid #cbd5e1;
   color: #334155;
   font-size: 12px;
   font-weight: 600;
+}
+
+.removeUserBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(100, 116, 139, 0.15);
+  color: #64748b;
+  cursor: pointer;
+  margin-left: 2px;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.removeUserBtn:hover {
+  background: #ef4444;
+  color: #ffffff;
 }
 
 .formGroup {
