@@ -396,7 +396,7 @@ export default function Sops() {
               <div className={styles.modalBody}>
                 {errorMsg && <div className={styles.errorAlert}>{errorMsg}</div>}
 
-                <div className={styles.formRow}>
+                <div className={`${styles.formRow} ${styles.fullWidth}`}>
                   <div className={styles.formGroup}>
                     <label>SOP CODE *</label>
                     <input
@@ -421,7 +421,7 @@ export default function Sops() {
                   </div>
                 </div>
 
-                <div className={styles.formGroup}>
+                <div className={`${styles.formGroup} ${styles.fullWidth}`}>
                   <label>SOP TITLE / NAME *</label>
                   <input
                     type="text"
@@ -433,7 +433,7 @@ export default function Sops() {
                   />
                 </div>
 
-                <div className={styles.formGroup}>
+                <div className={`${styles.formGroup} ${styles.fullWidth}`}>
                   <label>DESCRIPTION</label>
                   <textarea
                     name="description"
@@ -444,7 +444,7 @@ export default function Sops() {
                   />
                 </div>
 
-                <div className={styles.formRow}>
+                <div className={`${styles.formRow} ${styles.fullWidth}`}>
                   <div className={styles.formGroup}>
                     <label>CORPORATE ENTITY *</label>
                     <CustomSelect
@@ -479,9 +479,9 @@ export default function Sops() {
                   </div>
                 </div>
 
-                {/* Maker & Checker Assignments */}
-                <div className={styles.assignmentSection}>
-                  <h4>Pool Assignments</h4>
+                {/* Maker & Checker Pool Assignments */}
+                <div className={`${styles.assignmentSection} ${styles.fullWidth}`}>
+                  <div className={styles.assignmentTitle}>Pool Assignments</div>
 
                   <div className={styles.formRow}>
                     <div className={styles.formGroup}>
@@ -492,11 +492,25 @@ export default function Sops() {
                           className={styles.pickerBtn}
                           onClick={() => setShowMakerPicker(true)}
                         >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                          </svg>
                           Select Makers ({formData.defaultMakerIds.length})
                         </button>
                       </div>
-                      <div className={styles.poolPreview}>
-                        {getNamesForIds(formData.defaultMakerIds)}
+                      <div className={styles.poolBadgeList}>
+                        {formData.defaultMakerIds.map(id => (
+                          <span key={id} className={styles.userBadge}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                              <circle cx="12" cy="7" r="4" />
+                            </svg>
+                            {userMap[id] || id}
+                          </span>
+                        ))}
                       </div>
                     </div>
 
@@ -508,11 +522,25 @@ export default function Sops() {
                           className={styles.pickerBtn}
                           onClick={() => setShowCheckerPicker(true)}
                         >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                          </svg>
                           Select Checkers ({formData.defaultCheckerIds.length})
                         </button>
                       </div>
-                      <div className={styles.poolPreview}>
-                        {getNamesForIds(formData.defaultCheckerIds)}
+                      <div className={styles.poolBadgeList}>
+                        {formData.defaultCheckerIds.map(id => (
+                          <span key={id} className={styles.userBadge}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                              <circle cx="12" cy="7" r="4" />
+                            </svg>
+                            {userMap[id] || id}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </div>
