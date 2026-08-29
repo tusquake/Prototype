@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database Service
+  postgres:
+    image: postgres:15-alpine
+    container_name: finsop-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: finsop_db
+      POSTGRES_USER: finsop_user
+      POSTGRES_PASSWORD: finsop_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finsop_user -d finsop_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Spring Boot Backend Engine
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: finsop-backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/finsop_db
+      SPRING_DATASOURCE_USERNAME: finsop_user
+      SPRING_DATASOURCE_PASSWORD: finsop_password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:8080/finsop/v1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # React SPA Frontend (Served via Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: finsop-frontend
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3010:80"
+
+volumes:
+  postgres_data:
+    driver: local
