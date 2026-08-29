@@ -1,0 +1,137 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(9, 17, 36, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1300;
+  padding: 20px;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 420px;
+  padding: 28px 24px 24px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: popupZoomIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popupZoomIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.iconWrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.primary {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+}
+
+.success {
+  background: rgba(22, 163, 74, 0.1);
+  color: #16a34a;
+}
+
+.danger {
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+}
+
+.title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.message {
+  font-size: 13.5px;
+  color: #64748b;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.btnCancel {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #475569;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnCancel:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.btnConfirm {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #ffffff;
+}
+
+.btn_primary {
+  background: #2563eb;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.btn_primary:hover {
+  background: #1d4ed8;
+}
+
+.btn_success {
+  background: #16a34a;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+}
+
+.btn_success:hover {
+  background: #15803d;
+}
+
+.btn_danger {
+  background: #dc2626;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+}
+
+.btn_danger:hover {
+  background: #b91c1c;
+}
