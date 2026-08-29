@@ -28,13 +28,36 @@ public class SopController {
         return ResponseEntity.ok(ApiResponse.success(sopService.getSops(entities)));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<SopDto>> getSopById(
+        @PathVariable("id") java.util.UUID id
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(sopService.getSopById(id)));
+    }
+
     @PostMapping
-    @PreAuthorize("hasAnyAuthority('ROLE_ADMIN')")
     public ResponseEntity<ApiResponse<SopDto>> createSop(
         @Valid @RequestBody CreateSopRequest request
     ) {
         SopDto created = sopService.createSop(request);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.success(created, "SOP created successfully"));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<SopDto>> updateSop(
+        @PathVariable("id") java.util.UUID id,
+        @Valid @RequestBody CreateSopRequest request
+    ) {
+        SopDto updated = sopService.updateSop(id, request);
+        return ResponseEntity.ok(ApiResponse.success(updated, "SOP updated successfully"));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteSop(
+        @PathVariable("id") java.util.UUID id
+    ) {
+        sopService.deleteSop(id);
+        return ResponseEntity.ok(ApiResponse.success(null, "SOP deleted successfully"));
     }
 }

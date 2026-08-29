@@ -42,6 +42,29 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(taskWorkflowService.getInbox(entities, status, userId, pageable)));
     }
 
+    private final com.cloudkaptan.sop.service.TaskSchedulerService taskSchedulerService;
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<TaskDto>> getTaskById(
+        @PathVariable("id") UUID id
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(taskWorkflowService.getTaskById(id)));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteTask(
+        @PathVariable("id") UUID id
+    ) {
+        taskWorkflowService.deleteTask(id);
+        return ResponseEntity.ok(ApiResponse.success(null, "Task deleted successfully"));
+    }
+
+    @PostMapping("/generate-scheduled")
+    public ResponseEntity<ApiResponse<Void>> generateScheduledTasks() {
+        taskSchedulerService.generateScheduledTasks();
+        return ResponseEntity.ok(ApiResponse.success(null, "Scheduled tasks generated successfully"));
+    }
+
     @PutMapping("/{id}/submit")
     public ResponseEntity<ApiResponse<TaskDto>> submitTask(
         @PathVariable("id") UUID id,

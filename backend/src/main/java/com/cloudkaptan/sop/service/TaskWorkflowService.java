@@ -74,6 +74,18 @@ public class TaskWorkflowService {
     }
 
     @Transactional(readOnly = true)
+    public TaskDto getTaskById(UUID taskId) {
+        Task task = getTaskOrThrow(taskId);
+        return mapToDto(task);
+    }
+
+    @Transactional
+    public void deleteTask(UUID taskId) {
+        Task task = getTaskOrThrow(taskId);
+        taskRepository.delete(task);
+    }
+
+    @Transactional(readOnly = true)
     public Page<TaskInboxView> getInbox(List<EntityCode> entities, TaskStatus status, String userId, Pageable pageable) {
         return taskRepository.findInboxTasks(entities, status, userId, pageable);
     }

@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -79,6 +80,49 @@ public class SopService {
         }
 
         return mapToDto(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public SopDto getSopById(UUID id) {
+        Sop sop = sopRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("SOP not found with ID: " + id));
+        return mapToDto(sop);
+    }
+
+    @Transactional
+    public SopDto updateSop(UUID id, CreateSopRequest request) {
+        Sop sop = sopRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("SOP not found with ID: " + id));
+
+        CorporateEntity entity = entityRepository.findById(request.getEntityCode())
+            .orElseThrow(() -> new ResourceNotFoundException("Corporate entity not found: " + request.getEntityCode()));
+
+        User defaultMaker = userRepository.findById(request.getDefaultMakerId())
+            .orElseThrow(() -> new ResourceNotFoundException("Default maker user not found: " + request.getDefaultMakerId()));
+
+        User defaultChecker = userRepository.findById(request.getDefaultCheckerId())
+            .orElseThrow(() -> new ResourceNotFoundException("Default checker user not found: " + request.getDefaultCheckerId()));
+
+        sop.setTitle(request.getTitle());
+        sop.setDescription(request.getDescription());
+        sop.setProcessCategory(request.getProcessCategory());
+        sop.setEntity(entity);
+        sop.setFrequency(request.getFrequency());
+        sop.setDueDayOffset(request.getDueDayOffset());
+        sop.setDefaultMaker(defaultMaker);
+        sop.setDefaultChecker(defaultChecker);
+
+        Sop saved = sopRepository.save(sop);
+        return mapToDto(saved);
+    }
+
+    @Transactional
+    public void deleteSop(UUID id) {
+        Sop sop = sopRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("SOP not found with ID: " + id));
+
+        sop.setStatus(SopStatus.ARCHIVED);
+        sopRepository.save(sop);
     }
 
     public SopDto mapToDto(Sop sop) {
