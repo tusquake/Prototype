@@ -17,11 +17,16 @@ export default function UserPickerModal({
   const [tempSelected, setTempSelected] = useState(selectedUserIds);
 
   const ID_MAP = {
-    'Tushar Seth': 'usr-tushar',
-    'Prayasa Sharma': 'usr-prayasa',
-    'Vivek Raj': 'usr-vivek',
-    'Mainak Gupta': 'usr-mainak',
-    'Manoj Agarwal': 'usr-manoj',
+    'Tushar Seth': 'usr-tushar-304',
+    'Prayasa Sharma': 'usr-prayasa-410',
+    'Vivek Raj': 'usr-vivek-108',
+    'Mainak Gupta': 'usr-mainak-215',
+    'Manoj Agarwal': 'usr-manoj-042',
+    'usr-tushar': 'usr-tushar-304',
+    'usr-prayasa': 'usr-prayasa-410',
+    'usr-vivek': 'usr-vivek-108',
+    'usr-mainak': 'usr-mainak-215',
+    'usr-manoj': 'usr-manoj-042',
   };
 
   useEffect(() => {

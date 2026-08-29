@@ -38,11 +38,29 @@ const FREQUENCY_OPTIONS = [
 ];
 
 const USER_NAME_MAP = {
+  'usr-tushar-304': 'Tushar Seth',
+  'usr-prayasa-410': 'Prayasa Sharma',
+  'usr-vivek-108': 'Vivek Raj',
+  'usr-mainak-215': 'Mainak Gupta',
+  'usr-manoj-042': 'Manoj Agarwal',
   'usr-tushar': 'Tushar Seth',
   'usr-prayasa': 'Prayasa Sharma',
   'usr-vivek': 'Vivek Raj',
   'usr-mainak': 'Mainak Gupta',
   'usr-manoj': 'Manoj Agarwal',
+};
+
+const USER_ID_MAP = {
+  'Tushar Seth': 'usr-tushar-304',
+  'Prayasa Sharma': 'usr-prayasa-410',
+  'Vivek Raj': 'usr-vivek-108',
+  'Mainak Gupta': 'usr-mainak-215',
+  'Manoj Agarwal': 'usr-manoj-042',
+  'usr-tushar': 'usr-tushar-304',
+  'usr-prayasa': 'usr-prayasa-410',
+  'usr-vivek': 'usr-vivek-108',
+  'usr-mainak': 'usr-mainak-215',
+  'usr-manoj': 'usr-manoj-042',
 };
 
 const INITIAL_FORM = {
@@ -53,8 +71,8 @@ const INITIAL_FORM = {
   entityCode: 'CK_INDIA',
   frequency: 'MONTHLY',
   dueDayOffset: 15,
-  defaultMakerIds: ['usr-tushar', 'usr-prayasa'],
-  defaultCheckerIds: ['usr-vivek', 'usr-mainak'],
+  defaultMakerIds: ['usr-tushar-304', 'usr-prayasa-410'],
+  defaultCheckerIds: ['usr-vivek-108', 'usr-mainak-215'],
 };
 
 const PAGE_SIZE = 10;
@@ -125,19 +143,11 @@ export default function Sops() {
     }
     setEditingSop(sop);
 
-    const ID_MAP = {
-      'Tushar Seth': 'usr-tushar',
-      'Prayasa Sharma': 'usr-prayasa',
-      'Vivek Raj': 'usr-vivek',
-      'Mainak Gupta': 'usr-mainak',
-      'Manoj Agarwal': 'usr-manoj',
-    };
+    let rawMakers = sop.defaultMakerIds || (sop.defaultMakerNames ? sop.defaultMakerNames.map(n => USER_ID_MAP[n] || n) : (sop.defaultMakerId ? [sop.defaultMakerId] : ['usr-tushar-304']));
+    let rawCheckers = sop.defaultCheckerIds || (sop.defaultCheckerNames ? sop.defaultCheckerNames.map(n => USER_ID_MAP[n] || n) : (sop.defaultCheckerId ? [sop.defaultCheckerId] : ['usr-mainak-215']));
 
-    let rawMakers = sop.defaultMakerIds || (sop.defaultMakerNames ? sop.defaultMakerNames.map(n => ID_MAP[n] || n) : (sop.defaultMakerId ? [sop.defaultMakerId] : ['usr-tushar']));
-    let rawCheckers = sop.defaultCheckerIds || (sop.defaultCheckerNames ? sop.defaultCheckerNames.map(n => ID_MAP[n] || n) : (sop.defaultCheckerId ? [sop.defaultCheckerId] : ['usr-mainak']));
-
-    const makers = Array.from(new Set(rawMakers.map(id => ID_MAP[id] || id)));
-    const checkers = Array.from(new Set(rawCheckers.map(id => ID_MAP[id] || id)));
+    const makers = Array.from(new Set(rawMakers.map(id => USER_ID_MAP[id] || id)));
+    const checkers = Array.from(new Set(rawCheckers.map(id => USER_ID_MAP[id] || id)));
 
     setFormData({
       sopCode: sop.code || sop.sopCode || '',
@@ -174,11 +184,14 @@ export default function Sops() {
 
     try {
       setSaving(true);
+      const makerId = USER_ID_MAP[formData.defaultMakerIds[0]] || formData.defaultMakerIds[0] || 'usr-tushar-304';
+      const checkerId = USER_ID_MAP[formData.defaultCheckerIds[0]] || formData.defaultCheckerIds[0] || 'usr-mainak-215';
+
       const payload = {
         ...formData,
-        defaultMakerId: formData.defaultMakerIds[0] || 'usr-tushar',
-        defaultCheckerId: formData.defaultCheckerIds[0] || 'usr-vivek',
-        createdById: 'usr-mainak',
+        defaultMakerId: makerId,
+        defaultCheckerId: checkerId,
+        createdById: 'usr-mainak-215',
       };
 
       if (editingSop) {
