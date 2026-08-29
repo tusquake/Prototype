@@ -77,12 +77,52 @@ const INITIAL_FORM = {
 
 const PAGE_SIZE = 10;
 
+const PROCESS_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Processes' },
+  { value: 'Tax Compliance', label: 'Tax Compliance' },
+  { value: 'Treasury & Cash Management', label: 'Treasury & Cash Management' },
+  { value: 'Financial Reporting', label: 'Financial Reporting' },
+  { value: 'Fixed Assets', label: 'Fixed Assets' },
+  { value: 'Payroll & Statutory', label: 'Payroll & Statutory' },
+];
+
+const FREQUENCY_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Frequencies' },
+  { value: 'MONTHLY', label: 'Monthly' },
+  { value: 'QUARTERLY', label: 'Quarterly' },
+  { value: 'ANNUAL', label: 'Annual' },
+  { value: 'WEEKLY', label: 'Weekly' },
+  { value: 'DAILY', label: 'Daily' },
+];
+
+const MAKER_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Makers' },
+  { value: 'Tushar Seth', label: 'Tushar Seth' },
+  { value: 'Vivek Raj', label: 'Vivek Raj' },
+  { value: 'Prayasa Sharma', label: 'Prayasa Sharma' },
+  { value: 'Manoj Agarwal', label: 'Manoj Agarwal' },
+];
+
+const CHECKER_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Checkers' },
+  { value: 'Mainak Gupta', label: 'Mainak Gupta' },
+  { value: 'Vivek Raj', label: 'Vivek Raj' },
+  { value: 'Manoj Agarwal', label: 'Manoj Agarwal' },
+];
+
 export default function Sops() {
   const [selected, setSelected] = useState(ENTITIES.map(e => e.id));
   const [sopList, setSopList] = useState([]);
   const [userMap, setUserMap] = useState(USER_NAME_MAP);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Filter States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedProcess, setSelectedProcess] = useState('ALL');
+  const [selectedFrequency, setSelectedFrequency] = useState('ALL');
+  const [selectedMaker, setSelectedMaker] = useState('ALL');
+  const [selectedChecker, setSelectedChecker] = useState('ALL');
 
   // Modal States
   const [showModal, setShowModal] = useState(false);
@@ -271,7 +311,52 @@ export default function Sops() {
     }
   }
 
-  const filtered = sopList.filter(s => selected.includes(s.entityCode));
+  function resetFilters() {
+    setSearchTerm('');
+    setSelectedProcess('ALL');
+    setSelectedFrequency('ALL');
+    setSelectedMaker('ALL');
+    setSelectedChecker('ALL');
+    setCurrentPage(1);
+  }
+
+  const isFiltered = searchTerm.trim() !== '' || selectedProcess !== 'ALL' || selectedFrequency !== 'ALL' || selectedMaker !== 'ALL' || selectedChecker !== 'ALL';
+
+  const filtered = sopList.filter(s => {
+    if (!selected.includes(s.entityCode)) return false;
+
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase().trim();
+      const codeMatch = s.code?.toLowerCase().includes(q);
+      const nameMatch = (s.name || s.title)?.toLowerCase().includes(q);
+      const processMatch = (s.process || s.processCategory)?.toLowerCase().includes(q);
+      const makerMatch = (s.makers?.join(', ') || s.maker)?.toLowerCase().includes(q);
+      const checkerMatch = (s.checkers?.join(', ') || s.checker)?.toLowerCase().includes(q);
+      if (!codeMatch && !nameMatch && !processMatch && !makerMatch && !checkerMatch) return false;
+    }
+
+    if (selectedProcess !== 'ALL') {
+      const proc = s.process || s.processCategory;
+      if (proc !== selectedProcess) return false;
+    }
+
+    if (selectedFrequency !== 'ALL') {
+      if (s.frequency !== selectedFrequency) return false;
+    }
+
+    if (selectedMaker !== 'ALL') {
+      const makerStr = s.makers?.length ? s.makers.join(', ') : (s.maker || '');
+      if (!makerStr.toLowerCase().includes(selectedMaker.toLowerCase())) return false;
+    }
+
+    if (selectedChecker !== 'ALL') {
+      const checkerStr = s.checkers?.length ? s.checkers.join(', ') : (s.checker || '');
+      if (!checkerStr.toLowerCase().includes(selectedChecker.toLowerCase())) return false;
+    }
+
+    return true;
+  });
+
   const paginatedSops = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
@@ -291,6 +376,91 @@ export default function Sops() {
         <div className={styles.page}>
 
           <Toast message={successMsg} type="success" onClose={() => setSuccessMsg('')} />
+
+          {/* SOP Filter Toolbar */}
+          <div className={styles.filterRow}>
+            <div className={styles.filterGroup} style={{ flex: 1.5, minWidth: 220 }}>
+              <span className={styles.filterLabel}>Search SOP</span>
+              <div className={styles.searchBox}>
+                <svg className={styles.searchIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  className={styles.searchInput}
+                  placeholder="Search code, title, process..."
+                  value={searchTerm}
+                  onChange={e => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className={styles.filterGroup}>
+              <span className={styles.filterLabel}>Process Category</span>
+              <CustomSelect
+                name="selectedProcess"
+                value={selectedProcess}
+                options={PROCESS_FILTER_OPTIONS}
+                onChange={e => {
+                  setSelectedProcess(e.target.value);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+
+            <div className={styles.filterGroup}>
+              <span className={styles.filterLabel}>Frequency</span>
+              <CustomSelect
+                name="selectedFrequency"
+                value={selectedFrequency}
+                options={FREQUENCY_FILTER_OPTIONS}
+                onChange={e => {
+                  setSelectedFrequency(e.target.value);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+
+            <div className={styles.filterGroup}>
+              <span className={styles.filterLabel}>Maker</span>
+              <CustomSelect
+                name="selectedMaker"
+                value={selectedMaker}
+                options={MAKER_FILTER_OPTIONS}
+                onChange={e => {
+                  setSelectedMaker(e.target.value);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+
+            <div className={styles.filterGroup}>
+              <span className={styles.filterLabel}>Checker</span>
+              <CustomSelect
+                name="selectedChecker"
+                value={selectedChecker}
+                options={CHECKER_FILTER_OPTIONS}
+                onChange={e => {
+                  setSelectedChecker(e.target.value);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+
+            {isFiltered && (
+              <button className={styles.resetBtn} onClick={resetFilters} title="Reset all filters">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+                <span>Reset Filters</span>
+              </button>
+            )}
+          </div>
 
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
