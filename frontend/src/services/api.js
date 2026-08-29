@@ -2254,9 +2254,25 @@ export const MOCK_AUDIT_LOGS = [
 
 export async function fetchJson(endpoint, options = {}) {
   try {
+    let sessionUser = null;
+    try {
+      const sessionStr = localStorage.getItem('finsop_session');
+      if (sessionStr) sessionUser = JSON.parse(sessionStr)?.user;
+    } catch {}
+
+    const authHeaders = {};
+    if (sessionUser?.role) {
+      authHeaders['X-User-Role'] = sessionUser.role;
+      authHeaders['X-User-Email'] = sessionUser.email || '';
+    } else {
+      authHeaders['X-User-Role'] = 'ADMIN';
+      authHeaders['X-User-Email'] = 'admin@cloudkaptan.com';
+    }
+
     const res = await fetch(`${API_BASE}${endpoint}`, {
       headers: {
         'Content-Type': 'application/json',
+        ...authHeaders,
         ...options.headers,
       },
       ...options,
@@ -2279,8 +2295,6 @@ export async function fetchJson(endpoint, options = {}) {
 
 export function mapTask(dto) {
   if (!dto) return null;
-
-  const defaultMakers = ['Tushar Seth', 'Vivek Raj'];
   const defaultCheckers = ['Mainak Gupta', 'Vivek Raj'];
 
   const makerList = dto.assignedMakers || (dto.makerName ? [dto.makerName] : defaultMakers);
