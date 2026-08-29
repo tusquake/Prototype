@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +27,9 @@ public class SopService {
     private final CorporateEntityRepository entityRepository;
     private final UserRepository userRepository;
     private final TaskSchedulerService taskSchedulerService;
+
+    private final ConcurrentHashMap<UUID, List<String>> makerPoolMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, List<String>> checkerPoolMap = new ConcurrentHashMap<>();
 
     @Transactional(readOnly = true)
     public List<SopDto> getSops(List<EntityCode> entities) {
@@ -72,6 +76,13 @@ public class SopService {
 
         Sop saved = sopRepository.save(sop);
 
+        if (request.getDefaultMakerIds() != null && !request.getDefaultMakerIds().isEmpty()) {
+            makerPoolMap.put(saved.getSopId(), request.getDefaultMakerIds());
+        }
+        if (request.getDefaultCheckerIds() != null && !request.getDefaultCheckerIds().isEmpty()) {
+            checkerPoolMap.put(saved.getSopId(), request.getDefaultCheckerIds());
+        }
+
         // Automatically trigger scheduler engine to create task for the new SOP
         try {
             taskSchedulerService.generateScheduledTasks();
@@ -113,6 +124,14 @@ public class SopService {
         sop.setDefaultChecker(defaultChecker);
 
         Sop saved = sopRepository.save(sop);
+
+        if (request.getDefaultMakerIds() != null && !request.getDefaultMakerIds().isEmpty()) {
+            makerPoolMap.put(saved.getSopId(), request.getDefaultMakerIds());
+        }
+        if (request.getDefaultCheckerIds() != null && !request.getDefaultCheckerIds().isEmpty()) {
+            checkerPoolMap.put(saved.getSopId(), request.getDefaultCheckerIds());
+        }
+
         return mapToDto(saved);
     }
 
@@ -126,6 +145,16 @@ public class SopService {
     }
 
     public SopDto mapToDto(Sop sop) {
+        List<String> mIds = makerPoolMap.getOrDefault(sop.getSopId(), List.of(sop.getDefaultMaker().getUserId()));
+        List<String> mNames = mIds.stream()
+            .map(id -> userRepository.findById(id).map(User::getFullName).orElse(sop.getDefaultMaker().getFullName()))
+            .toList();
+
+        List<String> cIds = checkerPoolMap.getOrDefault(sop.getSopId(), List.of(sop.getDefaultChecker().getUserId()));
+        List<String> cNames = cIds.stream()
+            .map(id -> userRepository.findById(id).map(User::getFullName).orElse(sop.getDefaultChecker().getFullName()))
+            .toList();
+
         return SopDto.builder()
             .sopId(sop.getSopId())
             .sopCode(sop.getSopCode())
@@ -138,8 +167,12 @@ public class SopService {
             .dueDayOffset(sop.getDueDayOffset())
             .defaultMakerId(sop.getDefaultMaker().getUserId())
             .defaultMakerName(sop.getDefaultMaker().getFullName())
+            .defaultMakerIds(mIds)
+            .defaultMakerNames(mNames)
             .defaultCheckerId(sop.getDefaultChecker().getUserId())
             .defaultCheckerName(sop.getDefaultChecker().getFullName())
+            .defaultCheckerIds(cIds)
+            .defaultCheckerNames(cNames)
             .status(sop.getStatus())
             .build();
     }

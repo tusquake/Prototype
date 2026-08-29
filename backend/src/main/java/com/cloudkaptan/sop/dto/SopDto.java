@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -26,7 +27,11 @@ public class SopDto {
     private Integer dueDayOffset;
     private String defaultMakerId;
     private String defaultMakerName;
+    private List<String> defaultMakerIds;
+    private List<String> defaultMakerNames;
     private String defaultCheckerId;
     private String defaultCheckerName;
+    private List<String> defaultCheckerIds;
+    private List<String> defaultCheckerNames;
     private SopStatus status;
 }

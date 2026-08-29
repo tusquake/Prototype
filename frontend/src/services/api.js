@@ -2295,12 +2295,12 @@ export async function fetchJson(endpoint, options = {}) {
 
 export function mapTask(dto) {
   if (!dto) return null;
+  const defaultMakers = ['Tushar Seth', 'Vivek Raj'];
   const defaultCheckers = ['Mainak Gupta', 'Vivek Raj'];
 
   const makerList = dto.assignedMakers || (dto.makerName ? [dto.makerName] : defaultMakers);
   const checkerList = dto.assignedCheckers || (dto.checkerName ? [dto.checkerName] : defaultCheckers);
 
-  // First-come first-served locking logic
   const isSubmittedOrDone = dto.status === 'PENDING_REVIEW' || dto.status === 'APPROVED' || dto.status === 'REJECTED';
   const lockedMaker = dto.actualMaker || (isSubmittedOrDone ? (dto.makerName || dto.maker || 'Tushar Seth') : null);
 
@@ -2333,8 +2333,13 @@ export function mapSop(dto) {
   const defaultMakers = ['Tushar Seth', 'Vivek Raj'];
   const defaultCheckers = ['Mainak Gupta', 'Vivek Raj'];
 
-  const makers = dto.defaultMakerNames || (dto.defaultMakerName ? [dto.defaultMakerName] : defaultMakers);
-  const checkers = dto.defaultCheckerNames || (dto.defaultCheckerName ? [dto.defaultCheckerName] : defaultCheckers);
+  const makers = (dto.defaultMakerNames && dto.defaultMakerNames.length > 0)
+    ? dto.defaultMakerNames
+    : (dto.defaultMakerName ? [dto.defaultMakerName] : defaultMakers);
+
+  const checkers = (dto.defaultCheckerNames && dto.defaultCheckerNames.length > 0)
+    ? dto.defaultCheckerNames
+    : (dto.defaultCheckerName ? [dto.defaultCheckerName] : defaultCheckers);
 
   return {
     id: dto.sopId || dto.id,
@@ -2349,6 +2354,8 @@ export function mapSop(dto) {
     checker: checkers.join(', '),
     makers: makers,
     checkers: checkers,
+    defaultMakerNames: makers,
+    defaultCheckerNames: checkers,
     version: 1,
   };
 }
@@ -2386,9 +2393,7 @@ export async function getDashboardSummary(selectedEntities = [], currentUser = n
     };
   }
 
-  // Initial fallback dashboard summary from demo tasks
   const allTasks = MOCK_TASKS.filter(t => selectedEntities.length === 0 || selectedEntities.includes(t.entityCode));
-  
   const userTasks = allTasks.filter(t => {
     if (isAdmin || isViewer) return true;
     const isMakerMatch = isUserMatch(t.makerName) || isUserMatch(t.assignedMakers?.join(', ')) || isUserMatch(t.actualMaker);
@@ -2662,16 +2667,16 @@ export async function deleteTask(taskId) {
   return true;
 }
 
-export async function verifyGoogleSsoToken(idToken) {
-  return await fetchJson('/auth/google-sso', {
-    method: 'POST',
-    body: JSON.stringify({ idToken }),
-  });
-}
-
 export async function generateScheduledTasks() {
   const res = await fetchJson('/tasks/generate-scheduled', {
     method: 'POST',
   }).catch(() => null);
   return res || { status: 'SUCCESS', message: 'Tasks generated successfully' };
+}
+
+export async function verifyGoogleSsoToken(idToken) {
+  return await fetchJson('/auth/google-sso', {
+    method: 'POST',
+    body: JSON.stringify({ idToken }),
+  }).catch(() => null);
 }

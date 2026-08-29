@@ -10,6 +10,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -40,8 +42,12 @@ public class CreateSopRequest {
     @NotBlank(message = "Default maker ID is required")
     private String defaultMakerId;
 
+    private List<String> defaultMakerIds;
+
     @NotBlank(message = "Default checker ID is required")
     private String defaultCheckerId;
+
+    private List<String> defaultCheckerIds;
 
     @NotBlank(message = "Created by user ID is required")
     private String createdById;
