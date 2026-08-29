@@ -17,8 +17,10 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping("/users")
-    public ResponseEntity<ApiResponse<List<UserDto>>> getUsers() {
-        return ResponseEntity.ok(ApiResponse.success(userService.getAllUsers()));
+    public ResponseEntity<ApiResponse<List<UserDto>>> getUsers(
+        @RequestParam(name = "role", required = false) String role
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(userService.getUsers(role)));
     }
 
     @GetMapping("/me")

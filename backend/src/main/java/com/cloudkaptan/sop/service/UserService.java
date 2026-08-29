@@ -1,5 +1,6 @@
 package com.cloudkaptan.sop.service;
 
+import com.cloudkaptan.sop.domain.enums.UserRole;
 import com.cloudkaptan.sop.dto.UserDto;
 import com.cloudkaptan.sop.entity.User;
 import com.cloudkaptan.sop.exception.ResourceNotFoundException;
@@ -18,9 +19,25 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public List<UserDto> getAllUsers() {
-        return userRepository.findAll().stream()
-            .map(this::mapToDto)
-            .toList();
+        return getUsers(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserDto> getUsers(String role) {
+        List<User> users = userRepository.findAll();
+        if (role != null && !role.isBlank()) {
+            String roleUpper = role.toUpperCase().trim();
+            users = users.stream()
+                .filter(u -> {
+                    if (u.getRole() == UserRole.ADMIN) return true;
+                    if ("usr-vivek-108".equals(u.getUserId())) return true;
+                    if ("MAKER".equals(roleUpper)) return u.getRole() == UserRole.MAKER;
+                    if ("CHECKER".equals(roleUpper)) return u.getRole() == UserRole.CHECKER;
+                    return true;
+                })
+                .toList();
+        }
+        return users.stream().map(this::mapToDto).toList();
     }
 
     @Transactional(readOnly = true)

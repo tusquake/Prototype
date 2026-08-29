@@ -2512,14 +2512,36 @@ export async function getUsers(entityCode = null, targetRole = null) {
 
   const res = await fetchJson(`/access/users${query}`).catch(() => null);
   
-  const allUsers = (Array.isArray(res) && res.length > 0) ? res.map(u => ({
+  let allUsers = (Array.isArray(res) && res.length > 0) ? res.map(u => ({
     id: u.userId || u.id,
     name: u.fullName || u.name,
     email: u.email,
-    groups: u.groups || u.oidcGroups || [
-      `fin_sop_${(entityCode || 'ck_india').toLowerCase()}_${(targetRole || 'maker').toLowerCase()}`
-    ],
+    role: u.role,
+    groups: u.groups || u.oidcGroups || [],
   })) : MOCK_ORGANIZATION_USERS;
+
+  if (targetRole) {
+    const roleUpper = targetRole.toUpperCase().trim();
+    allUsers = allUsers.filter(u => {
+      // ADMIN is eligible for both MAKER and CHECKER
+      if (u.role === 'ADMIN' || u.groups?.includes('fin_sop_admin')) return true;
+
+      // Vivek Raj is eligible for both MAKER and CHECKER
+      if (u.id === 'usr-vivek-108' || u.name === 'Vivek Raj') return true;
+
+      if (roleUpper === 'MAKER') {
+        const isMakerRole = u.role === 'MAKER';
+        const hasMakerGroup = u.groups?.some(g => g.toLowerCase().includes('maker'));
+        return isMakerRole || hasMakerGroup;
+      }
+      if (roleUpper === 'CHECKER') {
+        const isCheckerRole = u.role === 'CHECKER';
+        const hasCheckerGroup = u.groups?.some(g => g.toLowerCase().includes('checker'));
+        return isCheckerRole || hasCheckerGroup;
+      }
+      return true;
+    });
+  }
 
   return allUsers;
 }
