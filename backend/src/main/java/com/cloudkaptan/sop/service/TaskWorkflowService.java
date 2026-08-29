@@ -30,11 +30,17 @@ public class TaskWorkflowService {
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final com.cloudkaptan.sop.repository.AuditLogRepository auditLogRepository;
 
     @Transactional
     public TaskDto submitTask(UUID taskId, String actorId, String comment) {
         Task task = getTaskOrThrow(taskId);
+        if (task.getStatus() == TaskStatus.PENDING_REVIEW || task.getStatus() == TaskStatus.APPROVED) {
+            throw new IllegalStateException("Task is locked and has already been submitted by " + (task.getMaker() != null ? task.getMaker().getFullName() : "another Maker"));
+        }
+
         User actor = getUserOrThrow(actorId);
+        task.setMaker(actor);
         TaskStatus fromStatus = task.getStatus();
 
         TaskContext context = new TaskContext(task);
@@ -48,7 +54,12 @@ public class TaskWorkflowService {
     @Transactional
     public TaskDto approveTask(UUID taskId, String actorId, String comment) {
         Task task = getTaskOrThrow(taskId);
+        if (task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED) {
+            throw new IllegalStateException("Task is locked and has already been reviewed by " + (task.getChecker() != null ? task.getChecker().getFullName() : "another Checker"));
+        }
+
         User actor = getUserOrThrow(actorId);
+        task.setChecker(actor);
         TaskStatus fromStatus = task.getStatus();
 
         TaskContext context = new TaskContext(task);
@@ -62,7 +73,12 @@ public class TaskWorkflowService {
     @Transactional
     public TaskDto rejectTask(UUID taskId, String actorId, String comment) {
         Task task = getTaskOrThrow(taskId);
+        if (task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED) {
+            throw new IllegalStateException("Task is locked and has already been reviewed by " + (task.getChecker() != null ? task.getChecker().getFullName() : "another Checker"));
+        }
+
         User actor = getUserOrThrow(actorId);
+        task.setChecker(actor);
         TaskStatus fromStatus = task.getStatus();
 
         TaskContext context = new TaskContext(task);
@@ -83,6 +99,15 @@ public class TaskWorkflowService {
     public void deleteTask(UUID taskId) {
         Task task = getTaskOrThrow(taskId);
         taskRepository.delete(task);
+
+        com.cloudkaptan.sop.entity.AuditLog auditLog = com.cloudkaptan.sop.entity.AuditLog.builder()
+            .actorId("usr-manoj-042")
+            .action("DELETE_TASK")
+            .entityType("TASK")
+            .entityId(task.getRecordNo())
+            .correlationId(UUID.randomUUID().toString())
+            .build();
+        auditLogRepository.save(auditLog);
     }
 
     @Transactional(readOnly = true)
@@ -113,11 +138,28 @@ public class TaskWorkflowService {
             daysOverdue = ChronoUnit.DAYS.between(task.getDueDate(), LocalDate.now());
         }
 
+        UUID sopId = task.getSop().getSopId();
+        List<String> mIds = SopService.makerPoolMap.getOrDefault(sopId, List.of(task.getMaker().getUserId()));
+        List<String> mNames = mIds.stream()
+            .map(id -> userRepository.findById(id).map(User::getFullName).orElse(task.getMaker().getFullName()))
+            .toList();
+
+        List<String> cIds = SopService.checkerPoolMap.getOrDefault(sopId, List.of(task.getChecker().getUserId()));
+        List<String> cNames = cIds.stream()
+            .map(id -> userRepository.findById(id).map(User::getFullName).orElse(task.getChecker().getFullName()))
+            .toList();
+
+        String actualMakerName = (task.getStatus() == TaskStatus.PENDING_REVIEW || task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED)
+            ? task.getMaker().getFullName() : null;
+
+        String actualCheckerName = (task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED)
+            ? task.getChecker().getFullName() : null;
+
         return TaskDto.builder()
             .taskId(task.getTaskId())
             .version(task.getVersion())
             .recordNo(task.getRecordNo())
-            .sopId(task.getSop().getSopId())
+            .sopId(sopId)
             .sopTitle(task.getSop().getTitle())
             .sopCode(task.getSop().getSopCode())
             .periodKey(task.getPeriodKey())
@@ -125,8 +167,16 @@ public class TaskWorkflowService {
             .entityName(task.getEntity().getEntityName())
             .makerId(task.getMaker().getUserId())
             .makerName(task.getMaker().getFullName())
+            .assignedMakerIds(mIds)
+            .assignedMakerNames(mNames)
+            .actualMakerId(task.getMaker().getUserId())
+            .actualMakerName(actualMakerName)
             .checkerId(task.getChecker().getUserId())
             .checkerName(task.getChecker().getFullName())
+            .assignedCheckerIds(cIds)
+            .assignedCheckerNames(cNames)
+            .actualCheckerId(task.getChecker().getUserId())
+            .actualCheckerName(actualCheckerName)
             .status(task.getStatus())
             .dueDate(task.getDueDate())
             .daysOverdue(daysOverdue)

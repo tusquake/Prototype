@@ -8,6 +8,8 @@ import com.cloudkaptan.sop.entity.CorporateEntity;
 import com.cloudkaptan.sop.entity.Sop;
 import com.cloudkaptan.sop.entity.User;
 import com.cloudkaptan.sop.exception.ResourceNotFoundException;
+import com.cloudkaptan.sop.entity.AuditLog;
+import com.cloudkaptan.sop.repository.AuditLogRepository;
 import com.cloudkaptan.sop.repository.CorporateEntityRepository;
 import com.cloudkaptan.sop.repository.SopRepository;
 import com.cloudkaptan.sop.repository.UserRepository;
@@ -27,9 +29,10 @@ public class SopService {
     private final CorporateEntityRepository entityRepository;
     private final UserRepository userRepository;
     private final TaskSchedulerService taskSchedulerService;
+    private final AuditLogRepository auditLogRepository;
 
-    private final ConcurrentHashMap<UUID, List<String>> makerPoolMap = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<UUID, List<String>> checkerPoolMap = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<UUID, List<String>> makerPoolMap = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<UUID, List<String>> checkerPoolMap = new ConcurrentHashMap<>();
 
     @Transactional(readOnly = true)
     public List<SopDto> getSops(List<EntityCode> entities) {
@@ -83,6 +86,15 @@ public class SopService {
             checkerPoolMap.put(saved.getSopId(), request.getDefaultCheckerIds());
         }
 
+        AuditLog auditLog = AuditLog.builder()
+            .actorId(createdBy.getUserId())
+            .action("CREATE_SOP")
+            .entityType("SOP")
+            .entityId(saved.getSopCode())
+            .correlationId(UUID.randomUUID().toString())
+            .build();
+        auditLogRepository.save(auditLog);
+
         // Automatically trigger scheduler engine to create task for the new SOP
         try {
             taskSchedulerService.generateScheduledTasks();
@@ -132,6 +144,15 @@ public class SopService {
             checkerPoolMap.put(saved.getSopId(), request.getDefaultCheckerIds());
         }
 
+        AuditLog auditLog = AuditLog.builder()
+            .actorId(request.getCreatedById() != null ? request.getCreatedById() : (sop.getCreatedBy() != null ? sop.getCreatedBy().getUserId() : "usr-manoj-042"))
+            .action("UPDATE_SOP")
+            .entityType("SOP")
+            .entityId(saved.getSopCode())
+            .correlationId(UUID.randomUUID().toString())
+            .build();
+        auditLogRepository.save(auditLog);
+
         return mapToDto(saved);
     }
 
@@ -142,6 +163,15 @@ public class SopService {
 
         sop.setStatus(SopStatus.ARCHIVED);
         sopRepository.save(sop);
+
+        AuditLog auditLog = AuditLog.builder()
+            .actorId(sop.getCreatedBy() != null ? sop.getCreatedBy().getUserId() : "usr-manoj-042")
+            .action("DELETE_SOP")
+            .entityType("SOP")
+            .entityId(sop.getSopCode())
+            .correlationId(UUID.randomUUID().toString())
+            .build();
+        auditLogRepository.save(auditLog);
     }
 
     public SopDto mapToDto(Sop sop) {

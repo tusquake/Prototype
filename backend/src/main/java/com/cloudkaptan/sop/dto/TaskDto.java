@@ -27,8 +27,18 @@ public class TaskDto {
     private String entityName;
     private String makerId;
     private String makerName;
+    private java.util.List<String> assignedMakerIds;
+    private java.util.List<String> assignedMakerNames;
+    private String actualMakerId;
+    private String actualMakerName;
+
     private String checkerId;
     private String checkerName;
+    private java.util.List<String> assignedCheckerIds;
+    private java.util.List<String> assignedCheckerNames;
+    private String actualCheckerId;
+    private String actualCheckerName;
+
     private TaskStatus status;
     private LocalDate dueDate;
     private Long daysOverdue;

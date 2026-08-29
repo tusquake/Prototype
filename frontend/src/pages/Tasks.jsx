@@ -335,12 +335,16 @@ export default function Tasks() {
                         <td>{task.periodKey || task.period}</td>
                         <td>
                           <span style={{ fontWeight: 500, color: '#1e293b' }}>
-                            {task.makerName || task.maker}
+                            {task.assignedMakers && task.assignedMakers.length > 0
+                              ? task.assignedMakers.join(', ')
+                              : (task.makerName || task.maker)}
                           </span>
                         </td>
                         <td>
                           <span style={{ fontWeight: 500, color: '#1e293b' }}>
-                            {task.checkerName || task.checker}
+                            {task.assignedCheckers && task.assignedCheckers.length > 0
+                              ? task.assignedCheckers.join(', ')
+                              : (task.checkerName || task.checker)}
                           </span>
                         </td>
                         <td>{task.dueDate}</td>

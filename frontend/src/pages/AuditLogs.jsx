@@ -15,6 +15,10 @@ const LOG_TYPE_OPTIONS = [
   { value: 'APPROVE_TASK', label: 'Approve Task' },
   { value: 'REJECT_TASK', label: 'Reject Task' },
   { value: 'CREATE_SOP', label: 'Create SOP' },
+  { value: 'UPDATE_SOP', label: 'Update SOP' },
+  { value: 'DELETE_SOP', label: 'Delete SOP' },
+  { value: 'CREATE_TASK', label: 'Create Task' },
+  { value: 'DELETE_TASK', label: 'Delete Task' },
 ];
 
 const ENTITY_TYPE_OPTIONS = [
@@ -38,9 +42,16 @@ export function formatActionLabel(action) {
   if (!action) return '';
   const map = {
     'SUBMIT_TASK': 'Submit Task',
+    'SUBMIT': 'Submit Task',
     'APPROVE_TASK': 'Approve Task',
+    'APPROVE': 'Approve Task',
     'REJECT_TASK': 'Reject Task',
+    'REJECT': 'Reject Task',
     'CREATE_SOP': 'Create SOP',
+    'UPDATE_SOP': 'Update SOP',
+    'DELETE_SOP': 'Delete SOP',
+    'CREATE_TASK': 'Create Task',
+    'DELETE_TASK': 'Delete Task',
   };
   if (map[action]) return map[action];
   return action.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());

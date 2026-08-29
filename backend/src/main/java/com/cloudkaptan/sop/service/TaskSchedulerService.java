@@ -6,6 +6,8 @@ import com.cloudkaptan.sop.domain.strategy.RecurrenceStrategy;
 import com.cloudkaptan.sop.domain.strategy.RecurrenceStrategyFactory;
 import com.cloudkaptan.sop.entity.Sop;
 import com.cloudkaptan.sop.entity.Task;
+import com.cloudkaptan.sop.entity.AuditLog;
+import com.cloudkaptan.sop.repository.AuditLogRepository;
 import com.cloudkaptan.sop.repository.SopRepository;
 import com.cloudkaptan.sop.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -25,6 +28,7 @@ public class TaskSchedulerService {
     private final SopRepository sopRepository;
     private final TaskRepository taskRepository;
     private final RecurrenceStrategyFactory recurrenceStrategyFactory;
+    private final AuditLogRepository auditLogRepository;
 
     @Scheduled(cron = "${app.task-scheduler.cron:0 0 0 * * ?}")
     @Transactional
@@ -54,7 +58,17 @@ public class TaskSchedulerService {
                         .dueDate(dueDate)
                         .build();
 
-                    taskRepository.save(task);
+                    Task savedTask = taskRepository.save(task);
+
+                    AuditLog auditLog = AuditLog.builder()
+                        .actorId(sop.getCreatedBy() != null ? sop.getCreatedBy().getUserId() : "usr-manoj-042")
+                        .action("CREATE_TASK")
+                        .entityType("TASK")
+                        .entityId(recordNo)
+                        .correlationId(UUID.randomUUID().toString())
+                        .build();
+                    auditLogRepository.save(auditLog);
+
                     generatedCount++;
                     log.info("Generated Task [{}] for SOP [{}] and Period [{}]", recordNo, sop.getSopCode(), periodKey);
                 }

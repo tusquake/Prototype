@@ -38,7 +38,7 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/h2-console/**", "/finsop/v1/health", "/actuator/**", "/error").permitAll()
+                .requestMatchers("/h2-console/**", "/actuator/**", "/error").permitAll()
                 .requestMatchers("/finsop/v1/**").permitAll()
                 .anyRequest().authenticated()
             )
