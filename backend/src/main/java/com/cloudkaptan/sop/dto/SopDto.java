@@ -34,4 +34,5 @@ public class SopDto {
     private List<String> defaultCheckerIds;
     private List<String> defaultCheckerNames;
     private SopStatus status;
+    private Integer version;
 }

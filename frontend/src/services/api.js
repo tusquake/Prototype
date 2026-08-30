@@ -251,7 +251,7 @@ export function mapSop(dto) {
     checkers: checkers,
     defaultMakerNames: makers,
     defaultCheckerNames: checkers,
-    version: 1,
+    version: dto.version || dto.versionNumber || 1,
   };
 }
 
@@ -463,10 +463,25 @@ export async function submitTask(taskId, actorId = 'usr-tushar-304', comment = '
 
   const mock = MOCK_TASKS.find(t => t.taskId === id || t.id === id || t.recordNo === id);
   if (mock) {
+    const fromStatus = mock.status;
     mock.status = 'PENDING_REVIEW';
-    mock.actualMaker = actor === 'usr-prayasa-410' ? 'Prayasa Sharma' : 'Tushar Seth';
+    const actorName = actor === 'usr-prayasa-410' ? 'Prayasa Sharma' : (actor === 'usr-vivek-108' ? 'Vivek Raj' : 'Tushar Seth');
+    mock.actualMaker = actorName;
+    mock.makerName = actorName;
+    mock.maker = actorName;
+    mock.lastComment = comm;
+    if (!mock.history) mock.history = [];
+    mock.history.push({
+      eventId: Date.now(),
+      action: fromStatus === 'REJECTED' ? 'RESUBMIT' : 'SUBMIT',
+      actorName: actorName,
+      fromStatus: fromStatus,
+      toStatus: 'PENDING_REVIEW',
+      comment: comm || 'Submitted task for review',
+      timestamp: new Date().toISOString(),
+    });
   }
-  return res;
+  return res || (mock ? mapTask(mock) : null);
 }
 
 export async function approveTask(taskId, actorId = 'usr-mainak-215', comment = '') {
@@ -489,10 +504,25 @@ export async function approveTask(taskId, actorId = 'usr-mainak-215', comment = 
 
   const mock = MOCK_TASKS.find(t => t.taskId === id || t.id === id || t.recordNo === id);
   if (mock) {
+    const fromStatus = mock.status;
     mock.status = 'APPROVED';
-    mock.actualChecker = actor === 'usr-vivek-108' ? 'Vivek Raj' : 'Mainak Gupta';
+    const actorName = actor === 'usr-vivek-108' ? 'Vivek Raj' : (actor === 'usr-manoj-042' ? 'Manoj Agarwal' : 'Mainak Gupta');
+    mock.actualChecker = actorName;
+    mock.checkerName = actorName;
+    mock.checker = actorName;
+    mock.lastComment = comm;
+    if (!mock.history) mock.history = [];
+    mock.history.push({
+      eventId: Date.now(),
+      action: 'APPROVE',
+      actorName: actorName,
+      fromStatus: fromStatus,
+      toStatus: 'APPROVED',
+      comment: comm || 'Approved task',
+      timestamp: new Date().toISOString(),
+    });
   }
-  return res;
+  return res || (mock ? mapTask(mock) : null);
 }
 
 export async function rejectTask(taskId, actorId = 'usr-mainak-215', comment = 'Requires correction', permanentRejection = false) {
@@ -517,10 +547,25 @@ export async function rejectTask(taskId, actorId = 'usr-mainak-215', comment = '
 
   const mock = MOCK_TASKS.find(t => t.taskId === id || t.id === id || t.recordNo === id);
   if (mock) {
+    const fromStatus = mock.status;
     mock.status = isPermanent ? 'PERMANENTLY_REJECTED' : 'REJECTED';
-    mock.actualChecker = actor === 'usr-vivek-108' ? 'Vivek Raj' : 'Mainak Gupta';
+    const actorName = actor === 'usr-vivek-108' ? 'Vivek Raj' : (actor === 'usr-manoj-042' ? 'Manoj Agarwal' : 'Mainak Gupta');
+    mock.actualChecker = actorName;
+    mock.checkerName = actorName;
+    mock.checker = actorName;
+    mock.lastComment = comm;
+    if (!mock.history) mock.history = [];
+    mock.history.push({
+      eventId: Date.now(),
+      action: isPermanent ? 'PERMANENT_REJECT' : 'REJECT',
+      actorName: actorName,
+      fromStatus: fromStatus,
+      toStatus: mock.status,
+      comment: comm || 'Task rejected',
+      timestamp: new Date().toISOString(),
+    });
   }
-  return res;
+  return res || (mock ? mapTask(mock) : null);
 }
 
 export async function updateSop(sopId, sopData) {

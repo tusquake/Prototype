@@ -134,6 +134,7 @@ public class SopService {
         sop.setDueDayOffset(request.getDueDayOffset());
         sop.setDefaultMaker(defaultMaker);
         sop.setDefaultChecker(defaultChecker);
+        sop.setVersion((sop.getVersion() == null ? 1 : sop.getVersion() + 1));
 
         Sop saved = sopRepository.save(sop);
 
@@ -204,6 +205,7 @@ public class SopService {
             .defaultCheckerIds(cIds)
             .defaultCheckerNames(cNames)
             .status(sop.getStatus())
+            .version(sop.getVersion() != null ? sop.getVersion() : 1)
             .build();
     }
 }

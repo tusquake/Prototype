@@ -169,15 +169,19 @@ public class TaskWorkflowService {
         List<com.cloudkaptan.sop.entity.TaskEvent> rawEvents = taskEventRepository.findByTask_TaskIdOrderByTimestampAsc(task.getTaskId());
         List<com.cloudkaptan.sop.entity.TaskComment> rawComments = taskCommentRepository.findByTask_TaskIdOrderByCreatedAtAsc(task.getTaskId());
 
-        List<com.cloudkaptan.sop.dto.TaskEventDto> historyList = new java.util.ArrayList<>(rawEvents.stream().map(e -> {
-            String commentText = rawComments.stream()
-                .filter(c -> c.getAuthor().getUserId().equals(e.getActor().getUserId()) &&
-                    Math.abs(java.time.Duration.between(c.getCreatedAt(), e.getTimestamp()).toSeconds()) < 5)
-                .map(com.cloudkaptan.sop.entity.TaskComment::getCommentText)
-                .findFirst()
-                .orElse(null);
+        List<com.cloudkaptan.sop.dto.TaskEventDto> historyList = new java.util.ArrayList<>();
+        for (int idx = 0; idx < rawEvents.size(); idx++) {
+            com.cloudkaptan.sop.entity.TaskEvent e = rawEvents.get(idx);
+            String commentText = (idx < rawComments.size()) ? rawComments.get(idx).getCommentText() : null;
+            if (commentText == null && !rawComments.isEmpty()) {
+                commentText = rawComments.stream()
+                    .filter(c -> c.getAuthor().getUserId().equals(e.getActor().getUserId()))
+                    .map(com.cloudkaptan.sop.entity.TaskComment::getCommentText)
+                    .reduce((first, second) -> second)
+                    .orElse(null);
+            }
 
-            return com.cloudkaptan.sop.dto.TaskEventDto.builder()
+            historyList.add(com.cloudkaptan.sop.dto.TaskEventDto.builder()
                 .eventId(e.getEventId())
                 .actorId(e.getActor().getUserId())
                 .actorName(e.getActor().getFullName())
@@ -186,8 +190,8 @@ public class TaskWorkflowService {
                 .toStatus(e.getToStatus())
                 .comment(commentText)
                 .timestamp(e.getTimestamp())
-                .build();
-        }).toList());
+                .build());
+        }
 
         if (historyList.isEmpty()) {
             historyList.add(com.cloudkaptan.sop.dto.TaskEventDto.builder()

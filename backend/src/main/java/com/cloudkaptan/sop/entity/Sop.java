@@ -70,4 +70,8 @@ public class Sop {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    @Column(name = "version")
+    @Builder.Default
+    private Integer version = 1;
 }

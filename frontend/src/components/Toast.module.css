@@ -27,21 +27,24 @@
 }
 
 .success {
-  background: #064e3b;
-  color: #ecfdf5;
-  border: 1px solid #059669;
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #86efac;
+  box-shadow: 0 10px 25px -5px rgba(22, 163, 74, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 .error {
-  background: #7f1d1d;
-  color: #fef2f2;
-  border: 1px solid #dc2626;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  box-shadow: 0 10px 25px -5px rgba(220, 38, 38, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 .info {
-  background: #1e293b;
-  color: #f8fafc;
-  border: 1px solid #475569;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+  box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.15), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 .icon {

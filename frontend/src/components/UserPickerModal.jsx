@@ -10,6 +10,7 @@ export default function UserPickerModal({
   selectedUserIds = [],
   onClose,
   onConfirm,
+  onSelect,
 }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);

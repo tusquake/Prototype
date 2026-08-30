@@ -40,7 +40,7 @@ const ACTOR_OPTIONS = [
 
 const PAGE_SIZE = 10;
 
-export function formatActionLabel(action) {
+function formatActionLabel(action) {
   if (!action) return '';
   const map = {
     'SUBMIT_TASK': 'Submit Task',
