@@ -61,11 +61,14 @@ export default function TaskActionModal({
 
   const isSubmittedOrDone = task.status === 'PENDING_REVIEW' || task.status === 'APPROVED' || task.status === 'REJECTED' || task.status === 'PERMANENTLY_REJECTED';
 
-  const effectiveHistory = (task.history && task.history.length > 0)
-    ? task.history
+  const rawHistory = (task.history && task.history.length > 0) ? task.history : [];
+  const hasCreate = rawHistory.some(h => (h.action || '').toUpperCase().includes('CREATE'));
+
+  const effectiveHistory = hasCreate
+    ? rawHistory
     : [
         {
-          eventId: 1,
+          eventId: 0,
           action: 'CREATE_TASK',
           actorName: 'System Scheduler',
           fromStatus: null,
@@ -73,42 +76,7 @@ export default function TaskActionModal({
           comment: 'Compliance task cycle created automatically',
           timestamp: task.createdAt || new Date().toISOString(),
         },
-        ...(isSubmittedOrDone ? [{
-          eventId: 2,
-          action: 'SUBMIT_TASK',
-          actorName: task.lockedMaker || task.actualMaker || 'Maker Pool',
-          fromStatus: 'OPEN',
-          toStatus: 'PENDING_REVIEW',
-          comment: task.lastComment || 'Task execution completed and submitted for checker review',
-          timestamp: task.completedAt || new Date().toISOString(),
-        }] : []),
-        ...(task.status === 'APPROVED' ? [{
-          eventId: 3,
-          action: 'APPROVE_TASK',
-          actorName: task.lockedChecker || task.actualChecker || 'Checker Pool',
-          fromStatus: 'PENDING_REVIEW',
-          toStatus: 'APPROVED',
-          comment: task.lastComment || 'Task verified and approved',
-          timestamp: task.approvedAt || new Date().toISOString(),
-        }] : []),
-        ...(task.status === 'REJECTED' ? [{
-          eventId: 3,
-          action: 'REJECT_TASK',
-          actorName: task.lockedChecker || task.actualChecker || 'Checker Pool',
-          fromStatus: 'PENDING_REVIEW',
-          toStatus: 'REJECTED',
-          comment: task.lastComment || 'Returned to Maker pool for evidence correction',
-          timestamp: task.approvedAt || new Date().toISOString(),
-        }] : []),
-        ...(task.status === 'PERMANENTLY_REJECTED' ? [{
-          eventId: 3,
-          action: 'PERMANENT_REJECT',
-          actorName: task.lockedChecker || task.actualChecker || 'Checker Pool',
-          fromStatus: 'PENDING_REVIEW',
-          toStatus: 'PERMANENTLY_REJECTED',
-          comment: task.lastComment || 'Task permanently rejected and closed',
-          timestamp: task.approvedAt || new Date().toISOString(),
-        }] : []),
+        ...rawHistory,
       ];
 
   function triggerConfirm(actionType) {

@@ -193,16 +193,17 @@ public class TaskWorkflowService {
                 .build());
         }
 
-        if (historyList.isEmpty()) {
-            historyList.add(com.cloudkaptan.sop.dto.TaskEventDto.builder()
-                .eventId(1L)
-                .actorId("usr-manoj-042")
-                .actorName("System Scheduler (Manoj Agarwal)")
+        boolean hasCreateEvent = historyList.stream().anyMatch(h -> h.getAction() != null && h.getAction().toUpperCase().contains("CREATE"));
+        if (!hasCreateEvent) {
+            historyList.add(0, com.cloudkaptan.sop.dto.TaskEventDto.builder()
+                .eventId(0L)
+                .actorId(task.getMaker() != null ? task.getMaker().getUserId() : "usr-manoj-042")
+                .actorName("System Scheduler")
                 .action("CREATE_TASK")
                 .fromStatus(null)
                 .toStatus(TaskStatus.OPEN)
-                .comment("Automated task cycle generated for " + task.getPeriodKey())
-                .timestamp(task.getCreatedAt())
+                .comment("Automated compliance task cycle generated for " + task.getPeriodKey())
+                .timestamp(task.getCreatedAt() != null ? task.getCreatedAt() : java.time.OffsetDateTime.now())
                 .build());
         }
 
