@@ -1,5 +1,5 @@
 # Stage 1: Build Java Application using Maven
-FROM maven:3.9-eclipse-temurin-17-alpine AS builder
+FROM maven:3.9-eclipse-temurin-17 AS builder
 WORKDIR /app
 
 # Copy pom.xml and download dependencies
@@ -11,11 +11,11 @@ COPY src ./src
 RUN mvn clean package -DskipTests
 
 # Stage 2: Minimal JRE Runtime Environment
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 
-# Create unprivileged user for security
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Create unprivileged user for security (Debian/Ubuntu syntax)
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
 # Copy compiled JAR from builder stage
 COPY --from=builder /app/target/finsop-backend-1.0.0-SNAPSHOT.jar app.jar
