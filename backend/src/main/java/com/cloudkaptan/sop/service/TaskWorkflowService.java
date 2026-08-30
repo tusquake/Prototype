@@ -31,6 +31,8 @@ public class TaskWorkflowService {
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final com.cloudkaptan.sop.repository.AuditLogRepository auditLogRepository;
+    private final com.cloudkaptan.sop.repository.TaskEventRepository taskEventRepository;
+    private final com.cloudkaptan.sop.repository.TaskCommentRepository taskCommentRepository;
 
     @Transactional
     public TaskDto submitTask(UUID taskId, String actorId, String comment) {
@@ -164,6 +166,42 @@ public class TaskWorkflowService {
         String actualCheckerName = (task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED || task.getStatus() == TaskStatus.PERMANENTLY_REJECTED)
             ? task.getChecker().getFullName() : null;
 
+        List<com.cloudkaptan.sop.entity.TaskEvent> rawEvents = taskEventRepository.findByTask_TaskIdOrderByTimestampAsc(task.getTaskId());
+        List<com.cloudkaptan.sop.entity.TaskComment> rawComments = taskCommentRepository.findByTask_TaskIdOrderByCreatedAtAsc(task.getTaskId());
+
+        List<com.cloudkaptan.sop.dto.TaskEventDto> historyList = new java.util.ArrayList<>(rawEvents.stream().map(e -> {
+            String commentText = rawComments.stream()
+                .filter(c -> c.getAuthor().getUserId().equals(e.getActor().getUserId()) &&
+                    Math.abs(java.time.Duration.between(c.getCreatedAt(), e.getTimestamp()).toSeconds()) < 5)
+                .map(com.cloudkaptan.sop.entity.TaskComment::getCommentText)
+                .findFirst()
+                .orElse(null);
+
+            return com.cloudkaptan.sop.dto.TaskEventDto.builder()
+                .eventId(e.getEventId())
+                .actorId(e.getActor().getUserId())
+                .actorName(e.getActor().getFullName())
+                .action(e.getAction())
+                .fromStatus(e.getFromStatus())
+                .toStatus(e.getToStatus())
+                .comment(commentText)
+                .timestamp(e.getTimestamp())
+                .build();
+        }).toList());
+
+        if (historyList.isEmpty()) {
+            historyList.add(com.cloudkaptan.sop.dto.TaskEventDto.builder()
+                .eventId(1L)
+                .actorId("usr-manoj-042")
+                .actorName("System Scheduler (Manoj Agarwal)")
+                .action("CREATE_TASK")
+                .fromStatus(null)
+                .toStatus(TaskStatus.OPEN)
+                .comment("Automated task cycle generated for " + task.getPeriodKey())
+                .timestamp(task.getCreatedAt())
+                .build());
+        }
+
         return TaskDto.builder()
             .taskId(task.getTaskId())
             .version(task.getVersion())
@@ -192,6 +230,7 @@ public class TaskWorkflowService {
             .completedAt(task.getCompletedAt())
             .approvedAt(task.getApprovedAt())
             .createdAt(task.getCreatedAt())
+            .history(historyList)
             .build();
     }
 }

@@ -45,4 +45,5 @@ public class TaskDto {
     private OffsetDateTime completedAt;
     private OffsetDateTime approvedAt;
     private OffsetDateTime createdAt;
+    private java.util.List<TaskEventDto> history;
 }

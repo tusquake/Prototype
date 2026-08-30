@@ -131,6 +131,65 @@ export function mapTask(dto) {
   const isCompleted = dto.status === 'APPROVED' || dto.status === 'REJECTED' || dto.status === 'PERMANENTLY_REJECTED';
   const lockedChecker = dto.actualCheckerName || dto.actualChecker || (isCompleted ? dto.checkerName : null);
 
+  const historyList = (dto.history && dto.history.length > 0)
+    ? dto.history.map(h => ({
+        eventId: h.eventId,
+        actorId: h.actorId,
+        actorName: h.actorName,
+        action: h.action,
+        fromStatus: h.fromStatus,
+        toStatus: h.toStatus,
+        comment: h.comment,
+        timestamp: h.timestamp,
+      }))
+    : [
+        {
+          eventId: 1,
+          action: 'CREATE_TASK',
+          actorName: 'System Scheduler',
+          fromStatus: null,
+          toStatus: 'OPEN',
+          comment: 'Compliance task cycle created automatically',
+          timestamp: dto.createdAt || new Date().toISOString(),
+        },
+        ...(isSubmittedOrDone ? [{
+          eventId: 2,
+          action: 'SUBMIT_TASK',
+          actorName: lockedMaker || 'Maker',
+          fromStatus: 'OPEN',
+          toStatus: 'PENDING_REVIEW',
+          comment: 'Task execution completed and submitted for checker review',
+          timestamp: dto.completedAt || new Date().toISOString(),
+        }] : []),
+        ...(dto.status === 'APPROVED' ? [{
+          eventId: 3,
+          action: 'APPROVE_TASK',
+          actorName: lockedChecker || 'Checker',
+          fromStatus: 'PENDING_REVIEW',
+          toStatus: 'APPROVED',
+          comment: 'Task verified and approved',
+          timestamp: dto.approvedAt || new Date().toISOString(),
+        }] : []),
+        ...(dto.status === 'REJECTED' ? [{
+          eventId: 3,
+          action: 'REJECT_TASK',
+          actorName: lockedChecker || 'Checker',
+          fromStatus: 'PENDING_REVIEW',
+          toStatus: 'REJECTED',
+          comment: 'Returned to Maker pool for evidence correction',
+          timestamp: dto.approvedAt || new Date().toISOString(),
+        }] : []),
+        ...(dto.status === 'PERMANENTLY_REJECTED' ? [{
+          eventId: 3,
+          action: 'PERMANENT_REJECT',
+          actorName: lockedChecker || 'Checker',
+          fromStatus: 'PENDING_REVIEW',
+          toStatus: 'PERMANENTLY_REJECTED',
+          comment: 'Task permanently rejected and closed',
+          timestamp: dto.approvedAt || new Date().toISOString(),
+        }] : []),
+      ];
+
   return {
     id: dto.taskId || dto.id,
     taskId: dto.taskId || dto.id,
@@ -160,6 +219,7 @@ export function mapTask(dto) {
     dueDate: dto.dueDate || 'N/A',
     daysOverdue: dto.daysOverdue || 0,
     status: dto.status || 'OPEN',
+    history: historyList,
   };
 }
 

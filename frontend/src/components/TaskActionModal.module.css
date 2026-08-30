@@ -508,3 +508,192 @@
   border-color: #dc2626;
   background: #fef2f2;
 }
+
+/* Expandable / Collapsible Activity Log */
+.historySection {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.historyHeader {
+  width: 100%;
+  padding: 14px 18px;
+  background: #f8fafc;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.historyHeader:hover {
+  background: #f1f5f9;
+}
+
+.historyHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.historyBadge {
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.historyChevron {
+  color: #64748b;
+  display: flex;
+  align-items: center;
+}
+
+.historyTimeline {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.noHistoryMsg {
+  font-size: 12.5px;
+  color: #94a3b8;
+  font-style: italic;
+  margin: 0;
+}
+
+.timelineItem {
+  display: flex;
+  gap: 12px;
+  position: relative;
+}
+
+.timelineItem:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 28px;
+  bottom: -14px;
+  width: 2px;
+  background: #e2e8f0;
+}
+
+.timelineIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.historyCreate {
+  background: #f3e8ff;
+  color: #9333ea;
+  border: 1px solid #d8b4fe;
+}
+
+.historySubmit {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #93c5fd;
+}
+
+.historyResubmit {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #60a5fa;
+}
+
+.historyApprove {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #86efac;
+}
+
+.historyReject {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+}
+
+.historyPermanentReject {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #f87171;
+}
+
+.timelineContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timelineTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.timelineAction {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.timelineActor {
+  font-size: 12px;
+  color: #475569;
+}
+
+.timelineTime {
+  margin-left: auto;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.statusTransition {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.transitionFrom,
+.transitionTo {
+  background: #f1f5f9;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.timelineComment {
+  font-size: 12px;
+  color: #334155;
+  background: #f8fafc;
+  border-left: 3px solid #cbd5e1;
+  padding: 6px 10px;
+  border-radius: 0 6px 6px 0;
+  margin-top: 2px;
+  font-style: italic;
+}
