@@ -1,20 +1,82 @@
 .page {
   min-height: 100vh;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: var(--bg-base);
+  padding: 40px 24px;
+  background: radial-gradient(circle at 18% 50%, #0c1c42 0%, #050b1a 55%, #02050e 100%);
+  position: relative;
+  overflow: hidden;
+  font-family: inherit;
 }
 
+/* Ambient Radial Glow Orbs */
+.glowOrbLeft {
+  position: absolute;
+  top: 15%;
+  left: -5%;
+  width: 550px;
+  height: 550px;
+  background: radial-gradient(circle, rgba(29, 78, 216, 0.28) 0%, rgba(56, 189, 248, 0.09) 50%, transparent 70%);
+  filter: blur(65px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glowOrbRight {
+  position: absolute;
+  bottom: 10%;
+  right: -5%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.22) 0%, rgba(96, 165, 250, 0.06) 50%, transparent 70%);
+  filter: blur(55px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Vector Dash Wrappers (Left & Right) */
+.dashWrapperLeft {
+  position: absolute;
+  top: 12%;
+  left: 4%;
+  width: 380px;
+  height: 420px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.85;
+}
+
+.dashWrapperRight {
+  position: absolute;
+  bottom: 8%;
+  right: 4%;
+  width: 380px;
+  height: 420px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.85;
+}
+
+.dashSvg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Crisp Clean White Login Card */
 .card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 40px;
   width: 100%;
   max-width: 400px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  z-index: 2;
+  position: relative;
 }
 
 .brand {
@@ -23,7 +85,7 @@
 }
 
 .logo {
-  height: 38px;
+  height: 40px;
   width: auto;
   object-fit: contain;
   margin-bottom: 8px;
@@ -32,7 +94,7 @@
 .brandSub {
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.9px;
   margin-top: 4px;
@@ -54,7 +116,7 @@
   background: #ffffff;
   color: #1f2937;
   border: 1px solid #d1d5db;
-  border-radius: var(--radius-sm, 8px);
+  border-radius: 8px;
   font-weight: 500;
   font-size: 14px;
   transition: all 0.15s ease;
@@ -79,7 +141,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  color: var(--text-muted);
+  color: #94a3b8;
   font-size: 10.5px;
   font-weight: 600;
   text-transform: uppercase;
@@ -92,7 +154,7 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--border);
+  background: #e2e8f0;
 }
 
 .demoButtons {
@@ -103,20 +165,22 @@
 
 .btnDemo {
   padding: 10px 16px;
-  background: var(--bg-muted, #f8fafc);
-  color: var(--text-secondary, #475569);
-  border: 1px solid var(--border, #e2e8f0);
-  border-radius: var(--radius-sm, 8px);
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   font-size: 12.5px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
+  text-align: left;
 }
 
 .btnDemo:hover:not(:disabled) {
   background: #ffffff;
-  border-color: var(--accent, #1a2b6b);
-  color: var(--accent, #1a2b6b);
+  border-color: #1a2b6b;
+  color: #1a2b6b;
+  box-shadow: 0 2px 6px rgba(26, 43, 107, 0.08);
 }
 
 button:disabled {
@@ -128,6 +192,13 @@ button:disabled {
   margin-top: 24px;
   text-align: center;
   font-size: 11px;
-  color: var(--text-muted);
+  color: #94a3b8;
   line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+  .dashWrapperLeft,
+  .dashWrapperRight {
+    display: none;
+  }
 }

@@ -11,6 +11,55 @@ import {
 } from '../auth/auth';
 import styles from './Login.module.css';
 
+function VectorDashField({ position = 'left' }) {
+  const rows = 14;
+  const cols = 12;
+  const dashes = [];
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = c * 26 + 20;
+      const y = r * 26 + 20;
+      const dx = c - cols / 2;
+      const dy = r - rows / 2;
+      const distFromCenter = Math.sqrt(dx * dx + dy * dy);
+      const angle = position === 'left'
+        ? (distFromCenter * 16 + r * 8 + c * 12) % 180 - 45
+        : (distFromCenter * 20 - r * 14 + c * 8) % 180 - 30;
+
+      const opacity = Math.max(0.12, 0.75 - distFromCenter * 0.07);
+
+      dashes.push({ x, y, angle, opacity });
+    }
+  }
+
+  return (
+    <div className={position === 'left' ? styles.dashWrapperLeft : styles.dashWrapperRight}>
+      <svg
+        className={styles.dashSvg}
+        viewBox="0 0 340 380"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        {dashes.map((d, i) => (
+          <line
+            key={i}
+            x1={d.x - 7}
+            y1={d.y}
+            x2={d.x + 7}
+            y2={d.y}
+            stroke={position === 'left' ? '#38bdf8' : '#60a5fa'}
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeOpacity={d.opacity}
+            transform={`rotate(${d.angle}, ${d.x}, ${d.y})`}
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(null);
@@ -32,6 +81,15 @@ export default function Login() {
 
   return (
     <div className={styles.page}>
+      {/* Background Vector Dash Fields (Left & Right) */}
+      <VectorDashField position="left" />
+      <VectorDashField position="right" />
+
+      {/* Ambient Glow Orbs */}
+      <div className={styles.glowOrbLeft} />
+      <div className={styles.glowOrbRight} />
+
+      {/* White Clean Login Card Floating over Dark Tech Background */}
       <div className={styles.card}>
         <div className={styles.brand}>
           <img src="/CLoudKaptan-logo.png" alt="CloudKaptan" className={styles.logo} />
