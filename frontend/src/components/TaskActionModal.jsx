@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import StatusBadge from './StatusBadge';
 import ConfirmationModal from './ConfirmationModal';
+import TaskActivityLogModal from './TaskActivityLogModal';
 import Toast from './Toast';
 import styles from './TaskActionModal.module.css';
 
@@ -19,14 +20,16 @@ export default function TaskActionModal({
   const [pendingConfirm, setPendingConfirm] = useState(null); // 'SUBMIT' | 'APPROVE' | 'REJECT'
   const [rejectionMode, setRejectionMode] = useState('resubmit'); // 'resubmit' | 'permanent'
   const [showHistory, setShowHistory] = useState(true);
+  const [showActivityLogModal, setShowActivityLogModal] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && task) {
       setComment('');
       setToastError('');
       setPendingConfirm(null);
       setRejectionMode('resubmit');
       setShowHistory(true);
+      setShowActivityLogModal(false);
     }
   }, [isOpen, task]);
 
@@ -76,7 +79,7 @@ export default function TaskActionModal({
           actorName: task.lockedMaker || task.actualMaker || 'Maker Pool',
           fromStatus: 'OPEN',
           toStatus: 'PENDING_REVIEW',
-          comment: 'Task execution completed and submitted for checker review',
+          comment: task.lastComment || 'Task execution completed and submitted for checker review',
           timestamp: task.completedAt || new Date().toISOString(),
         }] : []),
         ...(task.status === 'APPROVED' ? [{
@@ -85,7 +88,7 @@ export default function TaskActionModal({
           actorName: task.lockedChecker || task.actualChecker || 'Checker Pool',
           fromStatus: 'PENDING_REVIEW',
           toStatus: 'APPROVED',
-          comment: 'Task verified and approved',
+          comment: task.lastComment || 'Task verified and approved',
           timestamp: task.approvedAt || new Date().toISOString(),
         }] : []),
         ...(task.status === 'REJECTED' ? [{
@@ -94,7 +97,7 @@ export default function TaskActionModal({
           actorName: task.lockedChecker || task.actualChecker || 'Checker Pool',
           fromStatus: 'PENDING_REVIEW',
           toStatus: 'REJECTED',
-          comment: 'Returned to Maker pool for evidence correction',
+          comment: task.lastComment || 'Returned to Maker pool for evidence correction',
           timestamp: task.approvedAt || new Date().toISOString(),
         }] : []),
         ...(task.status === 'PERMANENTLY_REJECTED' ? [{
@@ -103,7 +106,7 @@ export default function TaskActionModal({
           actorName: task.lockedChecker || task.actualChecker || 'Checker Pool',
           fromStatus: 'PENDING_REVIEW',
           toStatus: 'PERMANENTLY_REJECTED',
-          comment: 'Task permanently rejected and closed',
+          comment: task.lastComment || 'Task permanently rejected and closed',
           timestamp: task.approvedAt || new Date().toISOString(),
         }] : []),
       ];
@@ -183,15 +186,33 @@ export default function TaskActionModal({
               </div>
               <div>
                 <h3>Compliance Task Details</h3>
-                <p>{task.record} • {task.entity}</p>
+                <p>{task.record || task.recordNo} • {task.entity || task.entityName}</p>
               </div>
             </div>
-            <button className={styles.closeBtn} onClick={onClose}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+
+            <div className={styles.headerRightGroup}>
+              {/* History / Activity Log Button */}
+              <button
+                type="button"
+                className={styles.historyHeaderBtn}
+                onClick={() => setShowActivityLogModal(true)}
+                title="Open Task Activity Log & Audit Trail"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                <span>Activity Log</span>
+                <span className={styles.historyBadgeCount}>{effectiveHistory.length}</span>
+              </button>
+
+              <button className={styles.closeBtn} onClick={onClose}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* Content Body */}
@@ -258,7 +279,7 @@ export default function TaskActionModal({
             <div className={styles.detailsGrid}>
               <div className={styles.detailItem}>
                 <span className={styles.detailLabel}>SOP Procedure</span>
-                <span className={styles.detailValueBold}>{task.sop}</span>
+                <span className={styles.detailValueBold}>{task.sop || task.sopTitle}</span>
               </div>
 
               <div className={styles.detailItem}>
@@ -270,7 +291,7 @@ export default function TaskActionModal({
 
               <div className={styles.detailItem}>
                 <span className={styles.detailLabel}>Entity &amp; Recurrence</span>
-                <span className={styles.detailValue}>{task.entity} ({task.period})</span>
+                <span className={styles.detailValue}>{task.entity || task.entityName} ({task.period || task.periodKey})</span>
               </div>
 
               <div className={styles.detailItem}>
@@ -471,6 +492,16 @@ export default function TaskActionModal({
           </div>
         </div>
       </div>
+
+      {/* Standalone Dedicated Activity Log Modal */}
+      <TaskActivityLogModal
+        isOpen={showActivityLogModal}
+        onClose={() => setShowActivityLogModal(false)}
+        task={{
+          ...task,
+          history: effectiveHistory,
+        }}
+      />
 
       {/* Confirmation Dialog Popup */}
       {confirmProps && (
