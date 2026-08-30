@@ -16,4 +16,6 @@ public class TaskActionRequest {
     private String actorId;
 
     private String comment;
+
+    private Boolean permanentRejection;
 }

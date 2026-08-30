@@ -4,5 +4,6 @@ public enum TaskStatus {
     OPEN,
     PENDING_REVIEW,
     APPROVED,
-    REJECTED
+    REJECTED,
+    PERMANENTLY_REJECTED
 }

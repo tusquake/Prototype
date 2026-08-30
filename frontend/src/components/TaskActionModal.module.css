@@ -17,12 +17,12 @@
   background: #ffffff;
   border-radius: 16px;
   width: 100%;
-  max-width: 620px;
+  max-width: 780px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: 85vh;
+  max-height: 88vh;
   animation: modalSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -341,4 +341,170 @@
 .completedBadge {
   background: rgba(5, 150, 105, 0.08);
   color: #059669;
+}
+
+/* Task Lifecycle Tracker */
+.lifecycleTracker {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lifecycleTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.flowSteps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.flowStep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.stepBadge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.completedStep .stepBadge {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.currentStep .stepBadge {
+  background: #d97706;
+  color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2);
+}
+
+.approvedStep .stepBadge {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.rejectedStep .stepBadge {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.permanentRejectedStep .stepBadge {
+  background: #991b1b;
+  color: #ffffff;
+}
+
+.stepInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stepName {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stepDetail {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.flowConnector {
+  height: 2px;
+  background: #e2e8f0;
+  flex: 0.4;
+  margin: 0 2px;
+}
+
+.activeConnector {
+  background: #2563eb;
+}
+
+/* Rejection Options Box */
+.rejectionOptionsBox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+  padding: 12px 16px;
+  border-radius: 10px;
+}
+
+.rejectionOptionsLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: #991b1b;
+}
+
+.rejectionRadioGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.radioLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.radioLabel input {
+  margin-top: 3px;
+  cursor: pointer;
+}
+
+.radioLabel strong {
+  display: block;
+  font-size: 12px;
+  color: #1e293b;
+}
+
+.radioLabel p {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+.radioSelected {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.radioSelectedDanger {
+  border-color: #dc2626;
+  background: #fef2f2;
 }

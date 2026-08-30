@@ -86,19 +86,22 @@ export default function Inbox() {
     }
   }
 
-  const showCheckerSection = userRole === 'CHECKER' || userRole === 'ADMIN';
-  const showMakerSection = userRole === 'MAKER' || userRole === 'ADMIN';
+  const isMakerRole = userRole === 'MAKER' || userRole === 'MAKER_CHECKER' || userRole === 'CHECKER_MAKER' || userRole === 'CHECKER' || isAdmin;
+  const isCheckerRole = userRole === 'CHECKER' || userRole === 'MAKER_CHECKER' || userRole === 'CHECKER_MAKER' || userRole === 'MAKER' || isAdmin;
+
+  const showCheckerSection = isCheckerRole;
+  const showMakerSection = isMakerRole;
 
   const checkerTasks = taskList.filter(t => {
     if (t.status !== 'PENDING_REVIEW') return false;
     if (isAdmin) return true;
-    return isUserMatch(t.checker) || isUserMatch(t.assignedCheckers?.join(', '));
+    return isUserMatch(t.checker) || isUserMatch(t.assignedCheckers?.join(', ')) || isUserMatch(t.checkerName);
   });
 
   const makerTasks = taskList.filter(t => {
     if (t.status !== 'OPEN' && t.status !== 'REJECTED') return false;
     if (isAdmin) return true;
-    return isUserMatch(t.maker) || isUserMatch(t.assignedMakers?.join(', '));
+    return isUserMatch(t.maker) || isUserMatch(t.assignedMakers?.join(', ')) || isUserMatch(t.makerName);
   });
 
   const paginatedCheckerTasks = checkerTasks.slice((checkerPage - 1) * PAGE_SIZE, checkerPage * PAGE_SIZE);

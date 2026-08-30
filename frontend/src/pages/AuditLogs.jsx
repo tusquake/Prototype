@@ -12,8 +12,10 @@ import styles from './AuditLogs.module.css';
 const LOG_TYPE_OPTIONS = [
   { value: 'ALL', label: 'All Log Types' },
   { value: 'SUBMIT_TASK', label: 'Submit Task' },
+  { value: 'RESUBMIT_TASK', label: 'Resubmit Task' },
   { value: 'APPROVE_TASK', label: 'Approve Task' },
   { value: 'REJECT_TASK', label: 'Reject Task' },
+  { value: 'PERMANENT_REJECT', label: 'Permanent Reject' },
   { value: 'CREATE_SOP', label: 'Create SOP' },
   { value: 'UPDATE_SOP', label: 'Update SOP' },
   { value: 'DELETE_SOP', label: 'Delete SOP' },
@@ -43,10 +45,14 @@ export function formatActionLabel(action) {
   const map = {
     'SUBMIT_TASK': 'Submit Task',
     'SUBMIT': 'Submit Task',
+    'RESUBMIT_TASK': 'Resubmit Task',
+    'RESUBMIT': 'Resubmit Task',
     'APPROVE_TASK': 'Approve Task',
     'APPROVE': 'Approve Task',
     'REJECT_TASK': 'Reject Task',
     'REJECT': 'Reject Task',
+    'PERMANENT_REJECT': 'Permanent Reject',
+    'PERMANENTLY_REJECT': 'Permanent Reject',
     'CREATE_SOP': 'Create SOP',
     'UPDATE_SOP': 'Update SOP',
     'DELETE_SOP': 'Delete SOP',
@@ -161,6 +167,18 @@ export default function AuditLogs() {
   function renderActionBadge(action) {
     const act = (action || '').toUpperCase();
     const label = formatActionLabel(action);
+
+    if (act.includes('RESUBMIT')) {
+      return (
+        <span className={`${styles.actionBadge} ${styles.actionSubmit}`} style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#93c5fd' }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="23 4 23 10 17 10" />
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+          </svg>
+          {label}
+        </span>
+      );
+    }
 
     if (act.includes('SUBMIT')) {
       return (

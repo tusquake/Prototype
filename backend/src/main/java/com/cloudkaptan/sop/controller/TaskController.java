@@ -95,7 +95,7 @@ public class TaskController {
         @Valid @RequestBody TaskActionRequest request
     ) {
         return ResponseEntity.ok(ApiResponse.success(
-            taskWorkflowService.rejectTask(id, request.getActorId(), request.getComment()),
+            taskWorkflowService.rejectTask(id, request.getActorId(), request.getComment(), request.getPermanentRejection()),
             "Task rejected successfully"
         ));
     }

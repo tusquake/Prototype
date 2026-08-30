@@ -16,12 +16,14 @@ export default function TaskActionModal({
   const [actionError, setActionError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState(null); // 'SUBMIT' | 'APPROVE' | 'REJECT'
+  const [rejectionMode, setRejectionMode] = useState('resubmit'); // 'resubmit' | 'permanent'
 
   useEffect(() => {
     if (isOpen) {
       setComment('');
       setActionError('');
       setPendingConfirm(null);
+      setRejectionMode('resubmit');
     }
   }, [isOpen, task]);
 
@@ -78,7 +80,8 @@ export default function TaskActionModal({
           setPendingConfirm(null);
           return;
         }
-        await onRejectTask(targetId, targetActor, comment);
+        const isPermanent = rejectionMode === 'permanent';
+        await onRejectTask(targetId, targetActor, comment, isPermanent);
       }
       onClose();
     } catch (err) {
@@ -100,9 +103,9 @@ export default function TaskActionModal({
     confirmText: 'Yes, Approve Task',
     confirmVariant: 'success',
   } : pendingConfirm === 'REJECT' ? {
-    title: 'Confirm Task Rejection?',
-    message: 'Are you sure you want to reject this compliance task? This will send the task back to the Maker pool for corrections.',
-    confirmText: 'Yes, Reject Task',
+    title: 'Reject Compliance Task',
+    message: 'Please select how you wish to process this rejection:',
+    confirmText: rejectionMode === 'permanent' ? 'Permanently Reject' : 'Reject & Return to Maker',
     confirmVariant: 'danger',
   } : null;
 
@@ -146,6 +149,64 @@ export default function TaskActionModal({
                 <span>{actionError}</span>
               </div>
             )}
+
+            {/* Visual Task Lifecycle Progress Flow Diagram */}
+            <div className={styles.lifecycleTracker}>
+              <div className={styles.lifecycleTitle}>Task Status Lifecycle Flow</div>
+              <div className={styles.flowSteps}>
+                {/* Step 1: Created / Open */}
+                <div className={`${styles.flowStep} ${styles.completedStep}`}>
+                  <div className={styles.stepBadge}>1</div>
+                  <div className={styles.stepInfo}>
+                    <span className={styles.stepName}>Task Created</span>
+                    <span className={styles.stepDetail}>Open for Maker</span>
+                  </div>
+                </div>
+
+                <div className={`${styles.flowConnector} ${task.status !== 'OPEN' ? styles.activeConnector : ''}`} />
+
+                {/* Step 2: Maker Submission */}
+                <div className={`${styles.flowStep} ${task.status !== 'OPEN' ? (task.status === 'PENDING_REVIEW' ? styles.currentStep : styles.completedStep) : styles.pendingStep}`}>
+                  <div className={styles.stepBadge}>2</div>
+                  <div className={styles.stepInfo}>
+                    <span className={styles.stepName}>
+                      {task.lockedMaker ? `Submitted by ${task.lockedMaker}` : 'Maker Submission'}
+                    </span>
+                    <span className={styles.stepDetail}>
+                      {task.status === 'OPEN' ? 'Awaiting Maker' : task.status === 'PENDING_REVIEW' ? 'Pending Review' : 'Submitted'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className={`${styles.flowConnector} ${['APPROVED', 'REJECTED', 'PERMANENTLY_REJECTED'].includes(task.status) ? styles.activeConnector : ''}`} />
+
+                {/* Step 3: Checker Outcome */}
+                <div className={`${styles.flowStep} ${
+                  task.status === 'APPROVED' ? styles.approvedStep :
+                  task.status === 'REJECTED' ? styles.rejectedStep :
+                  task.status === 'PERMANENTLY_REJECTED' ? styles.permanentRejectedStep :
+                  styles.pendingStep
+                }`}>
+                  <div className={styles.stepBadge}>
+                    {task.status === 'APPROVED' ? '✓' : task.status === 'REJECTED' ? '↺' : task.status === 'PERMANENTLY_REJECTED' ? '✕' : '3'}
+                  </div>
+                  <div className={styles.stepInfo}>
+                    <span className={styles.stepName}>
+                      {task.status === 'APPROVED' ? `Approved by ${task.lockedChecker || 'Checker'}` :
+                       task.status === 'REJECTED' ? `Returned by ${task.lockedChecker || 'Checker'}` :
+                       task.status === 'PERMANENTLY_REJECTED' ? `Permanently Rejected by ${task.lockedChecker || 'Checker'}` :
+                       'Checker Outcome'}
+                    </span>
+                    <span className={styles.stepDetail}>
+                      {task.status === 'APPROVED' ? 'Lifecycle Complete' :
+                       task.status === 'REJECTED' ? 'Resubmit Allowed' :
+                       task.status === 'PERMANENTLY_REJECTED' ? 'Task Closed' :
+                       'Pending Review'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Task Metadata Cards */}
             <div className={styles.detailsGrid}>
@@ -246,7 +307,7 @@ export default function TaskActionModal({
                       <line x1="18" y1="6" x2="6" y2="18" />
                       <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
-                    <span>Reject</span>
+                    <span>Reject Task</span>
                   </button>
 
                   <button
@@ -278,7 +339,42 @@ export default function TaskActionModal({
           submitting={submitting}
           onConfirm={() => handleAction(pendingConfirm)}
           onClose={() => setPendingConfirm(null)}
-        />
+        >
+          {pendingConfirm === 'REJECT' && (
+            <div className={styles.rejectionOptionsBox} style={{ width: '100%', margin: '14px 0 20px', textAlign: 'left' }}>
+              <span className={styles.rejectionOptionsLabel}>Select Action Mode:</span>
+              <div className={styles.rejectionRadioGroup}>
+                <label className={`${styles.radioLabel} ${rejectionMode === 'resubmit' ? styles.radioSelected : ''}`}>
+                  <input
+                    type="radio"
+                    name="rejectionMode"
+                    value="resubmit"
+                    checked={rejectionMode === 'resubmit'}
+                    onChange={() => setRejectionMode('resubmit')}
+                  />
+                  <div>
+                    <strong>Return to Maker for Re-submission</strong>
+                    <p>Sends task back to Maker pool so evidence/notes can be corrected and submitted again</p>
+                  </div>
+                </label>
+
+                <label className={`${styles.radioLabel} ${rejectionMode === 'permanent' ? styles.radioSelectedDanger : ''}`}>
+                  <input
+                    type="radio"
+                    name="rejectionMode"
+                    value="permanent"
+                    checked={rejectionMode === 'permanent'}
+                    onChange={() => setRejectionMode('permanent')}
+                  />
+                  <div>
+                    <strong>Permanently Reject Task</strong>
+                    <p>Closes task lifecycle permanently — no further submissions or changes allowed</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+          )}
+        </ConfirmationModal>
       )}
     </>
   );

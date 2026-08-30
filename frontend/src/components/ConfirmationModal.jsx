@@ -9,6 +9,7 @@ export default function ConfirmationModal({
   submitting = false,
   onConfirm,
   onClose,
+  children,
 }) {
   if (!isOpen) return null;
 
@@ -38,6 +39,8 @@ export default function ConfirmationModal({
 
         <h3 className={styles.title}>{title}</h3>
         <p className={styles.message}>{message}</p>
+
+        {children}
 
         <div className={styles.actions}>
           <button type="button" className={styles.btnCancel} onClick={onClose} disabled={submitting}>

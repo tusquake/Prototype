@@ -28,3 +28,9 @@
   background: var(--danger-bg);
   color: var(--danger);
 }
+
+.permanentlyRejected {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}

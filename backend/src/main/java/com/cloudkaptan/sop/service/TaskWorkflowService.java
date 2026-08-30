@@ -47,7 +47,8 @@ public class TaskWorkflowService {
         context.submit(actor, comment);
 
         Task saved = taskRepository.save(task);
-        eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), "SUBMIT", comment));
+        String actionName = (fromStatus == TaskStatus.REJECTED) ? "RESUBMIT" : "SUBMIT";
+        eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), actionName, comment));
         return mapToDto(saved);
     }
 
@@ -71,9 +72,9 @@ public class TaskWorkflowService {
     }
 
     @Transactional
-    public TaskDto rejectTask(UUID taskId, String actorId, String comment) {
+    public TaskDto rejectTask(UUID taskId, String actorId, String comment, Boolean permanentRejection) {
         Task task = getTaskOrThrow(taskId);
-        if (task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED) {
+        if (task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED || task.getStatus() == TaskStatus.PERMANENTLY_REJECTED) {
             throw new IllegalStateException("Task is locked and has already been reviewed by " + (task.getChecker() != null ? task.getChecker().getFullName() : "another Checker"));
         }
 
@@ -82,10 +83,18 @@ public class TaskWorkflowService {
         TaskStatus fromStatus = task.getStatus();
 
         TaskContext context = new TaskContext(task);
-        context.reject(actor, comment);
+        if (Boolean.TRUE.equals(permanentRejection)) {
+            if (comment == null || comment.isBlank()) {
+                throw new IllegalArgumentException("Rejection reason is mandatory when rejecting a task.");
+            }
+            task.setStatus(TaskStatus.PERMANENTLY_REJECTED);
+        } else {
+            context.reject(actor, comment);
+        }
 
         Task saved = taskRepository.save(task);
-        eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), "REJECT", comment));
+        String actionName = Boolean.TRUE.equals(permanentRejection) ? "PERMANENT_REJECT" : "REJECT";
+        eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), actionName, comment));
         return mapToDto(saved);
     }
 
@@ -149,10 +158,10 @@ public class TaskWorkflowService {
             .map(id -> userRepository.findById(id).map(User::getFullName).orElse(task.getChecker().getFullName()))
             .toList();
 
-        String actualMakerName = (task.getStatus() == TaskStatus.PENDING_REVIEW || task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED)
+        String actualMakerName = (task.getStatus() == TaskStatus.PENDING_REVIEW || task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED || task.getStatus() == TaskStatus.PERMANENTLY_REJECTED)
             ? task.getMaker().getFullName() : null;
 
-        String actualCheckerName = (task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED)
+        String actualCheckerName = (task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED || task.getStatus() == TaskStatus.PERMANENTLY_REJECTED)
             ? task.getChecker().getFullName() : null;
 
         return TaskDto.builder()

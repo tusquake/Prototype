@@ -125,10 +125,10 @@ export function mapTask(dto) {
     ? dto.assignedCheckerNames
     : (dto.assignedCheckers && dto.assignedCheckers.length > 0 ? dto.assignedCheckers : (dto.checkerName ? [dto.checkerName] : []));
 
-  const isSubmittedOrDone = dto.status === 'PENDING_REVIEW' || dto.status === 'APPROVED' || dto.status === 'REJECTED';
+  const isSubmittedOrDone = dto.status === 'PENDING_REVIEW' || dto.status === 'APPROVED' || dto.status === 'REJECTED' || dto.status === 'PERMANENTLY_REJECTED';
   const lockedMaker = dto.actualMakerName || dto.actualMaker || (isSubmittedOrDone ? dto.makerName : null);
 
-  const isCompleted = dto.status === 'APPROVED' || dto.status === 'REJECTED';
+  const isCompleted = dto.status === 'APPROVED' || dto.status === 'REJECTED' || dto.status === 'PERMANENTLY_REJECTED';
   const lockedChecker = dto.actualCheckerName || dto.actualChecker || (isCompleted ? dto.checkerName : null);
 
   return {
@@ -435,14 +435,16 @@ export async function approveTask(taskId, actorId = 'usr-mainak-215', comment = 
   return res;
 }
 
-export async function rejectTask(taskId, actorId = 'usr-mainak-215', comment = 'Requires correction') {
+export async function rejectTask(taskId, actorId = 'usr-mainak-215', comment = 'Requires correction', permanentRejection = false) {
   let id = taskId;
   let actor = actorId;
   let comm = comment;
+  let isPermanent = permanentRejection;
 
   if (typeof taskId === 'object' && taskId !== null) {
     id = taskId.taskId || taskId.id || taskId.recordNo;
-    if (typeof actorId === 'string' && !comment) {
+    if (typeof actorId === 'string' && typeof comment !== 'string') {
+      isPermanent = !!comment;
       comm = actorId;
       actor = 'usr-mainak-215';
     }
@@ -450,12 +452,12 @@ export async function rejectTask(taskId, actorId = 'usr-mainak-215', comment = '
 
   const res = await fetchJson(`/tasks/${id}/reject`, {
     method: 'PUT',
-    body: JSON.stringify({ actorId: actor, comment: comm }),
+    body: JSON.stringify({ actorId: actor, comment: comm, permanentRejection: isPermanent }),
   }).catch(() => null);
 
   const mock = MOCK_TASKS.find(t => t.taskId === id || t.id === id || t.recordNo === id);
   if (mock) {
-    mock.status = 'REJECTED';
+    mock.status = isPermanent ? 'PERMANENTLY_REJECTED' : 'REJECTED';
     mock.actualChecker = actor === 'usr-vivek-108' ? 'Vivek Raj' : 'Mainak Gupta';
   }
   return res;
