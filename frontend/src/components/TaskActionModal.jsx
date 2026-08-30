@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import StatusBadge from './StatusBadge';
 import ConfirmationModal from './ConfirmationModal';
+import Toast from './Toast';
 import styles from './TaskActionModal.module.css';
 
 export default function TaskActionModal({
@@ -13,7 +14,7 @@ export default function TaskActionModal({
   onRejectTask,
 }) {
   const [comment, setComment] = useState('');
-  const [actionError, setActionError] = useState('');
+  const [toastError, setToastError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState(null); // 'SUBMIT' | 'APPROVE' | 'REJECT'
   const [rejectionMode, setRejectionMode] = useState('resubmit'); // 'resubmit' | 'permanent'
@@ -21,7 +22,7 @@ export default function TaskActionModal({
   useEffect(() => {
     if (isOpen) {
       setComment('');
-      setActionError('');
+      setToastError('');
       setPendingConfirm(null);
       setRejectionMode('resubmit');
     }
@@ -54,16 +55,16 @@ export default function TaskActionModal({
   const canApproveOrReject = task.status === 'PENDING_REVIEW' && isAssignedChecker && !isActionedByOtherChecker && !isSelfMakerSubmission && !isViewer;
 
   function triggerConfirm(actionType) {
-    setActionError('');
+    setToastError('');
     if (actionType === 'REJECT' && !comment.trim()) {
-      setActionError('Please provide a mandatory reason for rejection.');
+      setToastError('Please provide a mandatory reason for rejection.');
       return;
     }
     setPendingConfirm(actionType);
   }
 
   async function handleAction(actionType) {
-    setActionError('');
+    setToastError('');
     try {
       setSubmitting(true);
       const targetId = task.taskId || task.id || task.recordNo;
@@ -75,7 +76,7 @@ export default function TaskActionModal({
         await onApproveTask(targetId, targetActor, comment);
       } else if (actionType === 'REJECT') {
         if (!comment.trim()) {
-          setActionError('Please provide a mandatory reason for rejection.');
+          setToastError('Please provide a mandatory reason for rejection.');
           setSubmitting(false);
           setPendingConfirm(null);
           return;
@@ -85,7 +86,7 @@ export default function TaskActionModal({
       }
       onClose();
     } catch (err) {
-      setActionError(err.message || 'Action failed');
+      setToastError(err.message || 'Action failed');
     } finally {
       setSubmitting(false);
       setPendingConfirm(null);
@@ -111,6 +112,8 @@ export default function TaskActionModal({
 
   return (
     <>
+      <Toast message={toastError} type="error" duration={4500} onClose={() => setToastError('')} />
+
       <div className={styles.modalOverlay} onClick={onClose}>
         <div className={styles.modal} onClick={e => e.stopPropagation()}>
           {/* Header */}
@@ -139,17 +142,6 @@ export default function TaskActionModal({
 
           {/* Content Body */}
           <div className={styles.modalBody}>
-            {actionError && (
-              <div className={styles.alertError}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-                <span>{actionError}</span>
-              </div>
-            )}
-
             {/* Visual Task Lifecycle Progress Flow Diagram */}
             <div className={styles.lifecycleTracker}>
               <div className={styles.lifecycleTitle}>Task Status Lifecycle Flow</div>
