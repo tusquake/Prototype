@@ -8,6 +8,8 @@ spring:
     name: finsop-backend
   profiles:
     active: local
+  flyway:
+    enabled: false
 
   security:
     oauth2:
