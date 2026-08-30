@@ -1,279 +1,304 @@
-# RAVAND FinOps — Google Cloud Platform (GCP) Deployment Guide
+# Google Cloud Platform (GCP) Enterprise Deployment Guide
 
-This guide provides end-to-end instructions for deploying the RAVAND FinOps platform to Google Cloud Platform using serverless Cloud Run for the Spring Boot backend, Google Cloud Storage (GCS) static website hosting with Cloud CDN for the React SPA frontend, Cloud SQL PostgreSQL, GCP Secret Manager, Cloud Armor WAF, and Global Application Load Balancing.
+This guide provides a complete, production-grade, end-to-end command set to provision and deploy the **FinSOP Platform** infrastructure from scratch using the Google Cloud SDK (`gcloud` CLI) in Google Cloud Shell.
 
----
-
-## Production Target Architecture
-
-```
-                          USER / BROWSER
-                                │
-                                ▼
-                   Cloud DNS (app.ravand.com)
-                                │
-                                ▼
-       Global External Application Load Balancer (HTTPS / TLS 443)
-                                │
-                                ▼
-           Cloud Armor WAF (OWASP SQLi, XSS, Rate Limiting)
-                                │
-       ┌────────────────────────┴────────────────────────┐
-       │ (Path: /*)                                      │ (Path: /finsop/v1/*)
-       ▼                                                 ▼
-Google Cloud Storage (GCS) Bucket                Serverless NEG / Cloud Run Backend
-(Static Web Hosting + Cloud CDN Edge)            (Spring Boot 3 REST API Engine)
-       │                                                 │
-       │ (React SPA Assets)                              │ (VPC Private Access)
-       │                                                 ▼
-       └───────────────────────────────────> Cloud SQL PostgreSQL 15 Instance
-                                             (Private IP Only, High Availability, PITR)
-```
+The infrastructure features a zero-trust custom VPC, private-only Cloud SQL (PostgreSQL 16) with zero public IP exposure, Secret Manager integration, Serverless VPC Access Connector, Artifact Registry, Cloud Run backend, GCS static frontend with Cloud CDN, and Cloud Armor WAF security.
 
 ---
 
-## Prerequisites & Environment Setup
+## 🏗️ Architecture Overview
 
-### Required Tools & Permissions
-1. **Google Cloud SDK (`gcloud` CLI)**: Installed and authenticated (`gcloud auth login`).
-2. **GCP Project**: Active project with Billing enabled.
-3. **IAM Permissions**: `Editor` or `Owner` privileges on the target GCP project.
+```
+                                USER / BROWSER
+                                      │
+                                      ▼
+                         Cloud DNS (app.finsop.com)
+                                      │
+                                      ▼
+             Global External Application Load Balancer (HTTPS / TLS 443)
+                                      │
+                                      ▼
+                 Cloud Armor WAF (OWASP SQLi, XSS, Rate Limiting)
+                                      │
+        ┌─────────────────────────────┴─────────────────────────────┐
+        │ (Path: /*)                                                │ (Path: /finsop/v1/*)
+        ▼                                                           ▼
+Google Cloud Storage (GCS) Bucket                   Serverless NEG / Cloud Run Backend
+(Static Web Hosting + Cloud CDN Edge)               (Spring Boot 3 REST API Engine)
+        │                                                           │
+        │ (React SPA Assets)                                        │ (VPC Connector: 10.8.0.0/28)
+        │                                                           ▼
+        └────────────────────────────────────────> Cloud SQL PostgreSQL 16 Instance
+                                                   (Private IP: 10.x.x.x, 1 vCPU / 3.75GB, SSD)
+```
 
-### Step 1: Initialize Project Configuration
-Set environment variables for the deployment session:
+---
+
+## Phase 1: Environment Setup & API Activation
+
+Run these commands first in Google Cloud Shell to export infrastructure variables, configure project context, and enable all required GCP service APIs.
 
 ```bash
-export PROJECT_ID="ravand-finops-prod"
-export REGION="us-central1"
-export DB_PASS="SecureCloudSqlPassword2026!"
-export BUCKET_NAME="app.ravand.com"
+# 1. Export Regional & Infrastructure Variables
+export PROJECT_ID="finance-sop-portal"
+export REGION="asia-south1"
+export VPC_NAME="fin-sop-vpc"
+export SUBNET_NAME="fin-sop-subnet"
+export DB_INSTANCE_NAME="fin-sop-postgres"
+export DB_NAME="fin_sop_db"
+export DB_USER="sop_app_user"
 
+# 2. Set Project Context
 gcloud config set project $PROJECT_ID
-```
 
-### Step 2: Enable Required GCP APIs
-Enable required API services:
-
-```bash
-gcloud services enable \
-  run.googleapis.com \
-  sqladmin.googleapis.com \
-  secretmanager.googleapis.com \
-  storage-component.googleapis.com \
-  compute.googleapis.com \
-  vpcaccess.googleapis.com \
-  servicenetworking.googleapis.com \
-  cloudscheduler.googleapis.com \
-  cloudbuild.googleapis.com
+# 3. Enable Required GCP APIs
+gcloud services enable compute.googleapis.com \
+                       servicenetworking.googleapis.com \
+                       sqladmin.googleapis.com \
+                       secretmanager.googleapis.com \
+                       vpcaccess.googleapis.com \
+                       artifactregistry.googleapis.com \
+                       run.googleapis.com \
+                       storage-component.googleapis.com \
+                       cloudscheduler.googleapis.com \
+                       cloudbuild.googleapis.com \
+                       --project=$PROJECT_ID
 ```
 
 ---
 
-## Step 3: Configure Private Networking & Cloud SQL
+## Phase 2: Custom Network & Serverless Connectivity
 
-### 1. Create Private Service Networking Connection
-Restrict Cloud SQL database traffic to the internal GCP Virtual Private Cloud (VPC):
+Creates the isolated custom VPC network, subnets, private service peering IP range for Cloud SQL, Serverless VPC Access Connector for Cloud Run, and internal firewall rules.
 
 ```bash
-# Create Private IP Range
-gcloud compute addresses create ravand-vpc-peering-range \
+# 1. Create Custom VPC (Zero-trust, no auto-subnets)
+gcloud compute networks create $VPC_NAME \
+    --subnet-mode=custom \
+    --bgp-routing-mode=regional
+
+# 2. Create Private Subnet in asia-south1
+gcloud compute networks subnets create $SUBNET_NAME \
+    --network=$VPC_NAME \
+    --region=$REGION \
+    --range=10.0.0.0/20 \
+    --enable-private-ip-google-access
+
+# 3. Reserve Internal IP Range for Cloud SQL Private Peering
+gcloud compute addresses create google-managed-services-$VPC_NAME \
     --global \
     --purpose=VPC_PEERING \
     --prefix-length=16 \
-    --description="Peering range for Cloud SQL Private IP" \
-    --network=default
+    --description="PEERING-SERVICENETWORKING-RANGE" \
+    --network=$VPC_NAME
 
-# Create Private Services Peering Connection
-gcloud services peering connect \
+# 4. Connect Private VPC Peering to Google Managed Services
+gcloud compute networks peerings connect \
     --service=servicenetworking.googleapis.com \
-    --ranges=ravand-vpc-peering-range \
-    --network=default
-```
+    --ranges=google-managed-services-$VPC_NAME \
+    --network=$VPC_NAME \
+    --project=$PROJECT_ID
 
-### 2. Provision Cloud SQL PostgreSQL Instance
-Create a managed PostgreSQL 15 instance with high availability and point-in-time recovery:
-
-```bash
-gcloud sql instances create ravand-postgres-prod \
-    --database-version=POSTGRES_15 \
-    --tier=db-custom-2-7680 \
+# 5. Create Serverless VPC Access Connector (For Cloud Run -> Cloud SQL)
+gcloud compute networks vpc-access connectors create fin-sop-vpc-connector \
     --region=$REGION \
-    --network=default \
-    --no-assign-ip \
-    --enable-point-in-time-recovery \
-    --retained-backups-count=7 \
-    --backup-start-time=02:00
-
-# Set Root Database Password
-gcloud sql users set-password postgres \
-    --instance=ravand-postgres-prod \
-    --password=$DB_PASS
-
-# Create Application Database
-gcloud sql databases create finsop_db \
-    --instance=ravand-postgres-prod
-```
-
----
-
-## Step 4: Configure GCP Secret Manager
-
-Store confidential database passwords securely in Secret Manager rather than environment files:
-
-```bash
-# Create Database Password Secret Vault
-gcloud secrets create ravand-db-password-prod \
-    --replication-policy="automatic"
-
-# Add Secret Version
-echo -n "$DB_PASS" | gcloud secrets versions add ravand-db-password-prod --data-file=-
-```
-
----
-
-## Step 5: Provision Serverless VPC Connector
-
-Create a Serverless VPC Access connector allowing Cloud Run services to communicate with Cloud SQL on Private IP:
-
-```bash
-gcloud compute networks vpc-access connectors create ravand-vpc-connector \
-    --region=$REGION \
+    --network=$VPC_NAME \
     --range=10.8.0.0/28 \
-    --network=default
+    --min-instances=2 \
+    --max-instances=10 \
+    --machine-type=e2-micro
+
+# 6. Create Internal Firewall Rule
+gcloud compute firewall-rules create allow-internal-fin-sop \
+    --network=$VPC_NAME \
+    --allow=tcp:8080,tcp:5432,icmp \
+    --source-ranges=10.0.0.0/20,10.8.0.0/28 \
+    --description="Allow internal traffic between Cloud Run VPC Connector and Cloud SQL"
 ```
 
 ---
 
-## Step 6: Deploy Backend Microservice to Cloud Run
+## Phase 3: Provision Cloud SQL PostgreSQL 16
 
-Deploy the Spring Boot backend container using Cloud Run source-based buildpacks:
+Provisions a High Availability Cloud SQL instance attached only to your private VPC with Secret Manager Integration for database password vaulting.
 
 ```bash
-# Get Cloud SQL Private IP Connection Name
-export DB_CONNECTION_NAME=$(gcloud sql instances describe ravand-postgres-prod --format="value(connectionName)")
-export PRIVATE_IP=$(gcloud sql instances describe ravand-postgres-prod --format="value(ipAddresses[0].ipAddress)")
+# 1. Generate Database Password and Store in Secret Manager
+DB_PASSWORD=$(openssl rand -base64 24)
 
-# Deploy Backend Container
-gcloud run deploy ravand-backend \
-    --source ./backend \
-    --region $REGION \
-    --platform managed \
-    --vpc-connector ravand-vpc-connector \
-    --vpc-egress private-ranges-only \
-    --allow-unauthenticated \
-    --set-env-vars \
-SPRING_PROFILES_ACTIVE=prod,\
-SPRING_DATASOURCE_URL=jdbc:postgresql://$PRIVATE_IP:5432/finsop_db,\
-SPRING_DATASOURCE_USERNAME=postgres,\
-SPRING_JPA_HIBERNATE_DDL_AUTO=validate,\
-SPRING_FLYWAY_ENABLED=true \
-    --set-secrets SPRING_DATASOURCE_PASSWORD=ravand-db-password-prod:latest
+echo -n "$DB_PASSWORD" | gcloud secrets create fin-sop-db-password \
+    --replication-policy="automatic" \
+    --data-file=-
+
+# 2. Provision Regional HA Cloud SQL PostgreSQL 16 Instance
+gcloud sql instances create $DB_INSTANCE_NAME \
+    --database-version=POSTGRES_16 \
+    --edition=ENTERPRISE \
+    --tier=db-custom-1-3840 \
+    --region=$REGION \
+    --availability-type=REGIONAL \
+    --network=$VPC_NAME \
+    --no-assign-ip \
+    --storage-type=SSD \
+    --storage-size=10GB \
+    --storage-auto-increase \
+    --backup-start-time=02:00 \
+    --enable-point-in-time-recovery \
+    --retained-backups-count=14 \
+    --retained-transaction-log-days=7 \
+    --deletion-protection \
+    --database-flags=max_connections=100,log_checkpoints=on,log_connections=on,log_disconnections=on,statement_timeout=10000
+
+# 3. Create Application Database
+gcloud sql databases create $DB_NAME --instance=$DB_INSTANCE_NAME
+
+# 4. Create Database Application User
+gcloud sql users create $DB_USER --instance=$DB_INSTANCE_NAME --password=$DB_PASSWORD
 ```
-
-Save the output backend URL (e.g. `https://ravand-backend-xyz-uc.a.run.app`).
 
 ---
 
-## Step 7: Deploy React SPA Frontend to Google Cloud Storage (GCS) Bucket
+## Phase 4: Artifact Registry Setup & Container Build
 
-Host the frontend static web assets in a Google Cloud Storage bucket configured for static web hosting and global Cloud CDN edge distribution.
+Creates the private Artifact Registry container repository and builds/pushes the Spring Boot backend container image.
 
-### 1. Create Public GCS Bucket for Static Hosting
 ```bash
-# Create GCS Bucket with Uniform Bucket-Level Access
-gcloud storage buckets create gs://$BUCKET_NAME \
+# 1. Create Docker Repository in Artifact Registry
+gcloud artifacts repositories create fin-sop-repo \
+    --repository-format=docker \
     --location=$REGION \
-    --uniform-bucket-level-access
+    --description="Docker repository for FinSOP microservices"
 
-# Grant Public Read Permissions to allUsers
-gcloud storage buckets add-iam-policy-binding gs://$BUCKET_NAME \
-    --member=allUsers \
-    --role=roles/storage.objectViewer
-
-# Configure Bucket for Static Web Hosting (Index Page and Client-Side Routing Fallback)
-gcloud storage buckets update gs://$BUCKET_NAME \
-    --web-main-page-suffix=index.html \
-    --web-error-page=index.html
-```
-
-### 2. Build and Upload Production SPA Bundle
-```bash
-# Navigate to frontend directory and build SPA bundle
-cd frontend
-npm install
-npm run build
-
-# Synchronize production build assets to GCS Bucket
-gcloud storage rsync -r -d dist/ gs://$BUCKET_NAME/
+# 2. Build Container Image using Cloud Build (from backend directory)
+cd backend
+gcloud builds submit --tag $REGION-docker.pkg.dev/$PROJECT_ID/fin-sop-repo/fin-sop-backend:latest .
 cd ..
 ```
 
 ---
 
-## Step 8: Configure Load Balancer URL Routing (GCS Bucket + Cloud Run Backend)
+## Phase 5: Cloud Run Deployment (Spring Boot Backend)
 
-Create a Global HTTP(S) Load Balancer that routes frontend static assets (`/*`) to the GCS Bucket with Cloud CDN, and API requests (`/finsop/v1/*`) to the Cloud Run backend:
+Deploys the Spring Boot backend container to Cloud Run connected via the Serverless VPC Connector to the private Cloud SQL instance.
 
 ```bash
-# 1. Create Backend Bucket for GCS with Cloud CDN Enabled
-gcloud compute backend-buckets create ravand-frontend-backend-bucket \
-    --gcs-bucket-name=$BUCKET_NAME \
-    --enable-cdn
+# 1. Retrieve Private IP of Cloud SQL Instance
+export DB_PRIVATE_IP=$(gcloud sql instances describe $DB_INSTANCE_NAME --format="value(ipAddresses[0].ipAddress)")
 
-# 2. Create Serverless NEG for Cloud Run Backend
-gcloud compute network-endpoint-groups create ravand-backend-neg \
+# 2. Deploy Backend Container to Cloud Run
+gcloud run deploy fin-sop-backend \
+    --image=$REGION-docker.pkg.dev/$PROJECT_ID/fin-sop-repo/fin-sop-backend:latest \
     --region=$REGION \
-    --network-endpoint-type=serverless \
-    --cloud-run-service=ravand-backend
-
-# 3. Create Backend Service for Cloud Run
-gcloud compute backend-services create ravand-backend-service \
-    --global
-
-gcloud compute backend-services add-backend ravand-backend-service \
-    --global \
-    --network-endpoint-group=ravand-backend-neg \
-    --network-endpoint-group-region=$REGION
-
-# 4. Create URL Map Routing Requests
-gcloud compute url-maps create ravand-global-url-map \
-    --default-backend-bucket=ravand-frontend-backend-bucket
-
-# Add Path Matcher for API Requests (/finsop/v1/* -> Cloud Run Backend Service)
-gcloud compute url-maps add-path-matcher ravand-global-url-map \
-    --path-matcher-name=api-matcher \
-    --default-backend-bucket=ravand-frontend-backend-bucket \
-    --backend-service-path-rules="/finsop/v1/*=ravand-backend-service"
+    --platform=managed \
+    --no-allow-unauthenticated \
+    --ingress=internal-and-cloud-load-balancing \
+    --vpc-connector=fin-sop-vpc-connector \
+    --vpc-egress=all-traffic \
+    --min-instances=0 \
+    --max-instances=5 \
+    --cpu=1 \
+    --memory=1Gi \
+    --set-env-vars="SPRING_PROFILES_ACTIVE=prod,SPRING_DATASOURCE_URL=jdbc:postgresql://$DB_PRIVATE_IP:5432/$DB_NAME,SPRING_DATASOURCE_USERNAME=$DB_USER" \
+    --set-secrets="SPRING_DATASOURCE_PASSWORD=fin-sop-db-password:latest"
 ```
 
 ---
 
-## Step 9: Configure Edge Security & Web Application Firewall (WAF)
+## Phase 6: Frontend Deployment (GCS Bucket + Cloud CDN)
 
-Create Cloud Armor security rules to protect application endpoints from OWASP Top 10 vulnerabilities and rate abuse:
+Deploys the React SPA frontend to a Google Cloud Storage bucket with static website hosting.
 
 ```bash
-# Create Security Policy
-gcloud compute security-policies create ravand-waf-policy \
-    --description="Cloud Armor WAF Policy for RAVAND FinOps"
+export FRONTEND_BUCKET="app-fin-sop-portal"
 
-# Rule 1: Prevent SQL Injection Attacks
+# 1. Create GCS Bucket with Uniform Access
+gcloud storage buckets create gs://$FRONTEND_BUCKET \
+    --location=$REGION \
+    --uniform-bucket-level-access
+
+# 2. Grant Public Read Access
+gcloud storage buckets add-iam-policy-binding gs://$FRONTEND_BUCKET \
+    --member=allUsers \
+    --role=roles/storage.objectViewer
+
+# 3. Configure Website Main & Fallback Index Pages
+gcloud storage buckets update gs://$FRONTEND_BUCKET \
+    --web-main-page-suffix=index.html \
+    --web-error-page=index.html
+
+# 4. Build and Upload Frontend Assets
+cd frontend
+npm install
+npm run build
+gcloud storage rsync -r -d dist/ gs://$FRONTEND_BUCKET/
+cd ..
+```
+
+---
+
+## Phase 7: Global Load Balancer & URL Routing
+
+Sets up a Global External Application Load Balancer routing SPA traffic (`/*`) to GCS with Cloud CDN and API calls (`/finsop/v1/*`) to Cloud Run.
+
+```bash
+# 1. Create Backend Bucket for GCS with Cloud CDN
+gcloud compute backend-buckets create fin-sop-frontend-backend-bucket \
+    --gcs-bucket-name=$FRONTEND_BUCKET \
+    --enable-cdn
+
+# 2. Create Serverless Network Endpoint Group (NEG) for Cloud Run
+gcloud compute network-endpoint-groups create fin-sop-backend-neg \
+    --region=$REGION \
+    --network-endpoint-type=serverless \
+    --cloud-run-service=fin-sop-backend
+
+# 3. Create Global Backend Service for Cloud Run
+gcloud compute backend-services create fin-sop-backend-service \
+    --global
+
+gcloud compute backend-services add-backend fin-sop-backend-service \
+    --global \
+    --network-endpoint-group=fin-sop-backend-neg \
+    --network-endpoint-group-region=$REGION
+
+# 4. Create URL Map Routing Rules
+gcloud compute url-maps create fin-sop-global-url-map \
+    --default-backend-bucket=fin-sop-frontend-backend-bucket
+
+gcloud compute url-maps add-path-matcher fin-sop-global-url-map \
+    --path-matcher-name=api-matcher \
+    --default-backend-bucket=fin-sop-frontend-backend-bucket \
+    --backend-service-path-rules="/finsop/v1/*=fin-sop-backend-service"
+```
+
+---
+
+## Phase 8: Cloud Armor WAF Edge Security
+
+Creates Cloud Armor security rules protecting application endpoints against OWASP vulnerabilities and rate abuse.
+
+```bash
+# 1. Create Security Policy
+gcloud compute security-policies create fin-sop-waf-policy \
+    --description="Cloud Armor WAF Policy for FinSOP Platform"
+
+# 2. Rule 1000: Block SQL Injection (SQLi)
 gcloud compute security-policies rules create 1000 \
-    --security-policy=ravand-waf-policy \
+    --security-policy=fin-sop-waf-policy \
     --expression="evaluatePreconfiguredExpr('sqli-v33-stable')" \
     --action="deny(403)" \
     --description="Block SQL Injection"
 
-# Rule 2: Prevent Cross-Site Scripting (XSS)
+# 3. Rule 1001: Block Cross-Site Scripting (XSS)
 gcloud compute security-policies rules create 1001 \
-    --security-policy=ravand-waf-policy \
+    --security-policy=fin-sop-waf-policy \
     --expression="evaluatePreconfiguredExpr('xss-v33-stable')" \
     --action="deny(403)" \
     --description="Block XSS"
 
-# Rule 3: Rate Limiting (Max 100 requests per minute per IP)
+# 4. Rule 2000: Rate Limiting (100 req/min per IP)
 gcloud compute security-policies rules create 2000 \
-    --security-policy=ravand-waf-policy \
+    --security-policy=fin-sop-waf-policy \
     --action="rate-based-ban" \
     --rate-limit-threshold-count=100 \
     --rate-limit-threshold-interval-sec=60 \
@@ -283,24 +308,24 @@ gcloud compute security-policies rules create 2000 \
     --enforce-on-key="IP" \
     --description="Rate Limit 100 req/min"
 
-# Attach WAF Security Policy to Backend Service
-gcloud compute backend-services update ravand-backend-service \
+# 5. Attach WAF Policy to Backend Service
+gcloud compute backend-services update fin-sop-backend-service \
     --global \
-    --security-policy=ravand-waf-policy
+    --security-policy=fin-sop-waf-policy
 ```
 
 ---
 
-## Step 10: Configure Automated Nightly Cron Scheduler
+## Phase 9: Automated Nightly Task Scheduler
 
-Create a GCP Cloud Scheduler job to invoke the backend's task scheduling engine nightly at midnight:
+Creates a GCP Cloud Scheduler job to trigger automated compliance task cycle generation at midnight UTC.
 
 ```bash
-export BACKEND_URL=$(gcloud run services describe ravand-backend --region $REGION --format="value(status.url)")
+export BACKEND_SERVICE_URL=$(gcloud run services describe fin-sop-backend --region=$REGION --format="value(status.url)")
 
-gcloud scheduler jobs create http ravand-nightly-task-generator \
+gcloud scheduler jobs create http fin-sop-nightly-task-generator \
     --schedule="0 0 * * *" \
-    --uri="$BACKEND_URL/finsop/v1/tasks/generate-scheduled" \
+    --uri="$BACKEND_SERVICE_URL/finsop/v1/tasks/generate-scheduled" \
     --http-method=POST \
     --time-zone="UTC" \
     --description="Triggers automated compliance task cycle generation at midnight UTC"
@@ -308,15 +333,13 @@ gcloud scheduler jobs create http ravand-nightly-task-generator \
 
 ---
 
-## Step 11: Production Deployment Verification Checklist
+## 🔍 Verification & Diagnostics
 
-Verify deployment health across all components:
-
-| Component | Verification Command / Target | Expected Output |
+| Verification Target | Command | Expected Result |
 | :--- | :--- | :--- |
-| **Backend Health** | `curl $BACKEND_URL/finsop/v1/health` | `{"success":true,"data":{"status":"UP"}}` |
-| **GCS Static Frontend** | `gcloud storage ls gs://$BUCKET_NAME/` | Index.html & assets listing |
-| **Cloud SQL Status** | `gcloud sql instances describe ravand-postgres-prod --format="value(state)"` | `RUNNING` |
-| **Cloud Run Backend** | `gcloud run services describe ravand-backend --region $REGION` | `Ready: True` |
-| **WAF Status** | `gcloud compute security-policies describe ravand-waf-policy` | Active rules list |
-| **Nightly Scheduler** | `gcloud scheduler jobs execute ravand-nightly-task-generator` | HTTP 200 OK |
+| **Backend Actuator Health** | `curl $BACKEND_SERVICE_URL/actuator/health` | `{"status":"UP"}` |
+| **Cloud SQL Status** | `gcloud sql instances describe $DB_INSTANCE_NAME --format="value(state)"` | `RUNNING` |
+| **Cloud Run Status** | `gcloud run services describe fin-sop-backend --region=$REGION` | `Ready: True` |
+| **VPC Connector Status** | `gcloud compute networks vpc-access connectors describe fin-sop-vpc-connector --region=$REGION` | `STATE: READY` |
+| **Cloud Armor Rules** | `gcloud compute security-policies describe fin-sop-waf-policy` | Rule list 1000, 1001, 2000 |
+| **Manual Cron Trigger** | `gcloud scheduler jobs execute fin-sop-nightly-task-generator` | `HTTP 200 OK` |
