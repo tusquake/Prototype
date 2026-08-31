@@ -25,6 +25,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 
+import com.cloudkaptan.sop.config.security.TenantSecurityFilter;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -32,6 +34,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final RateLimitingFilter rateLimitingFilter;
+    private final TenantSecurityFilter tenantSecurityFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -47,8 +50,10 @@ public class SecurityConfig {
             )
             // 1. Set local dev authentication context first
             .addFilterBefore(new LocalDevAuthFilter(), UsernamePasswordAuthenticationFilter.class)
-            // 2. Evaluate rate limiting directly after authentication context is populated
-            .addFilterAfter(rateLimitingFilter, LocalDevAuthFilter.class);
+            // 2. Initialize ThreadLocal TenantContext directly after auth context resolution
+            .addFilterAfter(tenantSecurityFilter, LocalDevAuthFilter.class)
+            // 3. Evaluate rate limiting directly after TenantContext is populated
+            .addFilterAfter(rateLimitingFilter, TenantSecurityFilter.class);
 
         return http.build();
     }
