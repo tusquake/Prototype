@@ -1,5 +1,6 @@
 package com.cloudkaptan.sop.service;
 
+import com.cloudkaptan.sop.config.security.ApplyRowLevelSecurity;
 import com.cloudkaptan.sop.domain.enums.EntityCode;
 import com.cloudkaptan.sop.domain.enums.TaskStatus;
 import com.cloudkaptan.sop.domain.state.TaskContext;
@@ -144,7 +145,7 @@ public class TaskWorkflowService {
         return taskRepository.findInboxTasks(entities, status, userId, pageable);
     }
 
-    @com.cloudkaptan.sop.config.security.ApplyRowLevelSecurity
+    @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
     public List<TaskDto> getTasks(List<EntityCode> entities) {
         return taskRepository.findTasksByEntities(entities).stream()

@@ -1,5 +1,6 @@
 package com.cloudkaptan.sop.service;
 
+import com.cloudkaptan.sop.config.security.ApplyRowLevelSecurity;
 import com.cloudkaptan.sop.domain.enums.EntityCode;
 import com.cloudkaptan.sop.domain.enums.SopStatus;
 import com.cloudkaptan.sop.domain.enums.UserRole;
@@ -32,7 +33,7 @@ public class SopService {
     private final TaskSchedulerService taskSchedulerService;
     private final AuditLogRepository auditLogRepository;
 
-    @com.cloudkaptan.sop.config.security.ApplyRowLevelSecurity
+    @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
     public List<SopDto> getSops(List<EntityCode> entities) {
         List<Sop> sops = (entities == null || entities.isEmpty())
