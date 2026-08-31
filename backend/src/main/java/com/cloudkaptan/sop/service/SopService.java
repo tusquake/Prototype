@@ -50,14 +50,12 @@ public class SopService {
         }
 
         CorporateEntity entity = resolveEntity(request.getEntityCode());
-        User defaultMaker = resolveUser(request.getDefaultMakerId(), UserRole.MAKER, entity);
-        User defaultChecker = resolveUser(request.getDefaultCheckerId(), UserRole.CHECKER, entity);
         User createdBy = resolveUser(request.getCreatedById(), UserRole.ADMIN, entity);
 
         List<String> mPool = (request.getDefaultMakerIds() != null && !request.getDefaultMakerIds().isEmpty())
-            ? request.getDefaultMakerIds() : List.of(defaultMaker.getUserId());
+            ? request.getDefaultMakerIds() : List.of(request.getDefaultMakerId() != null ? request.getDefaultMakerId() : "usr-tushar-304");
         List<String> cPool = (request.getDefaultCheckerIds() != null && !request.getDefaultCheckerIds().isEmpty())
-            ? request.getDefaultCheckerIds() : List.of(defaultChecker.getUserId());
+            ? request.getDefaultCheckerIds() : List.of(request.getDefaultCheckerId() != null ? request.getDefaultCheckerId() : "usr-vivek-108");
 
         Sop sop = Sop.builder()
             .sopCode(request.getSopCode())
@@ -67,8 +65,6 @@ public class SopService {
             .entity(entity)
             .frequency(request.getFrequency())
             .dueDayOffset(request.getDueDayOffset())
-            .defaultMaker(defaultMaker)
-            .defaultChecker(defaultChecker)
             .defaultMakerIds(new java.util.ArrayList<>(mPool))
             .defaultCheckerIds(new java.util.ArrayList<>(cPool))
             .status(SopStatus.ACTIVE)
@@ -110,8 +106,6 @@ public class SopService {
             .orElseThrow(() -> new ResourceNotFoundException("SOP not found with ID: " + id));
 
         CorporateEntity entity = resolveEntity(request.getEntityCode());
-        User defaultMaker = resolveUser(request.getDefaultMakerId(), UserRole.MAKER, entity);
-        User defaultChecker = resolveUser(request.getDefaultCheckerId(), UserRole.CHECKER, entity);
 
         sop.setTitle(request.getTitle());
         sop.setDescription(request.getDescription());
@@ -119,8 +113,6 @@ public class SopService {
         sop.setEntity(entity);
         sop.setFrequency(request.getFrequency());
         sop.setDueDayOffset(request.getDueDayOffset());
-        sop.setDefaultMaker(defaultMaker);
-        sop.setDefaultChecker(defaultChecker);
         sop.setVersion((sop.getVersion() == null ? 1 : sop.getVersion() + 1));
 
         if (request.getDefaultMakerIds() != null && !request.getDefaultMakerIds().isEmpty()) {
@@ -164,13 +156,13 @@ public class SopService {
 
     public SopDto mapToDto(Sop sop) {
         List<String> mIds = (sop.getDefaultMakerIds() != null && !sop.getDefaultMakerIds().isEmpty())
-            ? sop.getDefaultMakerIds() : (sop.getDefaultMaker() != null ? List.of(sop.getDefaultMaker().getUserId()) : List.of());
+            ? sop.getDefaultMakerIds() : List.of();
         List<String> mNames = mIds.stream()
             .map(id -> userRepository.findById(id).map(User::getFullName).orElse(id))
             .toList();
 
         List<String> cIds = (sop.getDefaultCheckerIds() != null && !sop.getDefaultCheckerIds().isEmpty())
-            ? sop.getDefaultCheckerIds() : (sop.getDefaultChecker() != null ? List.of(sop.getDefaultChecker().getUserId()) : List.of());
+            ? sop.getDefaultCheckerIds() : List.of();
         List<String> cNames = cIds.stream()
             .map(id -> userRepository.findById(id).map(User::getFullName).orElse(id))
             .toList();
@@ -185,12 +177,12 @@ public class SopService {
             .entityName(sop.getEntity().getEntityName())
             .frequency(sop.getFrequency())
             .dueDayOffset(sop.getDueDayOffset())
-            .defaultMakerId(sop.getDefaultMaker() != null ? sop.getDefaultMaker().getUserId() : (mIds.isEmpty() ? null : mIds.get(0)))
-            .defaultMakerName(sop.getDefaultMaker() != null ? sop.getDefaultMaker().getFullName() : (mNames.isEmpty() ? null : mNames.get(0)))
+            .defaultMakerId(mIds.isEmpty() ? null : mIds.get(0))
+            .defaultMakerName(mNames.isEmpty() ? null : mNames.get(0))
             .defaultMakerIds(mIds)
             .defaultMakerNames(mNames)
-            .defaultCheckerId(sop.getDefaultChecker() != null ? sop.getDefaultChecker().getUserId() : (cIds.isEmpty() ? null : cIds.get(0)))
-            .defaultCheckerName(sop.getDefaultChecker() != null ? sop.getDefaultChecker().getFullName() : (cNames.isEmpty() ? null : cNames.get(0)))
+            .defaultCheckerId(cIds.isEmpty() ? null : cIds.get(0))
+            .defaultCheckerName(cNames.isEmpty() ? null : cNames.get(0))
             .defaultCheckerIds(cIds)
             .defaultCheckerNames(cNames)
             .status(sop.getStatus())

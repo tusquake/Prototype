@@ -47,14 +47,6 @@ public class Sop {
     @Column(name = "due_day_offset", nullable = false)
     private Integer dueDayOffset;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "default_maker_id", nullable = true)
-    private User defaultMaker;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "default_checker_id", nullable = true)
-    private User defaultChecker;
-
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "sop_maker_pool", joinColumns = @JoinColumn(name = "sop_id"))
     @Column(name = "maker_id", length = 64)
