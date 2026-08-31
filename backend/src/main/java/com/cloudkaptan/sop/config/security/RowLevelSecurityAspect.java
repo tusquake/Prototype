@@ -1,26 +1,22 @@
 package com.cloudkaptan.sop.config.security;
 
+import com.cloudkaptan.sop.domain.enums.UserRole;
 import com.cloudkaptan.sop.dto.SopDto;
 import com.cloudkaptan.sop.dto.TaskDto;
 import com.cloudkaptan.sop.entity.User;
 import com.cloudkaptan.sop.repository.UserRepository;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.List;
 
 /**
  * Aspect-Oriented Programming (AOP) Aspect for enforcing Row Level Security (RLS)
- * across database query execution results.
+ * across database query execution results using ThreadLocal TenantContext.
  */
 @Slf4j
 @Aspect
@@ -34,33 +30,29 @@ public class RowLevelSecurityAspect {
     public Object enforceRowLevelSecurity(ProceedingJoinPoint joinPoint, ApplyRowLevelSecurity applyRowLevelSecurity) throws Throwable {
         Object result = joinPoint.proceed();
 
-        String currentUserId = resolveCurrentUserId();
+        String currentUserId = TenantContext.getCurrentUserId();
+        UserRole currentRole = TenantContext.getCurrentUserRole();
+
         if (currentUserId == null || currentUserId.isBlank()) {
             return result;
         }
 
+        // 1. ADMIN role or super-admins bypass filtering
+        if (currentRole == UserRole.ADMIN || "usr-manoj-042".equals(currentUserId) || "usr-avisek-499".equals(currentUserId)) {
+            log.debug("RowLevelSecurityAspect: Admin user [{}] granted unrestricted access.", currentUserId);
+            return result;
+        }
+
         User user = userRepository.findById(currentUserId).orElse(null);
-        if (user == null) {
-            return result;
-        }
+        String targetId = currentUserId;
+        String targetName = (user != null && user.getFullName() != null) ? user.getFullName().toLowerCase().trim() : "";
 
-        // 1. ADMIN role has unrestricted global row access
-        if (user.getRole() == com.cloudkaptan.sop.domain.enums.UserRole.ADMIN 
-            || "usr-manoj-042".equals(currentUserId) 
-            || "usr-avisek-499".equals(currentUserId)) {
-            log.debug("AOP RLS Aspect: Admin user [{}] granted unrestricted access.", currentUserId);
-            return result;
-        }
-
-        String targetId = user.getUserId();
-        String targetName = user.getFullName() != null ? user.getFullName().toLowerCase().trim() : "";
-
-        // 2. Intercept and filter Task result collections transparently
+        // 2. Intercept and filter Task DTO list transparently
         if (result instanceof List<?> list && !list.isEmpty()) {
             Object firstElement = list.get(0);
 
             if (firstElement instanceof TaskDto) {
-                log.debug("AOP RLS Aspect: Applying Row Level Security filtering on Task list for user [{}]", currentUserId);
+                log.debug("RowLevelSecurityAspect: Filtering Task list for user [{}] via TenantContext", currentUserId);
                 @SuppressWarnings("unchecked")
                 List<TaskDto> taskList = (List<TaskDto>) result;
 
@@ -79,9 +71,9 @@ public class RowLevelSecurityAspect {
                 }).toList();
             }
 
-            // 3. Intercept and filter SOP result collections transparently
+            // 3. Intercept and filter SOP DTO list transparently
             if (firstElement instanceof SopDto) {
-                log.debug("AOP RLS Aspect: Applying Row Level Security filtering on SOP list for user [{}]", currentUserId);
+                log.debug("RowLevelSecurityAspect: Filtering SOP list for user [{}] via TenantContext", currentUserId);
                 @SuppressWarnings("unchecked")
                 List<SopDto> sopList = (List<SopDto>) result;
 
@@ -94,27 +86,5 @@ public class RowLevelSecurityAspect {
         }
 
         return result;
-    }
-
-    private String resolveCurrentUserId() {
-        ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attrs != null) {
-            HttpServletRequest request = attrs.getRequest();
-            String userIdParam = request.getParameter("userId");
-            if (userIdParam != null && !userIdParam.isBlank()) {
-                return userIdParam;
-            }
-            String userHeader = request.getHeader("X-User-Id");
-            if (userHeader != null && !userHeader.isBlank()) {
-                return userHeader;
-            }
-        }
-
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() != null) {
-            return auth.getName();
-        }
-
-        return null;
     }
 }
