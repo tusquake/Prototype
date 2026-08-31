@@ -567,7 +567,7 @@ export default function Sops() {
                 </svg>
                 Master Operating Procedures
               </span>
-              {isAdmin && (
+              {isAdmin ? (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   <button className={styles.createBtn} onClick={() => setShowAssignModal(true)} style={{ background: '#0284c7' }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -579,6 +579,21 @@ export default function Sops() {
                     <span>Assign SOP Creation</span>
                   </button>
                 </div>
+              ) : (
+                (() => {
+                  const pendingSop = sopList.find(s => s.status === 'PENDING_CREATION' || s.status === 'REJECTED');
+                  return pendingSop ? (
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                      <button className={styles.createBtn} onClick={() => openEditModal(pendingSop)} style={{ background: '#16a34a' }}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        <span>Draft Assigned SOP ({pendingSop.code || pendingSop.sopCode})</span>
+                      </button>
+                    </div>
+                  ) : null;
+                })()
               )}
             </div>
 
