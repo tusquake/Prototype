@@ -43,10 +43,16 @@ public class DashboardService {
             tasks = allTasks;
         } else if (currentUser != null) {
             String targetId = currentUser.getUserId();
-            String targetName = currentUser.getFullName().toLowerCase().trim();
+            String targetName = currentUser.getFullName() != null ? currentUser.getFullName().toLowerCase().trim() : "";
             tasks = allTasks.stream().filter(t -> {
-                boolean makerMatch = t.getMaker().getUserId().equals(targetId) || t.getMaker().getFullName().toLowerCase().contains(targetName);
-                boolean checkerMatch = t.getChecker().getUserId().equals(targetId) || t.getChecker().getFullName().toLowerCase().contains(targetName);
+                boolean makerMatch = (t.getAssignedMakerIds() != null && t.getAssignedMakerIds().contains(targetId))
+                    || (t.getSop() != null && t.getSop().getDefaultMakerIds() != null && t.getSop().getDefaultMakerIds().contains(targetId))
+                    || (t.getMaker() != null && (t.getMaker().getUserId().equals(targetId) || (t.getMaker().getFullName() != null && t.getMaker().getFullName().toLowerCase().contains(targetName))));
+
+                boolean checkerMatch = (t.getAssignedCheckerIds() != null && t.getAssignedCheckerIds().contains(targetId))
+                    || (t.getSop() != null && t.getSop().getDefaultCheckerIds() != null && t.getSop().getDefaultCheckerIds().contains(targetId))
+                    || (t.getChecker() != null && (t.getChecker().getUserId().equals(targetId) || (t.getChecker().getFullName() != null && t.getChecker().getFullName().toLowerCase().contains(targetName))));
+
                 return makerMatch || checkerMatch;
             }).toList();
         } else {
