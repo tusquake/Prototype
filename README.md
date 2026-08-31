@@ -1,4 +1,4 @@
-# RAVAND FinOps — Enterprise Finance SOP Management & Compliance Platform
+# RAVAND FinOps - Enterprise Finance SOP Management & Compliance Platform
 
 RAVAND FinOps is a production-grade enterprise platform engineered for financial Standard Operating Procedure (SOP) management, statutory compliance tracking, and dual-control Maker-Checker governance across multi-entity corporate structures (CK India, CK US, CK UK, CK Australia).
 
@@ -49,7 +49,7 @@ The platform is designed as a **production-ready modular monolith application** 
 
 The backend applies enterprise design patterns to guarantee data integrity, zero-duplicate scheduling, and strict Segregation of Duties (SoD).
 
-### 1. State Pattern — Task Lifecycle Enforcement
+### 1. State Pattern - Task Lifecycle Enforcement
 
 Task state transitions are governed by the **State Pattern** (`TaskState` interface). Each task status is represented by a discrete state class enforcing permitted transitions:
 
@@ -64,7 +64,7 @@ TaskState (interface)
 - **Segregation of Duties (SoD)**: The `PendingReviewState` class validates that the user attempting approval or rejection is NOT the same user who submitted the task. If a Maker attempts to approve their own submission, a `SeparationOfDutyViolationException` is thrown.
 - **State Machine Context**: The `TaskContext` class maintains runtime state references and delegates workflow calls.
 
-### 2. Strategy Pattern — Multi-Frequency Recurrence Engine
+### 2. Strategy Pattern - Multi-Frequency Recurrence Engine
 
 SOP frequency schedules are computed using the **Strategy Pattern** (`RecurrenceStrategy` interface):
 

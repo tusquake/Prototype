@@ -139,7 +139,7 @@ export default function Login() {
         </div>
 
         <div className={styles.footerNote}>
-          Restricted access — CloudKaptan internal use only
+          Restricted access - CloudKaptan internal use only
         </div>
       </div>
     </div>

@@ -67,17 +67,17 @@ export default function TaskActionModal({
   const effectiveHistory = hasCreate
     ? rawHistory
     : [
-        {
-          eventId: 0,
-          action: 'CREATE_TASK',
-          actorName: 'System Scheduler',
-          fromStatus: null,
-          toStatus: 'OPEN',
-          comment: 'Compliance task cycle created automatically',
-          timestamp: task.createdAt || new Date().toISOString(),
-        },
-        ...rawHistory,
-      ];
+      {
+        eventId: 0,
+        action: 'CREATE_TASK',
+        actorName: 'System Scheduler',
+        fromStatus: null,
+        toStatus: 'OPEN',
+        comment: 'Compliance task cycle created automatically',
+        timestamp: task.createdAt || new Date().toISOString(),
+      },
+      ...rawHistory,
+    ];
 
   function triggerConfirm(actionType) {
     setToastError('');
@@ -218,25 +218,25 @@ export default function TaskActionModal({
                 {/* Step 3: Checker Outcome */}
                 <div className={`${styles.flowStep} ${
                   task.status === 'APPROVED' ? styles.approvedStep :
-                  task.status === 'REJECTED' ? styles.rejectedStep :
-                  task.status === 'PERMANENTLY_REJECTED' ? styles.permanentRejectedStep :
-                  styles.pendingStep
-                }`}>
+                    task.status === 'REJECTED' ? styles.rejectedStep :
+                      task.status === 'PERMANENTLY_REJECTED' ? styles.permanentRejectedStep :
+                        styles.pendingStep
+                  }`}>
                   <div className={styles.stepBadge}>
                     {task.status === 'APPROVED' ? '✓' : task.status === 'REJECTED' ? '↺' : task.status === 'PERMANENTLY_REJECTED' ? '✕' : '3'}
                   </div>
                   <div className={styles.stepInfo}>
                     <span className={styles.stepName}>
                       {task.status === 'APPROVED' ? `Approved by ${task.lockedChecker || 'Checker'}` :
-                       task.status === 'REJECTED' ? `Returned by ${task.lockedChecker || 'Checker'}` :
-                       task.status === 'PERMANENTLY_REJECTED' ? `Permanently Rejected by ${task.lockedChecker || 'Checker'}` :
-                       'Checker Outcome'}
+                        task.status === 'REJECTED' ? `Returned by ${task.lockedChecker || 'Checker'}` :
+                          task.status === 'PERMANENTLY_REJECTED' ? `Permanently Rejected by ${task.lockedChecker || 'Checker'}` :
+                            'Checker Outcome'}
                     </span>
                     <span className={styles.stepDetail}>
                       {task.status === 'APPROVED' ? 'Lifecycle Complete' :
-                       task.status === 'REJECTED' ? 'Resubmit Allowed' :
-                       task.status === 'PERMANENTLY_REJECTED' ? 'Task Closed' :
-                       'Pending Review'}
+                        task.status === 'REJECTED' ? 'Resubmit Allowed' :
+                          task.status === 'PERMANENTLY_REJECTED' ? 'Task Closed' :
+                            'Pending Review'}
                     </span>
                   </div>
                 </div>
@@ -296,10 +296,10 @@ export default function TaskActionModal({
                   isViewer
                     ? 'Read-only viewer mode...'
                     : canApproveOrReject
-                    ? 'Enter approval notes or mandatory rejection reason...'
-                    : isSelfMakerSubmission
-                    ? 'Read-only: You submitted this task as Maker (Segregation of Duties)'
-                    : 'Enter task execution summary, tax deposit reference, or upload comments...'
+                      ? 'Enter approval notes or mandatory rejection reason...'
+                      : isSelfMakerSubmission
+                        ? 'Read-only: You submitted this task as Maker (Segregation of Duties)'
+                        : 'Enter task execution summary, tax deposit reference, or upload comments...'
                 }
                 value={comment}
                 onChange={e => setComment(e.target.value)}
@@ -413,7 +413,7 @@ export default function TaskActionModal({
                   />
                   <div>
                     <strong>Permanently Reject Task</strong>
-                    <p>Closes task lifecycle permanently — no further submissions or changes allowed</p>
+                    <p>Closes task lifecycle permanently - no further submissions or changes allowed</p>
                   </div>
                 </label>
               </div>

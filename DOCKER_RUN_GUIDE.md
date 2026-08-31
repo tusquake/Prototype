@@ -1,4 +1,4 @@
-# RAVAND FinOps — Docker Execution & Containerization Guide
+# RAVAND FinOps - Docker Execution & Containerization Guide
 
 This guide provides instructions for building, running, and managing the complete RAVAND FinOps platform on any standalone device using Docker and Docker Compose.
 
@@ -12,15 +12,15 @@ The containerized stack consists of three orchestrated services:
                           USER BROWSER / CLIENT
                                     |
                                     v
-            frontend (Nginx Container) — http://localhost:3010
+            frontend (Nginx Container) - http://localhost:3010
                                     |
                                     v (Internal Docker Network)
                                     |
-            backend (Spring Boot Container) — http://localhost:8080/finsop/v1
+            backend (Spring Boot Container) - http://localhost:8080/finsop/v1
                                     |
                                     v (Internal Docker Network)
                                     |
-            postgres (PostgreSQL 15 Container) — localhost:5432
+            postgres (PostgreSQL 15 Container) - localhost:5432
 ```
 
 | Service | Technology | Port Mapping | Container Name | Description |
