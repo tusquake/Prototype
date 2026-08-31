@@ -78,9 +78,10 @@ public class RowLevelSecurityAspect {
                 List<SopDto> sopList = (List<SopDto>) result;
 
                 return sopList.stream().filter(s -> {
+                    boolean creatorMatch = targetId.equals(s.getAssignedCreatorId()) || targetId.equals(s.getAssignedApproverId());
                     boolean makerMatch = (s.getDefaultMakerIds() != null && s.getDefaultMakerIds().contains(targetId));
                     boolean checkerMatch = (s.getDefaultCheckerIds() != null && s.getDefaultCheckerIds().contains(targetId));
-                    return makerMatch || checkerMatch;
+                    return creatorMatch || makerMatch || checkerMatch;
                 }).toList();
             }
         }

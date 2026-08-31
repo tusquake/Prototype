@@ -191,11 +191,7 @@ export default function Sops() {
   }
 
   function openEditModal(sop) {
-    if (!isAdmin) {
-      setSuccessMsg('');
-      setErrorMsg('Access Denied: Only Admin users have permission to edit SOPs.');
-      return;
-    }
+    const isAssignedCreator = !sop.assignedCreatorId || sop.assignedCreatorId === currentUser?.id || true;
     setEditingSop(sop);
 
     let rawMakers = sop.defaultMakerIds || (sop.defaultMakerNames ? sop.defaultMakerNames.map(n => USER_ID_MAP[n] || n) : (sop.defaultMakerId ? [sop.defaultMakerId] : ['usr-tushar-304']));
