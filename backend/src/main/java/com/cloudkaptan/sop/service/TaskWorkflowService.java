@@ -35,6 +35,24 @@ public class TaskWorkflowService {
     private final com.cloudkaptan.sop.repository.TaskCommentRepository taskCommentRepository;
 
     @Transactional
+    public TaskDto processTaskAction(UUID taskId, com.cloudkaptan.sop.dto.TaskActionRequest request) {
+        String act = request.getAction() != null ? request.getAction().trim().toUpperCase() : "";
+        switch (act) {
+            case "SUBMIT":
+            case "RESUBMIT":
+                return submitTask(taskId, request.getActorId(), request.getComment());
+            case "APPROVE":
+                return approveTask(taskId, request.getActorId(), request.getComment());
+            case "REJECT":
+                return rejectTask(taskId, request.getActorId(), request.getComment(), request.getPermanentRejection());
+            case "PERMANENT_REJECT":
+                return rejectTask(taskId, request.getActorId(), request.getComment(), true);
+            default:
+                throw new IllegalArgumentException("Invalid or missing task action: '" + request.getAction() + "'. Allowed values: SUBMIT, APPROVE, REJECT, PERMANENT_REJECT.");
+        }
+    }
+
+    @Transactional
     public TaskDto submitTask(UUID taskId, String actorId, String comment) {
         Task task = getTaskOrThrow(taskId);
         if (task.getStatus() == TaskStatus.PENDING_REVIEW || task.getStatus() == TaskStatus.APPROVED) {

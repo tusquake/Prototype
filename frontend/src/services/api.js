@@ -426,9 +426,9 @@ export async function submitTask(taskId, actorId = 'usr-tushar-304', comment = '
     }
   }
 
-  const res = await fetchJson(`/tasks/${id}/submit`, {
+  const res = await fetchJson(`/tasks/${id}/action`, {
     method: 'PUT',
-    body: JSON.stringify({ actorId: actor, comment: comm }),
+    body: JSON.stringify({ action: 'SUBMIT', actorId: actor, comment: comm }),
   }).catch(() => null);
 
   const mock = MOCK_TASKS.find(t => t.taskId === id || t.id === id || t.recordNo === id);
@@ -467,9 +467,9 @@ export async function approveTask(taskId, actorId = 'usr-mainak-215', comment = 
     }
   }
 
-  const res = await fetchJson(`/tasks/${id}/approve`, {
+  const res = await fetchJson(`/tasks/${id}/action`, {
     method: 'PUT',
-    body: JSON.stringify({ actorId: actor, comment: comm }),
+    body: JSON.stringify({ action: 'APPROVE', actorId: actor, comment: comm }),
   }).catch(() => null);
 
   const mock = MOCK_TASKS.find(t => t.taskId === id || t.id === id || t.recordNo === id);
@@ -510,9 +510,9 @@ export async function rejectTask(taskId, actorId = 'usr-mainak-215', comment = '
     }
   }
 
-  const res = await fetchJson(`/tasks/${id}/reject`, {
+  const res = await fetchJson(`/tasks/${id}/action`, {
     method: 'PUT',
-    body: JSON.stringify({ actorId: actor, comment: comm, permanentRejection: isPermanent }),
+    body: JSON.stringify({ action: isPermanent ? 'PERMANENT_REJECT' : 'REJECT', actorId: actor, comment: comm, permanentRejection: isPermanent }),
   }).catch(() => null);
 
   const mock = MOCK_TASKS.find(t => t.taskId === id || t.id === id || t.recordNo === id);

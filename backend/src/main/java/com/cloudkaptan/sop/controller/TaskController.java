@@ -67,13 +67,25 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(null, "Scheduled tasks generated successfully"));
     }
 
+    @RequestMapping(value = "/{id}/action", method = {RequestMethod.PUT, RequestMethod.POST})
+    public ResponseEntity<ApiResponse<TaskDto>> executeTaskAction(
+        @PathVariable("id") UUID id,
+        @Valid @RequestBody TaskActionRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+            taskWorkflowService.processTaskAction(id, request),
+            "Task action processed successfully"
+        ));
+    }
+
     @PutMapping("/{id}/submit")
     public ResponseEntity<ApiResponse<TaskDto>> submitTask(
         @PathVariable("id") UUID id,
         @Valid @RequestBody TaskActionRequest request
     ) {
+        request.setAction("SUBMIT");
         return ResponseEntity.ok(ApiResponse.success(
-            taskWorkflowService.submitTask(id, request.getActorId(), request.getComment()),
+            taskWorkflowService.processTaskAction(id, request),
             "Task submitted successfully"
         ));
     }
@@ -83,8 +95,9 @@ public class TaskController {
         @PathVariable("id") UUID id,
         @Valid @RequestBody TaskActionRequest request
     ) {
+        request.setAction("APPROVE");
         return ResponseEntity.ok(ApiResponse.success(
-            taskWorkflowService.approveTask(id, request.getActorId(), request.getComment()),
+            taskWorkflowService.processTaskAction(id, request),
             "Task approved successfully"
         ));
     }
@@ -94,8 +107,9 @@ public class TaskController {
         @PathVariable("id") UUID id,
         @Valid @RequestBody TaskActionRequest request
     ) {
+        if (request.getAction() == null) request.setAction("REJECT");
         return ResponseEntity.ok(ApiResponse.success(
-            taskWorkflowService.rejectTask(id, request.getActorId(), request.getComment(), request.getPermanentRejection()),
+            taskWorkflowService.processTaskAction(id, request),
             "Task rejected successfully"
         ));
     }

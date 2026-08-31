@@ -12,6 +12,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TaskActionRequest {
 
+    private String action;
+
     @NotBlank(message = "Actor ID is required")
     private String actorId;
 
