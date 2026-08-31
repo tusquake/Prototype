@@ -785,18 +785,13 @@ export default function Sops() {
                     }}
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: formData.isRecurring ? '#15803d' : '#334155', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        {formData.isRecurring ? '🔄 Recurring Task Schedule' : '⚡ One-Time Task (Non-Recurring)'}
-                        {!formData.isRecurring && (
-                          <span style={{ fontSize: 10, background: '#e2e8f0', color: '#475569', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
-                            DEFAULT
-                          </span>
-                        )}
+                      <span style={{ fontSize: 13, fontWeight: 600, color: formData.isRecurring ? '#15803d' : '#334155' }}>
+                        {formData.isRecurring ? 'Recurring Task Schedule' : 'One-Time Task'}
                       </span>
                       <span style={{ fontSize: 11, color: '#64748b' }}>
                         {formData.isRecurring
                           ? 'Scheduler automatically generates a new compliance task every recurring period.'
-                          : 'Task generates only once for the initial cycle and will not recur in future periods.'}
+                          : 'Task generates only once for the initial period.'}
                       </span>
                     </div>
 

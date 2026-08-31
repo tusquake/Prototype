@@ -61,11 +61,11 @@ export default function SopDetailModal({
               <span className={styles.value}>
                 {sop.isRecurring ? (
                   <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 4, fontWeight: 600, fontSize: 12 }}>
-                    🔄 Recurring Schedule
+                    Recurring Schedule
                   </span>
                 ) : (
                   <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 4, fontWeight: 600, fontSize: 12 }}>
-                    ⚡ One-Time (Non-Recurring)
+                    One-Time Task
                   </span>
                 )}
               </span>
