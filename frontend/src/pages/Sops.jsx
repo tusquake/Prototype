@@ -1118,7 +1118,7 @@ export default function Sops() {
                   </div>
 
                   <div className={styles.formGroup}>
-                    <label>LOCKED PROCESS CATEGORY *</label>
+                    <label>PROCESS CATEGORY *</label>
                     <CustomSelect
                       value={assignForm.processCategory}
                       options={PROCESS_OPTIONS}
@@ -1129,11 +1129,10 @@ export default function Sops() {
 
                 <div className={`${styles.formRow} ${styles.fullWidth}`}>
                   <div className={styles.formGroup}>
-                    <label>ASSIGNED CREATOR (DRAFTS SPECIFICATION) *</label>
+                    <label>ASSIGNED CREATOR *</label>
                     <select
                       value={assignForm.assignedCreatorId}
                       onChange={e => setAssignForm(prev => ({ ...prev, assignedCreatorId: e.target.value }))}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, background: '#ffffff' }}
                     >
                       <option value="usr-tushar-304">Tushar Seth (usr-tushar-304)</option>
                       <option value="usr-prayasa-410">Prayasa Sharma (usr-prayasa-410)</option>
@@ -1143,11 +1142,10 @@ export default function Sops() {
                   </div>
 
                   <div className={styles.formGroup}>
-                    <label>ASSIGNED APPROVER (REVIEWS & APPROVES) *</label>
+                    <label>ASSIGNED APPROVER *</label>
                     <select
                       value={assignForm.assignedApproverId}
                       onChange={e => setAssignForm(prev => ({ ...prev, assignedApproverId: e.target.value }))}
-                      style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, background: '#ffffff' }}
                     >
                       <option value="usr-vivek-108">Vivek Raj (usr-vivek-108)</option>
                       <option value="usr-mainak-215">Mainak Gupta (usr-mainak-215)</option>
@@ -1159,10 +1157,10 @@ export default function Sops() {
               </div>
 
               <div className={styles.modalFooter}>
-                <button type="button" className={styles.btnSecondary} onClick={() => setShowAssignModal(false)}>
+                <button type="button" className={styles.cancelBtn} onClick={() => setShowAssignModal(false)}>
                   Cancel
                 </button>
-                <button type="submit" className={styles.btnPrimary} disabled={saving} style={{ background: '#0284c7' }}>
+                <button type="submit" className={styles.submitBtn} disabled={saving} style={{ background: '#0284c7' }}>
                   {saving ? 'Creating Assignment...' : 'Assign SOP Creation'}
                 </button>
               </div>
@@ -1203,10 +1201,10 @@ export default function Sops() {
               </div>
 
               <div className={styles.modalFooter}>
-                <button type="button" className={styles.btnSecondary} onClick={() => setRejectingSop(null)}>
+                <button type="button" className={styles.cancelBtn} onClick={() => setRejectingSop(null)}>
                   Cancel
                 </button>
-                <button type="submit" className={styles.btnDanger} disabled={saving}>
+                <button type="submit" className={styles.submitBtn} disabled={saving} style={{ background: '#dc2626' }}>
                   {saving ? 'Rejecting SOP...' : 'Confirm Rejection'}
                 </button>
               </div>
