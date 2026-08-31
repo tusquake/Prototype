@@ -29,6 +29,20 @@ const ENTITY_OPTIONS = [
   { value: 'CK_AUSTRALIA', label: 'CK Australia' },
 ];
 
+const CREATOR_OPTIONS = [
+  { value: 'usr-tushar-304', label: 'Tushar Seth (usr-tushar-304)' },
+  { value: 'usr-prayasa-410', label: 'Prayasa Sharma (usr-prayasa-410)' },
+  { value: 'usr-vivek-108', label: 'Vivek Raj (usr-vivek-108)' },
+  { value: 'usr-mainak-215', label: 'Mainak Gupta (usr-mainak-215)' },
+];
+
+const APPROVER_OPTIONS = [
+  { value: 'usr-vivek-108', label: 'Vivek Raj (usr-vivek-108)' },
+  { value: 'usr-mainak-215', label: 'Mainak Gupta (usr-mainak-215)' },
+  { value: 'usr-manoj-042', label: 'Manoj Agarwal (usr-manoj-042)' },
+  { value: 'usr-avisek-499', label: 'Avisek Paul (usr-avisek-499)' },
+];
+
 const FREQUENCY_OPTIONS = [
   { value: 'MONTHLY', label: 'Monthly' },
   { value: 'QUARTERLY', label: 'Quarterly' },
@@ -559,33 +573,6 @@ export default function Sops() {
               </span>
               {isAdmin && (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '8px 16px',
-                      borderRadius: 8,
-                      border: '1px solid #cbd5e1',
-                      background: '#ffffff',
-                      color: '#0f172a',
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: runningScheduler ? 'not-allowed' : 'pointer',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                      transition: 'all 0.15s ease',
-                    }}
-                    disabled={runningScheduler}
-                    onClick={handleRunScheduler}
-                    title="Manually trigger backend SOP task scheduler"
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                    </svg>
-                    <span>{runningScheduler ? 'Generating Tasks...' : 'Run Task Scheduler'}</span>
-                  </button>
-
                   <button className={styles.createBtn} onClick={() => setShowAssignModal(true)} style={{ background: '#0284c7' }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -594,14 +581,6 @@ export default function Sops() {
                       <line x1="17" y1="11" x2="23" y2="11" />
                     </svg>
                     <span>Assign SOP Creation</span>
-                  </button>
-
-                  <button className={styles.createBtn} onClick={openCreateModal}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="12" y1="5" x2="12" y2="19" />
-                      <line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
-                    <span>Create SOP</span>
                   </button>
                 </div>
               )}
@@ -1078,11 +1057,10 @@ export default function Sops() {
       {/* Admin Assignment Modal */}
       {showAssignModal && (
         <div className={styles.modalOverlay}>
-          <div className={styles.modal} style={{ maxWidth: 520 }}>
+          <div className={styles.modal} style={{ maxWidth: 620 }}>
             <div className={styles.modalHeader}>
               <div>
                 <h3>Assign SOP Creation & Approval</h3>
-                <p>Admin governance: Pick SOP Code, Entity, lock Process Category, and assign Creator & Approver.</p>
               </div>
               <button className={styles.closeBtn} onClick={() => setShowAssignModal(false)}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1130,28 +1108,20 @@ export default function Sops() {
                 <div className={`${styles.formRow} ${styles.fullWidth}`}>
                   <div className={styles.formGroup}>
                     <label>ASSIGNED CREATOR *</label>
-                    <select
+                    <CustomSelect
                       value={assignForm.assignedCreatorId}
+                      options={CREATOR_OPTIONS}
                       onChange={e => setAssignForm(prev => ({ ...prev, assignedCreatorId: e.target.value }))}
-                    >
-                      <option value="usr-tushar-304">Tushar Seth (usr-tushar-304)</option>
-                      <option value="usr-prayasa-410">Prayasa Sharma (usr-prayasa-410)</option>
-                      <option value="usr-vivek-108">Vivek Raj (usr-vivek-108)</option>
-                      <option value="usr-mainak-215">Mainak Gupta (usr-mainak-215)</option>
-                    </select>
+                    />
                   </div>
 
                   <div className={styles.formGroup}>
                     <label>ASSIGNED APPROVER *</label>
-                    <select
+                    <CustomSelect
                       value={assignForm.assignedApproverId}
+                      options={APPROVER_OPTIONS}
                       onChange={e => setAssignForm(prev => ({ ...prev, assignedApproverId: e.target.value }))}
-                    >
-                      <option value="usr-vivek-108">Vivek Raj (usr-vivek-108)</option>
-                      <option value="usr-mainak-215">Mainak Gupta (usr-mainak-215)</option>
-                      <option value="usr-manoj-042">Manoj Agarwal (usr-manoj-042)</option>
-                      <option value="usr-avisek-499">Avisek Paul (usr-avisek-499)</option>
-                    </select>
+                    />
                   </div>
                 </div>
               </div>
