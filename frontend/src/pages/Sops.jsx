@@ -1057,7 +1057,7 @@ export default function Sops() {
       {/* Admin Assignment Modal */}
       {showAssignModal && (
         <div className={styles.modalOverlay}>
-          <div className={styles.modal} style={{ maxWidth: 620 }}>
+          <div className={styles.modal} style={{ maxWidth: 620, overflow: 'visible' }}>
             <div className={styles.modalHeader}>
               <div>
                 <h3>Assign SOP Creation & Approval</h3>
@@ -1071,7 +1071,7 @@ export default function Sops() {
             </div>
 
             <form onSubmit={handleAssignSubmit}>
-              <div className={styles.modalBody}>
+              <div className={styles.modalBody} style={{ overflow: 'visible', maxHeight: 'none' }}>
                 {errorMsg && <div className={styles.errorAlert}>{errorMsg}</div>}
 
                 <div className={`${styles.formGroup} ${styles.fullWidth}`}>

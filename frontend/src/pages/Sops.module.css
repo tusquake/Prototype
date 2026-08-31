@@ -376,6 +376,7 @@
   gap: 18px;
   max-height: 72vh;
   overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .fullWidth {

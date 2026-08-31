@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import styles from './CustomSelect.module.css';
 
-export default function CustomSelect({ value, options, onChange, name }) {
+export default function CustomSelect({ value, options, onChange, name, dropUp: explicitDropUp }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isUp, setIsUp] = useState(false);
   const containerRef = useRef(null);
 
   const selectedOption = options.find(o => o.value === value) || options[0];
@@ -17,6 +18,15 @@ export default function CustomSelect({ value, options, onChange, name }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  function handleToggle() {
+    if (!isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setIsUp(explicitDropUp !== undefined ? explicitDropUp : spaceBelow < 230);
+    }
+    setIsOpen(!isOpen);
+  }
+
   function handleSelect(optionValue) {
     onChange({ target: { name, value: optionValue } });
     setIsOpen(false);
@@ -27,7 +37,7 @@ export default function CustomSelect({ value, options, onChange, name }) {
       <button
         type="button"
         className={`${styles.selectTrigger} ${isOpen ? styles.active : ''}`}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
       >
         <span className={styles.selectedText}>{selectedOption?.label || value}</span>
         <svg
@@ -46,7 +56,7 @@ export default function CustomSelect({ value, options, onChange, name }) {
       </button>
 
       {isOpen && (
-        <div className={styles.dropdownMenu}>
+        <div className={isUp ? styles.dropdownMenuUp : styles.dropdownMenu}>
           {options.map(opt => (
             <div
               key={opt.value}
