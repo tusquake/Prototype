@@ -39,6 +39,8 @@ public class CreateSopRequest {
     @Min(value = 1, message = "Due day offset must be at least 1")
     private Integer dueDayOffset;
 
+    private Boolean isRecurring;
+
     @NotBlank(message = "Default maker ID is required")
     private String defaultMakerId;
 

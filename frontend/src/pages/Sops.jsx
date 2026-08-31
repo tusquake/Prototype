@@ -71,6 +71,7 @@ const INITIAL_FORM = {
   entityCode: 'CK_INDIA',
   frequency: 'MONTHLY',
   dueDayOffset: 15,
+  isRecurring: false,
   defaultMakerIds: ['usr-tushar-304', 'usr-prayasa-410'],
   defaultCheckerIds: ['usr-vivek-108', 'usr-mainak-215'],
 };
@@ -197,6 +198,7 @@ export default function Sops() {
       entityCode: sop.entityCode || 'CK_INDIA',
       frequency: sop.frequency || 'MONTHLY',
       dueDayOffset: sop.dueDay || sop.dueDayOffset || 15,
+      isRecurring: sop.isRecurring !== undefined ? !!sop.isRecurring : false,
       defaultMakerIds: makers,
       defaultCheckerIds: checkers,
     });
@@ -550,6 +552,17 @@ export default function Sops() {
                           </svg>
                           {FREQ_LABEL[sop.frequency] || sop.frequency}
                         </span>
+                        <div style={{ marginTop: 4 }}>
+                          {sop.isRecurring ? (
+                            <span style={{ fontSize: 10, background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
+                              RECURRING
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 10, background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
+                              ONE-TIME
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td>Day {sop.dueDay || sop.dueDayOffset}</td>
                       <td>
@@ -751,6 +764,51 @@ export default function Sops() {
                       max={31}
                       required
                     />
+                  </div>
+                </div>
+
+                {/* Recurring vs Non-Recurring Schedule Selector */}
+                <div className={`${styles.formGroup} ${styles.fullWidth}`} style={{ marginTop: 8, marginBottom: 16 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#475569', marginBottom: 8, display: 'block' }}>
+                    TASK RECURRENCE ENGINE *
+                  </label>
+                  <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', padding: '12px 14px', borderRadius: 8, border: !formData.isRecurring ? '1.5px solid #0284c7' : '1px solid #cbd5e1', background: !formData.isRecurring ? '#f0f9ff' : '#ffffff', flex: 1, transition: 'all 0.15s ease' }}>
+                      <input
+                        type="radio"
+                        name="isRecurring"
+                        checked={!formData.isRecurring}
+                        onChange={() => setFormData(prev => ({ ...prev, isRecurring: false }))}
+                        style={{ marginTop: 3 }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: '#0369a1', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>One-Time Task</span>
+                          <span style={{ fontSize: 10, background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>DEFAULT</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#475569', marginTop: 3, lineHeight: 1.4 }}>
+                          Scheduler generates a compliance task <strong>only once</strong> for the initial cycle and will never recur.
+                        </div>
+                      </div>
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', padding: '12px 14px', borderRadius: 8, border: formData.isRecurring ? '1.5px solid #16a34a' : '1px solid #cbd5e1', background: formData.isRecurring ? '#f0fdf4' : '#ffffff', flex: 1, transition: 'all 0.15s ease' }}>
+                      <input
+                        type="radio"
+                        name="isRecurring"
+                        checked={formData.isRecurring}
+                        onChange={() => setFormData(prev => ({ ...prev, isRecurring: true }))}
+                        style={{ marginTop: 3 }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: '#15803d', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span>Recurring Schedule</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: '#475569', marginTop: 3, lineHeight: 1.4 }}>
+                          Automatically recurs every cycle (Monthly / Quarterly / Annual) to generate new compliance tasks.
+                        </div>
+                      </div>
+                    </label>
                   </div>
                 </div>
 

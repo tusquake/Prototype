@@ -20,6 +20,8 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
 
     boolean existsBySop_SopIdAndPeriodKey(UUID sopId, String periodKey);
 
+    boolean existsBySop_SopId(UUID sopId);
+
     Optional<Task> findByRecordNo(String recordNo);
 
     @Query("""

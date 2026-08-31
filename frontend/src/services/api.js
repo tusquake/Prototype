@@ -215,6 +215,7 @@ export function mapSop(dto) {
     entityCode: dto.entityCode || dto.entityId,
     frequency: dto.frequency || 'MONTHLY',
     dueDay: dto.dueDayOffset ?? dto.dueDay ?? 1,
+    isRecurring: dto.isRecurring !== undefined ? !!dto.isRecurring : false,
     maker: makers.join(', '),
     checker: checkers.join(', '),
     makers: makers,

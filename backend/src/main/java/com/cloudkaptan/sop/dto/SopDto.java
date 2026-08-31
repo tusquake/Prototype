@@ -25,6 +25,7 @@ public class SopDto {
     private String entityName;
     private SopFrequency frequency;
     private Integer dueDayOffset;
+    private Boolean isRecurring;
     private String defaultMakerId;
     private String defaultMakerName;
     private List<String> defaultMakerIds;

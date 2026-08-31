@@ -43,6 +43,12 @@ public class TaskSchedulerService {
                 RecurrenceStrategy strategy = recurrenceStrategyFactory.getStrategy(sop.getFrequency());
                 String periodKey = strategy.calculatePeriodKey(today);
 
+                // Non-recurring SOP guard: generate task only once across all periods
+                if (Boolean.FALSE.equals(sop.getIsRecurring()) && taskRepository.existsBySop_SopId(sop.getSopId())) {
+                    log.info("Skipping task generation for non-recurring SOP [{}] - task already generated.", sop.getSopCode());
+                    continue;
+                }
+
                 if (!taskRepository.existsBySop_SopIdAndPeriodKey(sop.getSopId(), periodKey)) {
                     LocalDate dueDate = strategy.calculateDueDate(today, sop.getDueDayOffset());
                     String recordNo = String.format("%s-%s", sop.getSopCode(), periodKey);

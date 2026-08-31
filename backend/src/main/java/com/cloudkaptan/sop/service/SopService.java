@@ -57,6 +57,8 @@ public class SopService {
         List<String> cPool = (request.getDefaultCheckerIds() != null && !request.getDefaultCheckerIds().isEmpty())
             ? request.getDefaultCheckerIds() : List.of(request.getDefaultCheckerId() != null ? request.getDefaultCheckerId() : "usr-vivek-108");
 
+        Boolean isRec = Boolean.TRUE.equals(request.getIsRecurring());
+
         Sop sop = Sop.builder()
             .sopCode(request.getSopCode())
             .title(request.getTitle())
@@ -65,6 +67,7 @@ public class SopService {
             .entity(entity)
             .frequency(request.getFrequency())
             .dueDayOffset(request.getDueDayOffset())
+            .isRecurring(isRec)
             .defaultMakerIds(new java.util.ArrayList<>(mPool))
             .defaultCheckerIds(new java.util.ArrayList<>(cPool))
             .status(SopStatus.ACTIVE)
@@ -113,6 +116,9 @@ public class SopService {
         sop.setEntity(entity);
         sop.setFrequency(request.getFrequency());
         sop.setDueDayOffset(request.getDueDayOffset());
+        if (request.getIsRecurring() != null) {
+            sop.setIsRecurring(request.getIsRecurring());
+        }
         sop.setVersion((sop.getVersion() == null ? 1 : sop.getVersion() + 1));
 
         if (request.getDefaultMakerIds() != null && !request.getDefaultMakerIds().isEmpty()) {
@@ -177,6 +183,7 @@ public class SopService {
             .entityName(sop.getEntity().getEntityName())
             .frequency(sop.getFrequency())
             .dueDayOffset(sop.getDueDayOffset())
+            .isRecurring(Boolean.TRUE.equals(sop.getIsRecurring()))
             .defaultMakerId(mIds.isEmpty() ? null : mIds.get(0))
             .defaultMakerName(mNames.isEmpty() ? null : mNames.get(0))
             .defaultMakerIds(mIds)

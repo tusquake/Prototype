@@ -47,6 +47,10 @@ public class Sop {
     @Column(name = "due_day_offset", nullable = false)
     private Integer dueDayOffset;
 
+    @Column(name = "is_recurring", nullable = false)
+    @Builder.Default
+    private Boolean isRecurring = false;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "sop_maker_pool", joinColumns = @JoinColumn(name = "sop_id"))
     @Column(name = "maker_id", length = 64)
