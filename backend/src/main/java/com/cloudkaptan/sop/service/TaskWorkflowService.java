@@ -163,8 +163,12 @@ public class TaskWorkflowService {
 
     public TaskDto mapToDto(Task task) {
         long daysOverdue = 0;
-        if (task.getDueDate() != null && LocalDate.now().isAfter(task.getDueDate()) && task.getStatus() != TaskStatus.APPROVED) {
-            daysOverdue = ChronoUnit.DAYS.between(task.getDueDate(), LocalDate.now());
+        LocalDate entityToday = (task.getEntity() != null && task.getEntity().getEntityCode() != null)
+            ? task.getEntity().getEntityCode().getCurrentLocalDate()
+            : LocalDate.now();
+
+        if (task.getDueDate() != null && entityToday.isAfter(task.getDueDate()) && task.getStatus() != TaskStatus.APPROVED) {
+            daysOverdue = ChronoUnit.DAYS.between(task.getDueDate(), entityToday);
         }
 
         List<String> mIds = (task.getAssignedMakerIds() != null && !task.getAssignedMakerIds().isEmpty())
