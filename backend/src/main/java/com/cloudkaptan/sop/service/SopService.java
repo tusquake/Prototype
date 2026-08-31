@@ -4,8 +4,9 @@ import com.cloudkaptan.sop.config.security.ApplyRowLevelSecurity;
 import com.cloudkaptan.sop.domain.enums.EntityCode;
 import com.cloudkaptan.sop.domain.enums.SopStatus;
 import com.cloudkaptan.sop.domain.enums.UserRole;
-import com.cloudkaptan.sop.dto.CreateSopRequest;
-import com.cloudkaptan.sop.dto.SopDto;
+import com.cloudkaptan.sop.domain.state.sop.SopContext;
+import com.cloudkaptan.sop.domain.state.sop.SopStateMachineFactory;
+import com.cloudkaptan.sop.dto.*;
 import com.cloudkaptan.sop.entity.CorporateEntity;
 import com.cloudkaptan.sop.entity.Sop;
 import com.cloudkaptan.sop.entity.User;
@@ -95,6 +96,80 @@ public class SopService {
         }
 
         return mapToDto(saved);
+    }
+
+    @Transactional
+    public SopDto assignSop(AssignSopRequest request) {
+        if (sopRepository.findBySopCode(request.getSopCode()).isPresent()) {
+            throw new IllegalArgumentException("SOP code already exists: " + request.getSopCode());
+        }
+
+        CorporateEntity entity = resolveEntity(request.getEntityCode());
+        User adminCreator = resolveUser("usr-manoj-042", UserRole.ADMIN, entity);
+
+        Sop sop = Sop.builder()
+            .sopCode(request.getSopCode())
+            .title(request.getTitle() != null && !request.getTitle().isBlank() ? request.getTitle() : "Pending SOP Draft - " + request.getSopCode())
+            .description("SOP assigned by Admin. Pending drafting by assigned creator.")
+            .processCategory(request.getProcessCategory()) // Fixed process category set by Admin!
+            .entity(entity)
+            .frequency(com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY)
+            .dueDayOffset(15)
+            .isRecurring(false)
+            .assignedCreatorId(request.getAssignedCreatorId())
+            .assignedApproverId(request.getAssignedApproverId())
+            .status(SopStatus.PENDING_CREATION)
+            .createdBy(adminCreator)
+            .version(1)
+            .build();
+
+        Sop saved = sopRepository.save(sop);
+        return mapToDto(saved);
+    }
+
+    @Transactional
+    public SopDto submitSop(UUID sopId, SubmitSopRequest request) {
+        Sop sop = getSopOrThrow(sopId);
+        User actor = resolveUser(request.getActorId(), UserRole.MAKER, sop.getEntity());
+
+        SopContext context = new SopContext(sop, SopStateMachineFactory.getState(sop.getStatus()));
+        context.submitForApproval(actor);
+
+        if (request.getTitle() != null && !request.getTitle().isBlank()) sop.setTitle(request.getTitle());
+        if (request.getDescription() != null) sop.setDescription(request.getDescription());
+        if (request.getFrequency() != null) sop.setFrequency(request.getFrequency());
+        if (request.getDueDayOffset() != null) sop.setDueDayOffset(request.getDueDayOffset());
+        if (request.getIsRecurring() != null) sop.setIsRecurring(request.getIsRecurring());
+        if (request.getDefaultMakerIds() != null && !request.getDefaultMakerIds().isEmpty()) sop.setDefaultMakerIds(request.getDefaultMakerIds());
+        if (request.getDefaultCheckerIds() != null && !request.getDefaultCheckerIds().isEmpty()) sop.setDefaultCheckerIds(request.getDefaultCheckerIds());
+
+        Sop saved = sopRepository.save(sop);
+        return mapToDto(saved);
+    }
+
+    @Transactional
+    public SopDto actionSop(UUID sopId, SopActionRequest request) {
+        Sop sop = getSopOrThrow(sopId);
+        User actor = resolveUser(request.getActorId(), UserRole.CHECKER, sop.getEntity());
+
+        SopContext context = new SopContext(sop, SopStateMachineFactory.getState(sop.getStatus()));
+
+        if ("APPROVE".equalsIgnoreCase(request.getAction())) {
+            context.approve(actor);
+            taskSchedulerService.generateScheduledTasks();
+        } else if ("REJECT".equalsIgnoreCase(request.getAction())) {
+            context.reject(actor, request.getComment());
+        } else {
+            throw new IllegalArgumentException("Invalid action: " + request.getAction() + ". Expected APPROVE or REJECT.");
+        }
+
+        Sop saved = sopRepository.save(sop);
+        return mapToDto(saved);
+    }
+
+    private Sop getSopOrThrow(UUID sopId) {
+        return sopRepository.findById(sopId)
+            .orElseThrow(() -> new ResourceNotFoundException("SOP not found with ID: " + sopId));
     }
 
     @Transactional(readOnly = true)
@@ -194,6 +269,11 @@ public class SopService {
             .defaultCheckerName(cNames.isEmpty() ? null : cNames.get(0))
             .defaultCheckerIds(cIds)
             .defaultCheckerNames(cNames)
+            .assignedCreatorId(sop.getAssignedCreatorId())
+            .assignedCreatorName(sop.getAssignedCreatorId() != null ? userRepository.findById(sop.getAssignedCreatorId()).map(User::getFullName).orElse(sop.getAssignedCreatorId()) : null)
+            .assignedApproverId(sop.getAssignedApproverId())
+            .assignedApproverName(sop.getAssignedApproverId() != null ? userRepository.findById(sop.getAssignedApproverId()).map(User::getFullName).orElse(sop.getAssignedApproverId()) : null)
+            .rejectionReason(sop.getRejectionReason())
             .status(sop.getStatus())
             .version(sop.getVersion() != null ? sop.getVersion() : 1)
             .build();

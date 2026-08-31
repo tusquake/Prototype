@@ -63,6 +63,15 @@ public class Sop {
     @Builder.Default
     private java.util.List<String> defaultCheckerIds = new java.util.ArrayList<>();
 
+    @Column(name = "assigned_creator_id", length = 64)
+    private String assignedCreatorId;
+
+    @Column(name = "assigned_approver_id", length = 64)
+    private String assignedApproverId;
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 32, nullable = false)
     private SopStatus status;

@@ -55,6 +55,37 @@ public class SopController {
         return ResponseEntity.ok(ApiResponse.success(updated, "SOP updated successfully"));
     }
 
+    @PostMapping("/assign")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
+    public ResponseEntity<ApiResponse<SopDto>> assignSop(
+        @Valid @RequestBody com.cloudkaptan.sop.dto.AssignSopRequest request
+    ) {
+        SopDto assigned = sopService.assignSop(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.success(assigned, "SOP assignment created successfully. Creator notified to draft specification."));
+    }
+
+    @PutMapping("/{id}/submit")
+    public ResponseEntity<ApiResponse<SopDto>> submitSop(
+        @PathVariable("id") java.util.UUID id,
+        @Valid @RequestBody com.cloudkaptan.sop.dto.SubmitSopRequest request
+    ) {
+        SopDto submitted = sopService.submitSop(id, request);
+        return ResponseEntity.ok(ApiResponse.success(submitted, "SOP draft submitted for approval successfully."));
+    }
+
+    @PutMapping("/{id}/action")
+    public ResponseEntity<ApiResponse<SopDto>> actionSop(
+        @PathVariable("id") java.util.UUID id,
+        @Valid @RequestBody com.cloudkaptan.sop.dto.SopActionRequest request
+    ) {
+        SopDto updated = sopService.actionSop(id, request);
+        String msg = "APPROVE".equalsIgnoreCase(request.getAction())
+            ? "SOP approved successfully. SOP is now ACTIVE for automated task scheduling."
+            : "SOP rejected back to creator with revision feedback.";
+        return ResponseEntity.ok(ApiResponse.success(updated, msg));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
     public ResponseEntity<ApiResponse<Void>> deleteSop(

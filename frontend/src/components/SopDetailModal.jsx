@@ -70,7 +70,35 @@ export default function SopDetailModal({
                 )}
               </span>
             </div>
+            <div className={styles.field}>
+              <span className={styles.label}>Governance Status</span>
+              <span className={styles.value}>
+                {sop.status === 'PENDING_CREATION' && <span style={{ background: '#ffedd5', color: '#c2410c', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>PENDING CREATION</span>}
+                {sop.status === 'PENDING_APPROVAL' && <span style={{ background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>PENDING APPROVAL</span>}
+                {(sop.status === 'ACTIVE' || sop.status === 'APPROVED') && <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>ACTIVE (APPROVED)</span>}
+                {sop.status === 'REJECTED' && <span style={{ background: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>REJECTED</span>}
+              </span>
+            </div>
+
+            <div className={styles.field}>
+              <span className={styles.label}>Assigned Creator</span>
+              <span className={styles.value} style={{ fontWeight: 600, color: '#1e293b' }}>{sop.assignedCreatorName || sop.assignedCreatorId || 'N/A'}</span>
+            </div>
+
+            <div className={styles.field}>
+              <span className={styles.label}>Assigned Approver</span>
+              <span className={styles.value} style={{ fontWeight: 600, color: '#1e293b' }}>{sop.assignedApproverName || sop.assignedApproverId || 'N/A'}</span>
+            </div>
           </div>
+
+          {sop.rejectionReason && (
+            <div className={styles.field} style={{ marginBottom: 12 }}>
+              <span className={styles.label} style={{ color: '#b91c1c' }}>Rejection Comments</span>
+              <div className={styles.descBox} style={{ background: '#fff1f2', border: '1px solid #fecdd3', color: '#9f1239' }}>
+                {sop.rejectionReason}
+              </div>
+            </div>
+          )}
 
           <div className={styles.field}>
             <span className={styles.label}>Description</span>

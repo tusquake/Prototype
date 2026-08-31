@@ -34,6 +34,11 @@ public class SopDto {
     private String defaultCheckerName;
     private List<String> defaultCheckerIds;
     private List<String> defaultCheckerNames;
+    private String assignedCreatorId;
+    private String assignedCreatorName;
+    private String assignedApproverId;
+    private String assignedApproverName;
+    private String rejectionReason;
     private SopStatus status;
     private Integer version;
 }

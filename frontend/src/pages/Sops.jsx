@@ -9,7 +9,7 @@ import SopDetailModal from '../components/SopDetailModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { ENTITIES, getSops, createSop, updateSop, deleteSop, getUsers, generateScheduledTasks } from '../services/api';
+import { ENTITIES, getSops, createSop, updateSop, deleteSop, getUsers, generateScheduledTasks, assignSop, submitSopDraft, actionSop } from '../services/api';
 import styles from './Sops.module.css';
 
 const FREQ_LABEL = { MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', ANNUAL: 'Annual', DAILY: 'Daily', WEEKLY: 'Weekly' };
@@ -214,6 +214,82 @@ export default function Sops() {
     }));
   }
 
+  // Admin Assignment Modal State
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignForm, setAssignForm] = useState({
+    sopCode: '',
+    entityCode: 'CK_INDIA',
+    processCategory: 'Tax Compliance',
+    assignedCreatorId: 'usr-tushar-304',
+    assignedApproverId: 'usr-vivek-108',
+  });
+
+  // Rejection Modal State
+  const [rejectingSop, setRejectingSop] = useState(null);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState('');
+
+  async function handleAssignSubmit(e) {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+    if (!assignForm.sopCode.trim()) {
+      setErrorMsg('SOP Code is required.');
+      return;
+    }
+    try {
+      setSaving(true);
+      await assignSop(assignForm);
+      setSuccessMsg(`SOP Assignment "${assignForm.sopCode}" created successfully! Creator assigned to draft for category "${assignForm.processCategory}".`);
+      setShowAssignModal(false);
+      setAssignForm({
+        sopCode: '',
+        entityCode: 'CK_INDIA',
+        processCategory: 'Tax Compliance',
+        assignedCreatorId: 'usr-tushar-304',
+        assignedApproverId: 'usr-vivek-108',
+      });
+      await loadData();
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to create SOP assignment');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleApproveSop(sop) {
+    try {
+      setSaving(true);
+      await actionSop(sop.id || sop.sopId, { action: 'APPROVE', actorId: currentUser?.id || 'usr-vivek-108' });
+      setSuccessMsg(`SOP "${sop.name || sop.title || sop.code}" approved successfully! Status is now ACTIVE for task generation.`);
+      await loadData();
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to approve SOP');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleConfirmRejectSop(e) {
+    e.preventDefault();
+    if (!rejectingSop) return;
+    try {
+      setSaving(true);
+      await actionSop(rejectingSop.id || rejectingSop.sopId, {
+        action: 'REJECT',
+        comment: rejectionReasonInput || 'SOP draft requires revision by creator.',
+        actorId: currentUser?.id || 'usr-vivek-108'
+      });
+      setSuccessMsg(`SOP "${rejectingSop.name || rejectingSop.title || rejectingSop.code}" rejected back to creator with revision comments.`);
+      setRejectingSop(null);
+      setRejectionReasonInput('');
+      await loadData();
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to reject SOP');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleFormSubmit(e) {
     e.preventDefault();
     setErrorMsg('');
@@ -236,7 +312,13 @@ export default function Sops() {
         createdById: 'usr-mainak-215',
       };
 
-      if (editingSop) {
+      if (editingSop && (editingSop.status === 'PENDING_CREATION' || editingSop.status === 'REJECTED')) {
+        await submitSopDraft(editingSop.sopId || editingSop.id || editingSop.code, {
+          ...payload,
+          actorId: currentUser?.id || 'usr-tushar-304'
+        });
+        setSuccessMsg(`SOP draft "${formData.title}" submitted for approval successfully! Status: PENDING_APPROVAL.`);
+      } else if (editingSop) {
         await updateSop(editingSop.sopId || editingSop.id || editingSop.code, payload);
         setSuccessMsg(`SOP "${formData.title}" updated successfully! Version incremented.`);
       } else {
@@ -504,6 +586,16 @@ export default function Sops() {
                     <span>{runningScheduler ? 'Generating Tasks...' : 'Run Task Scheduler'}</span>
                   </button>
 
+                  <button className={styles.createBtn} onClick={() => setShowAssignModal(true)} style={{ background: '#0284c7' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="8.5" cy="7" r="4" />
+                      <line x1="20" y1="8" x2="20" y2="14" />
+                      <line x1="17" y1="11" x2="23" y2="11" />
+                    </svg>
+                    <span>Assign SOP Creation</span>
+                  </button>
+
                   <button className={styles.createBtn} onClick={openCreateModal}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="12" y1="5" x2="12" y2="19" />
@@ -523,10 +615,10 @@ export default function Sops() {
                     <th>NAME</th>
                     <th>PROCESS</th>
                     <th>ENTITY</th>
+                    <th>STATUS</th>
                     <th>FREQUENCY</th>
-                    <th>DUE DAY</th>
-                    <th>ASSIGNED MAKERS</th>
-                    <th>ASSIGNED CHECKERS</th>
+                    <th>CREATOR</th>
+                    <th>APPROVER</th>
                     <th>VERSION</th>
                     <th style={{ textAlign: 'right' }}>ACTIONS</th>
                   </tr>
@@ -543,6 +635,28 @@ export default function Sops() {
                       <td>{sop.process || sop.processCategory}</td>
                       <td>{sop.entity || sop.entityName}</td>
                       <td>
+                        {sop.status === 'PENDING_CREATION' && (
+                          <span style={{ fontSize: 11, background: '#ffedd5', color: '#c2410c', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                            PENDING CREATION
+                          </span>
+                        )}
+                        {sop.status === 'PENDING_APPROVAL' && (
+                          <span style={{ fontSize: 11, background: '#fef3c7', color: '#b45309', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                            PENDING APPROVAL
+                          </span>
+                        )}
+                        {(sop.status === 'ACTIVE' || sop.status === 'APPROVED') && (
+                          <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                            ACTIVE
+                          </span>
+                        )}
+                        {sop.status === 'REJECTED' && (
+                          <span style={{ fontSize: 11, background: '#fee2e2', color: '#b91c1c', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                            REJECTED
+                          </span>
+                        )}
+                      </td>
+                      <td>
                         <span className={styles.freqBadge}>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4, verticalAlign: 'middle' }}>
                             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -552,32 +666,52 @@ export default function Sops() {
                           </svg>
                           {FREQ_LABEL[sop.frequency] || sop.frequency}
                         </span>
-                        <div style={{ marginTop: 4 }}>
-                          {sop.isRecurring ? (
-                            <span style={{ fontSize: 10, background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
-                              RECURRING
-                            </span>
-                          ) : (
-                            <span style={{ fontSize: 10, background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>
-                              ONE-TIME
-                            </span>
-                          )}
-                        </div>
                       </td>
-                      <td>Day {sop.dueDay || sop.dueDayOffset}</td>
-                      <td>
-                        <span style={{ fontWeight: 500, color: '#1e293b' }}>
-                          {sop.makers?.length ? sop.makers.join(', ') : sop.maker}
-                        </span>
+                      <td style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                        {sop.assignedCreatorName || sop.assignedCreatorId || 'N/A'}
                       </td>
-                      <td>
-                        <span style={{ fontWeight: 500, color: '#1e293b' }}>
-                          {sop.checkers?.length ? sop.checkers.join(', ') : sop.checker}
-                        </span>
+                      <td style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                        {sop.assignedApproverName || sop.assignedApproverId || 'N/A'}
                       </td>
                       <td>v{sop.version || 1}</td>
                       <td onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                          {(sop.status === 'PENDING_CREATION' || sop.status === 'REJECTED') && (
+                            <button
+                              type="button"
+                              title="Draft SOP Specification"
+                              style={{ background: '#f0f9ff', border: '1px solid #0284c7', color: '#0369a1', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                              onClick={() => openEditModal(sop)}
+                            >
+                              Draft SOP
+                            </button>
+                          )}
+
+                          {sop.status === 'PENDING_APPROVAL' && (
+                            <>
+                              <button
+                                type="button"
+                                title="Approve SOP"
+                                style={{ background: '#f0fdf4', border: '1px solid #16a34a', color: '#15803d', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                                onClick={() => handleApproveSop(sop)}
+                              >
+                                Approve
+                              </button>
+
+                              <button
+                                type="button"
+                                title="Reject SOP"
+                                style={{ background: '#fff1f2', border: '1px solid #e11d48', color: '#be123c', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                                onClick={() => {
+                                  setRejectingSop(sop);
+                                  setRejectionReasonInput('');
+                                }}
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+
                           <button
                             type="button"
                             title="View SOP Details"
@@ -933,7 +1067,147 @@ export default function Sops() {
                   className={styles.submitBtn}
                   disabled={saving}
                 >
-                  {saving ? 'Saving...' : (editingSop ? 'Update SOP' : 'Create & Schedule SOP')}
+                  {saving ? 'Submitting Specification...' : (editingSop?.status === 'PENDING_CREATION' || editingSop?.status === 'REJECTED' ? 'Submit for Approval' : (editingSop ? 'Update SOP' : 'Create & Schedule SOP'))}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Assignment Modal */}
+      {showAssignModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modal} style={{ maxWidth: 520 }}>
+            <div className={styles.modalHeader}>
+              <div>
+                <h3>Assign SOP Creation & Approval</h3>
+                <p>Admin governance: Pick SOP Code, Entity, lock Process Category, and assign Creator & Approver.</p>
+              </div>
+              <button className={styles.closeBtn} onClick={() => setShowAssignModal(false)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleAssignSubmit}>
+              <div className={styles.modalBody}>
+                {errorMsg && <div className={styles.errorAlert}>{errorMsg}</div>}
+
+                <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                  <label>SOP CODE *</label>
+                  <input
+                    type="text"
+                    value={assignForm.sopCode}
+                    onChange={e => setAssignForm(prev => ({ ...prev, sopCode: e.target.value }))}
+                    placeholder="e.g. SOP-TAX-IN-088"
+                    required
+                  />
+                </div>
+
+                <div className={`${styles.formRow} ${styles.fullWidth}`}>
+                  <div className={styles.formGroup}>
+                    <label>CORPORATE ENTITY *</label>
+                    <CustomSelect
+                      value={assignForm.entityCode}
+                      options={ENTITY_OPTIONS}
+                      onChange={e => setAssignForm(prev => ({ ...prev, entityCode: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>LOCKED PROCESS CATEGORY *</label>
+                    <CustomSelect
+                      value={assignForm.processCategory}
+                      options={PROCESS_OPTIONS}
+                      onChange={e => setAssignForm(prev => ({ ...prev, processCategory: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className={`${styles.formRow} ${styles.fullWidth}`}>
+                  <div className={styles.formGroup}>
+                    <label>ASSIGNED CREATOR (DRAFTS SPECIFICATION) *</label>
+                    <select
+                      value={assignForm.assignedCreatorId}
+                      onChange={e => setAssignForm(prev => ({ ...prev, assignedCreatorId: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, background: '#ffffff' }}
+                    >
+                      <option value="usr-tushar-304">Tushar Seth (usr-tushar-304)</option>
+                      <option value="usr-prayasa-410">Prayasa Sharma (usr-prayasa-410)</option>
+                      <option value="usr-vivek-108">Vivek Raj (usr-vivek-108)</option>
+                      <option value="usr-mainak-215">Mainak Gupta (usr-mainak-215)</option>
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label>ASSIGNED APPROVER (REVIEWS & APPROVES) *</label>
+                    <select
+                      value={assignForm.assignedApproverId}
+                      onChange={e => setAssignForm(prev => ({ ...prev, assignedApproverId: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, background: '#ffffff' }}
+                    >
+                      <option value="usr-vivek-108">Vivek Raj (usr-vivek-108)</option>
+                      <option value="usr-mainak-215">Mainak Gupta (usr-mainak-215)</option>
+                      <option value="usr-manoj-042">Manoj Agarwal (usr-manoj-042)</option>
+                      <option value="usr-avisek-499">Avisek Paul (usr-avisek-499)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.modalFooter}>
+                <button type="button" className={styles.btnSecondary} onClick={() => setShowAssignModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className={styles.btnPrimary} disabled={saving} style={{ background: '#0284c7' }}>
+                  {saving ? 'Creating Assignment...' : 'Assign SOP Creation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Approver Rejection Modal */}
+      {rejectingSop && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modal} style={{ maxWidth: 480 }}>
+            <div className={styles.modalHeader} style={{ background: '#fff1f2', borderBottom: '1px solid #fecdd3' }}>
+              <div>
+                <h3 style={{ color: '#be123c' }}>Reject SOP Draft</h3>
+                <p style={{ color: '#9f1239' }}>Provide revision feedback for creator: {rejectingSop.code || rejectingSop.sopCode}</p>
+              </div>
+              <button className={styles.closeBtn} onClick={() => setRejectingSop(null)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmRejectSop}>
+              <div className={styles.modalBody}>
+                <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                  <label style={{ color: '#be123c', fontWeight: 700 }}>REJECTION COMMENTS / REVISION FEEDBACK *</label>
+                  <textarea
+                    value={rejectionReasonInput}
+                    onChange={e => setRejectionReasonInput(e.target.value)}
+                    placeholder="Specify required corrections for the assigned creator..."
+                    rows={4}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className={styles.modalFooter}>
+                <button type="button" className={styles.btnSecondary} onClick={() => setRejectingSop(null)}>
+                  Cancel
+                </button>
+                <button type="submit" className={styles.btnDanger} disabled={saving}>
+                  {saving ? 'Rejecting SOP...' : 'Confirm Rejection'}
                 </button>
               </div>
             </form>

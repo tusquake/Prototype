@@ -222,6 +222,14 @@ export function mapSop(dto) {
     checkers: checkers,
     defaultMakerNames: makers,
     defaultCheckerNames: checkers,
+    defaultMakerIds: dto.defaultMakerIds || [],
+    defaultCheckerIds: dto.defaultCheckerIds || [],
+    assignedCreatorId: dto.assignedCreatorId,
+    assignedCreatorName: dto.assignedCreatorName || dto.assignedCreatorId,
+    assignedApproverId: dto.assignedApproverId,
+    assignedApproverName: dto.assignedApproverName || dto.assignedApproverId,
+    rejectionReason: dto.rejectionReason,
+    status: dto.status || 'ACTIVE',
     version: dto.version || dto.versionNumber || 1,
   };
 }
@@ -339,6 +347,33 @@ export async function getAuditLogs() {
     return list;
   }
   return [];
+}
+
+export async function assignSop(assignData) {
+  const res = await fetchJson('/sops/assign', {
+    method: 'POST',
+    body: JSON.stringify(assignData),
+  }).catch(() => null);
+
+  return res ? mapSop(res) : null;
+}
+
+export async function submitSopDraft(sopId, draftData) {
+  const res = await fetchJson(`/sops/${sopId}/submit`, {
+    method: 'PUT',
+    body: JSON.stringify(draftData),
+  }).catch(() => null);
+
+  return res ? mapSop(res) : null;
+}
+
+export async function actionSop(sopId, actionData) {
+  const res = await fetchJson(`/sops/${sopId}/action`, {
+    method: 'PUT',
+    body: JSON.stringify(actionData),
+  }).catch(() => null);
+
+  return res ? mapSop(res) : null;
 }
 
 export async function createSop(sopData) {
