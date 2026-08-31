@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,6 +25,7 @@ import java.util.UUID;
 public class TaskController {
 
     private final TaskWorkflowService taskWorkflowService;
+    private final com.cloudkaptan.sop.service.TaskSchedulerService taskSchedulerService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<TaskDto>>> getTasks(
@@ -42,8 +44,6 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(taskWorkflowService.getInbox(entities, status, userId, pageable)));
     }
 
-    private final com.cloudkaptan.sop.service.TaskSchedulerService taskSchedulerService;
-
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<TaskDto>> getTaskById(
         @PathVariable("id") UUID id
@@ -52,7 +52,7 @@ public class TaskController {
     }
 
     @DeleteMapping("/{id}")
-    @org.springframework.security.access.prepost.PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
     public ResponseEntity<ApiResponse<Void>> deleteTask(
         @PathVariable("id") UUID id
     ) {
@@ -61,7 +61,7 @@ public class TaskController {
     }
 
     @PostMapping("/generate-scheduled")
-    @org.springframework.security.access.prepost.PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
     public ResponseEntity<ApiResponse<Void>> generateScheduledTasks() {
         taskSchedulerService.generateScheduledTasks();
         return ResponseEntity.ok(ApiResponse.success(null, "Scheduled tasks generated successfully"));
