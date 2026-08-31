@@ -32,6 +32,7 @@ public class SopService {
     private final TaskSchedulerService taskSchedulerService;
     private final AuditLogRepository auditLogRepository;
 
+    @com.cloudkaptan.sop.config.security.ApplyRowLevelSecurity
     @Transactional(readOnly = true)
     public List<SopDto> getSops(List<EntityCode> entities) {
         List<Sop> sops = (entities == null || entities.isEmpty())

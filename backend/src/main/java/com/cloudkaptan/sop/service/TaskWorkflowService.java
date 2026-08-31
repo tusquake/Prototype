@@ -144,6 +144,7 @@ public class TaskWorkflowService {
         return taskRepository.findInboxTasks(entities, status, userId, pageable);
     }
 
+    @com.cloudkaptan.sop.config.security.ApplyRowLevelSecurity
     @Transactional(readOnly = true)
     public List<TaskDto> getTasks(List<EntityCode> entities) {
         return taskRepository.findTasksByEntities(entities).stream()
