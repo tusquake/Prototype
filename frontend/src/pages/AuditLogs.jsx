@@ -112,10 +112,10 @@ export default function AuditLogs() {
     const { rangeType, startDate, endDate } = dateRangeState;
     if (rangeType !== 'ALL') {
       const logDate = new Date(log.timestamp);
-      const now = new Date(2026, 7, 28);
+      const now = new Date(2026, 7, 31);
 
       if (rangeType === 'TODAY') {
-        const todayStart = new Date(2026, 7, 28);
+        const todayStart = new Date(2026, 7, 31);
         todayStart.setHours(0, 0, 0, 0);
         if (logDate < todayStart) return false;
       } else if (rangeType === 'LAST_7_DAYS') {
@@ -163,6 +163,66 @@ export default function AuditLogs() {
 
     return true;
   });
+
+  /**
+   * Export Filtered Audit Logs to CSV / Excel
+   */
+  function handleExportExcel() {
+    if (!filteredLogs || filteredLogs.length === 0) return;
+
+    // Define CSV Headers
+    const headers = [
+      'Audit ID',
+      'Timestamp (UTC)',
+      'Actor ID',
+      'Actor Name',
+      'Actor Email',
+      'Action',
+      'Entity Type',
+      'Entity ID',
+      'Correlation ID'
+    ];
+
+    // Helper to safely quote strings with commas/quotes
+    const escapeCsvField = (field) => {
+      if (field === null || field === undefined) return '""';
+      const stringValue = String(field);
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    };
+
+    // Format Data Rows
+    const rows = filteredLogs.map(log => [
+      escapeCsvField(log.auditId),
+      escapeCsvField(formatTimestamp(log.timestamp)),
+      escapeCsvField(log.actorId),
+      escapeCsvField(log.actorName),
+      escapeCsvField(log.actorEmail),
+      escapeCsvField(log.action),
+      escapeCsvField(log.entityType),
+      escapeCsvField(log.entityId),
+      escapeCsvField(log.correlationId)
+    ]);
+
+    // Construct CSV Content with UTF-8 BOM for Microsoft Excel Compatibility
+    const csvContent = '\uFEFF' + [
+      headers.join(','),
+      ...rows.map(r => r.join(','))
+    ].join('\n');
+
+    // Create Downloadable File Blob
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    // Auto-generate timestamped filename (e.g., Audit_Logs_2026-08-31.csv)
+    const dateStr = new Date().toISOString().split('T')[0];
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Audit_Logs_${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
 
   function renderActionBadge(action) {
     const act = (action || '').toUpperCase();
@@ -307,6 +367,24 @@ export default function AuditLogs() {
                   setCurrentPage(1);
                 }}
               />
+            </div>
+
+            {/* Export to Excel Button */}
+            <div className={styles.filterGroup} style={{ flex: 'none' }}>
+              <span className={styles.filterLabel}>Export</span>
+              <button
+                className={styles.exportBtn}
+                onClick={handleExportExcel}
+                disabled={filteredLogs.length === 0 || loading}
+                title="Export current logs to Excel/CSV"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Export Excel
+              </button>
             </div>
 
             {/* Reset Filters */}

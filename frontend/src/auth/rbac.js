@@ -4,14 +4,15 @@ export const ROLES = {
   MAKER: 'MAKER',
   MAKER_CHECKER: 'MAKER_CHECKER',
   VIEWER: 'VIEWER',
+
 };
 
 export const PERMISSIONS = {
   '/dashboard': [ROLES.ADMIN, ROLES.CHECKER, ROLES.MAKER, ROLES.MAKER_CHECKER, ROLES.VIEWER],
   '/inbox': [ROLES.ADMIN, ROLES.CHECKER, ROLES.MAKER, ROLES.MAKER_CHECKER],
   '/tasks': [ROLES.ADMIN, ROLES.CHECKER, ROLES.MAKER, ROLES.MAKER_CHECKER, ROLES.VIEWER],
-  '/sops': [ROLES.ADMIN, ROLES.VIEWER],
-  '/audit': [ROLES.ADMIN, ROLES.CHECKER, ROLES.MAKER, ROLES.MAKER_CHECKER, ROLES.VIEWER],
+  '/sops': [ROLES.ADMIN],
+  '/audit': [ROLES.ADMIN],
 };
 
 const EMAIL_ROLE_MAP = {
@@ -20,6 +21,7 @@ const EMAIL_ROLE_MAP = {
   'mainak.gupta@cloudkaptan.com': ROLES.CHECKER,
   'tushar.seth@cloudkaptan.com': ROLES.MAKER,
   'avisek.shaw@cloudkaptan.com': ROLES.VIEWER,
+  'apratim.raha@cloudkaptan.com': ROLES.VIEWER,
 };
 
 export function getRoleForEmail(email) {

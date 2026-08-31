@@ -1,5 +1,6 @@
 package com.cloudkaptan.sop.config;
 
+import com.cloudkaptan.sop.config.security.RateLimitingFilter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,6 +31,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+    private final RateLimitingFilter rateLimitingFilter;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -42,7 +45,10 @@ public class SecurityConfig {
                 .requestMatchers("/finsop/v1/**").permitAll()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(new LocalDevAuthFilter(), UsernamePasswordAuthenticationFilter.class);
+            // 1. Set local dev authentication context first
+            .addFilterBefore(new LocalDevAuthFilter(), UsernamePasswordAuthenticationFilter.class)
+            // 2. Evaluate rate limiting directly after authentication context is populated
+            .addFilterAfter(rateLimitingFilter, LocalDevAuthFilter.class);
 
         return http.build();
     }
