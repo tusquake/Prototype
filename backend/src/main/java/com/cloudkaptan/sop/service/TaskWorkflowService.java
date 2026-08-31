@@ -153,24 +153,24 @@ public class TaskWorkflowService {
             ? task.getAssignedMakerIds()
             : ((task.getSop().getDefaultMakerIds() != null && !task.getSop().getDefaultMakerIds().isEmpty())
                 ? task.getSop().getDefaultMakerIds()
-                : List.of(task.getMaker().getUserId()));
+                : (task.getMaker() != null ? List.of(task.getMaker().getUserId()) : List.of()));
         List<String> mNames = mIds.stream()
-            .map(id -> userRepository.findById(id).map(User::getFullName).orElse(task.getMaker().getFullName()))
+            .map(id -> userRepository.findById(id).map(User::getFullName).orElse(id))
             .toList();
 
         List<String> cIds = (task.getAssignedCheckerIds() != null && !task.getAssignedCheckerIds().isEmpty())
             ? task.getAssignedCheckerIds()
             : ((task.getSop().getDefaultCheckerIds() != null && !task.getSop().getDefaultCheckerIds().isEmpty())
                 ? task.getSop().getDefaultCheckerIds()
-                : List.of(task.getChecker().getUserId()));
+                : (task.getChecker() != null ? List.of(task.getChecker().getUserId()) : List.of()));
         List<String> cNames = cIds.stream()
-            .map(id -> userRepository.findById(id).map(User::getFullName).orElse(task.getChecker().getFullName()))
+            .map(id -> userRepository.findById(id).map(User::getFullName).orElse(id))
             .toList();
 
-        String actualMakerName = (task.getStatus() == TaskStatus.PENDING_REVIEW || task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED || task.getStatus() == TaskStatus.PERMANENTLY_REJECTED)
+        String actualMakerName = (task.getMaker() != null && (task.getStatus() == TaskStatus.PENDING_REVIEW || task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED || task.getStatus() == TaskStatus.PERMANENTLY_REJECTED))
             ? task.getMaker().getFullName() : null;
 
-        String actualCheckerName = (task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED || task.getStatus() == TaskStatus.PERMANENTLY_REJECTED)
+        String actualCheckerName = (task.getChecker() != null && (task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED || task.getStatus() == TaskStatus.PERMANENTLY_REJECTED))
             ? task.getChecker().getFullName() : null;
 
         List<com.cloudkaptan.sop.entity.TaskEvent> rawEvents = taskEventRepository.findByTask_TaskIdOrderByTimestampAsc(task.getTaskId());
@@ -224,17 +224,17 @@ public class TaskWorkflowService {
             .periodKey(task.getPeriodKey())
             .entityCode(task.getEntity().getEntityCode())
             .entityName(task.getEntity().getEntityName())
-            .makerId(task.getMaker().getUserId())
-            .makerName(task.getMaker().getFullName())
+            .makerId(task.getMaker() != null ? task.getMaker().getUserId() : (mIds.isEmpty() ? null : mIds.get(0)))
+            .makerName(task.getMaker() != null ? task.getMaker().getFullName() : (mNames.isEmpty() ? null : mNames.get(0)))
             .assignedMakerIds(mIds)
             .assignedMakerNames(mNames)
-            .actualMakerId(task.getMaker().getUserId())
+            .actualMakerId(task.getMaker() != null ? task.getMaker().getUserId() : null)
             .actualMakerName(actualMakerName)
-            .checkerId(task.getChecker().getUserId())
-            .checkerName(task.getChecker().getFullName())
+            .checkerId(task.getChecker() != null ? task.getChecker().getUserId() : (cIds.isEmpty() ? null : cIds.get(0)))
+            .checkerName(task.getChecker() != null ? task.getChecker().getFullName() : (cNames.isEmpty() ? null : cNames.get(0)))
             .assignedCheckerIds(cIds)
             .assignedCheckerNames(cNames)
-            .actualCheckerId(task.getChecker().getUserId())
+            .actualCheckerId(task.getChecker() != null ? task.getChecker().getUserId() : null)
             .actualCheckerName(actualCheckerName)
             .status(task.getStatus())
             .dueDate(task.getDueDate())

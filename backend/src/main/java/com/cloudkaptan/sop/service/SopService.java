@@ -164,15 +164,15 @@ public class SopService {
 
     public SopDto mapToDto(Sop sop) {
         List<String> mIds = (sop.getDefaultMakerIds() != null && !sop.getDefaultMakerIds().isEmpty())
-            ? sop.getDefaultMakerIds() : List.of(sop.getDefaultMaker().getUserId());
+            ? sop.getDefaultMakerIds() : (sop.getDefaultMaker() != null ? List.of(sop.getDefaultMaker().getUserId()) : List.of());
         List<String> mNames = mIds.stream()
-            .map(id -> userRepository.findById(id).map(User::getFullName).orElse(sop.getDefaultMaker().getFullName()))
+            .map(id -> userRepository.findById(id).map(User::getFullName).orElse(id))
             .toList();
 
         List<String> cIds = (sop.getDefaultCheckerIds() != null && !sop.getDefaultCheckerIds().isEmpty())
-            ? sop.getDefaultCheckerIds() : List.of(sop.getDefaultChecker().getUserId());
+            ? sop.getDefaultCheckerIds() : (sop.getDefaultChecker() != null ? List.of(sop.getDefaultChecker().getUserId()) : List.of());
         List<String> cNames = cIds.stream()
-            .map(id -> userRepository.findById(id).map(User::getFullName).orElse(sop.getDefaultChecker().getFullName()))
+            .map(id -> userRepository.findById(id).map(User::getFullName).orElse(id))
             .toList();
 
         return SopDto.builder()
@@ -185,12 +185,12 @@ public class SopService {
             .entityName(sop.getEntity().getEntityName())
             .frequency(sop.getFrequency())
             .dueDayOffset(sop.getDueDayOffset())
-            .defaultMakerId(sop.getDefaultMaker().getUserId())
-            .defaultMakerName(sop.getDefaultMaker().getFullName())
+            .defaultMakerId(sop.getDefaultMaker() != null ? sop.getDefaultMaker().getUserId() : (mIds.isEmpty() ? null : mIds.get(0)))
+            .defaultMakerName(sop.getDefaultMaker() != null ? sop.getDefaultMaker().getFullName() : (mNames.isEmpty() ? null : mNames.get(0)))
             .defaultMakerIds(mIds)
             .defaultMakerNames(mNames)
-            .defaultCheckerId(sop.getDefaultChecker().getUserId())
-            .defaultCheckerName(sop.getDefaultChecker().getFullName())
+            .defaultCheckerId(sop.getDefaultChecker() != null ? sop.getDefaultChecker().getUserId() : (cIds.isEmpty() ? null : cIds.get(0)))
+            .defaultCheckerName(sop.getDefaultChecker() != null ? sop.getDefaultChecker().getFullName() : (cNames.isEmpty() ? null : cNames.get(0)))
             .defaultCheckerIds(cIds)
             .defaultCheckerNames(cNames)
             .status(sop.getStatus())

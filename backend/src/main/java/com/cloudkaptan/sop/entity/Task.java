@@ -47,12 +47,12 @@ public class Task {
     @JoinColumn(name = "entity_code", nullable = false)
     private CorporateEntity entity;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "maker_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "maker_id", nullable = true)
     private User maker;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "checker_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "checker_id", nullable = true)
     private User checker;
 
     @ElementCollection(fetch = FetchType.EAGER)

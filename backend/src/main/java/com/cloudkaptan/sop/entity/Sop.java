@@ -47,12 +47,12 @@ public class Sop {
     @Column(name = "due_day_offset", nullable = false)
     private Integer dueDayOffset;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "default_maker_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "default_maker_id", nullable = true)
     private User defaultMaker;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "default_checker_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "default_checker_id", nullable = true)
     private User defaultChecker;
 
     @ElementCollection(fetch = FetchType.EAGER)
