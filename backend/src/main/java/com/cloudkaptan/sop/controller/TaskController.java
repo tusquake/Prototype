@@ -77,40 +77,4 @@ public class TaskController {
             "Task action processed successfully"
         ));
     }
-
-    @PutMapping("/{id}/submit")
-    public ResponseEntity<ApiResponse<TaskDto>> submitTask(
-        @PathVariable("id") UUID id,
-        @Valid @RequestBody TaskActionRequest request
-    ) {
-        request.setAction("SUBMIT");
-        return ResponseEntity.ok(ApiResponse.success(
-            taskWorkflowService.processTaskAction(id, request),
-            "Task submitted successfully"
-        ));
-    }
-
-    @PutMapping("/{id}/approve")
-    public ResponseEntity<ApiResponse<TaskDto>> approveTask(
-        @PathVariable("id") UUID id,
-        @Valid @RequestBody TaskActionRequest request
-    ) {
-        request.setAction("APPROVE");
-        return ResponseEntity.ok(ApiResponse.success(
-            taskWorkflowService.processTaskAction(id, request),
-            "Task approved successfully"
-        ));
-    }
-
-    @PutMapping("/{id}/reject")
-    public ResponseEntity<ApiResponse<TaskDto>> rejectTask(
-        @PathVariable("id") UUID id,
-        @Valid @RequestBody TaskActionRequest request
-    ) {
-        if (request.getAction() == null) request.setAction("REJECT");
-        return ResponseEntity.ok(ApiResponse.success(
-            taskWorkflowService.processTaskAction(id, request),
-            "Task rejected successfully"
-        ));
-    }
 }
