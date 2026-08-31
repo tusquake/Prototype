@@ -116,7 +116,11 @@ export function parseGoogleToken(idToken) {
 
     const email = payload.email || payload.upn || payload.preferred_username;
 
+    const matchedUser = USERS.find(u => u.email.toLowerCase() === email?.toLowerCase());
+    const userId = matchedUser ? matchedUser.id : (email?.includes('tushar') ? 'usr-tushar-304' : email?.includes('mainak') ? 'usr-mainak-215' : email?.includes('vivek') ? 'usr-vivek-108' : 'usr-manoj-042');
+
     return {
+      id: userId,
       name: payload.name || payload.given_name || email?.split('@')[0] || 'User',
       email: email,
       picture: payload.picture || '',
