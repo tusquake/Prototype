@@ -3,14 +3,13 @@ package com.cloudkaptan.sop.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.Immutable;
 
 import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "task_comments")
-@Immutable
 @Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder

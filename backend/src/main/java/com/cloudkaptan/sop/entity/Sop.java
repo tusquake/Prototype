@@ -55,6 +55,18 @@ public class Sop {
     @JoinColumn(name = "default_checker_id", nullable = false)
     private User defaultChecker;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "sop_maker_pool", joinColumns = @JoinColumn(name = "sop_id"))
+    @Column(name = "maker_id", length = 64)
+    @Builder.Default
+    private java.util.List<String> defaultMakerIds = new java.util.ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "sop_checker_pool", joinColumns = @JoinColumn(name = "sop_id"))
+    @Column(name = "checker_id", length = 64)
+    @Builder.Default
+    private java.util.List<String> defaultCheckerIds = new java.util.ArrayList<>();
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 32, nullable = false)
     private SopStatus status;

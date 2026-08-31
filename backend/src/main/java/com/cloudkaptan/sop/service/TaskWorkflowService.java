@@ -149,13 +149,20 @@ public class TaskWorkflowService {
             daysOverdue = ChronoUnit.DAYS.between(task.getDueDate(), LocalDate.now());
         }
 
-        UUID sopId = task.getSop().getSopId();
-        List<String> mIds = SopService.makerPoolMap.getOrDefault(sopId, List.of(task.getMaker().getUserId()));
+        List<String> mIds = (task.getAssignedMakerIds() != null && !task.getAssignedMakerIds().isEmpty())
+            ? task.getAssignedMakerIds()
+            : ((task.getSop().getDefaultMakerIds() != null && !task.getSop().getDefaultMakerIds().isEmpty())
+                ? task.getSop().getDefaultMakerIds()
+                : List.of(task.getMaker().getUserId()));
         List<String> mNames = mIds.stream()
             .map(id -> userRepository.findById(id).map(User::getFullName).orElse(task.getMaker().getFullName()))
             .toList();
 
-        List<String> cIds = SopService.checkerPoolMap.getOrDefault(sopId, List.of(task.getChecker().getUserId()));
+        List<String> cIds = (task.getAssignedCheckerIds() != null && !task.getAssignedCheckerIds().isEmpty())
+            ? task.getAssignedCheckerIds()
+            : ((task.getSop().getDefaultCheckerIds() != null && !task.getSop().getDefaultCheckerIds().isEmpty())
+                ? task.getSop().getDefaultCheckerIds()
+                : List.of(task.getChecker().getUserId()));
         List<String> cNames = cIds.stream()
             .map(id -> userRepository.findById(id).map(User::getFullName).orElse(task.getChecker().getFullName()))
             .toList();
@@ -211,7 +218,7 @@ public class TaskWorkflowService {
             .taskId(task.getTaskId())
             .version(task.getVersion())
             .recordNo(task.getRecordNo())
-            .sopId(sopId)
+            .sopId(task.getSop().getSopId())
             .sopTitle(task.getSop().getTitle())
             .sopCode(task.getSop().getSopCode())
             .periodKey(task.getPeriodKey())

@@ -54,6 +54,8 @@ public class TaskSchedulerService {
                         .entity(sop.getEntity())
                         .maker(sop.getDefaultMaker())
                         .checker(sop.getDefaultChecker())
+                        .assignedMakerIds(new java.util.ArrayList<>(sop.getDefaultMakerIds()))
+                        .assignedCheckerIds(new java.util.ArrayList<>(sop.getDefaultCheckerIds()))
                         .status(TaskStatus.OPEN)
                         .dueDate(dueDate)
                         .build();

@@ -55,6 +55,18 @@ public class Task {
     @JoinColumn(name = "checker_id", nullable = false)
     private User checker;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "task_maker_pool", joinColumns = @JoinColumn(name = "task_id"))
+    @Column(name = "maker_id", length = 64)
+    @Builder.Default
+    private java.util.List<String> assignedMakerIds = new java.util.ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "task_checker_pool", joinColumns = @JoinColumn(name = "task_id"))
+    @Column(name = "checker_id", length = 64)
+    @Builder.Default
+    private java.util.List<String> assignedCheckerIds = new java.util.ArrayList<>();
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 32, nullable = false)
     private TaskStatus status;
