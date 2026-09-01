@@ -649,3 +649,32 @@ export async function verifyGoogleSsoToken(idToken) {
     body: JSON.stringify({ idToken }),
   }).catch(() => null);
 }
+
+export async function getUserNotifications(userId) {
+  if (!userId) return [];
+  const res = await fetchJson(`/notifications/user/${userId}`).catch(() => null);
+  const list = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
+  return list;
+}
+
+export async function getUnreadNotificationCount(userId) {
+  if (!userId) return 0;
+  const res = await fetchJson(`/notifications/user/${userId}/unread-count`).catch(() => null);
+  return res?.unreadCount ?? res?.data?.unreadCount ?? 0;
+}
+
+export async function markNotificationAsRead(notificationId) {
+  if (!notificationId) return null;
+  const res = await fetchJson(`/notifications/${notificationId}/read`, {
+    method: 'PUT',
+  }).catch(() => null);
+  return res?.data || res;
+}
+
+export async function markAllNotificationsAsRead(userId) {
+  if (!userId) return null;
+  const res = await fetchJson(`/notifications/user/${userId}/read-all`, {
+    method: 'PUT',
+  }).catch(() => null);
+  return res?.data || res;
+}

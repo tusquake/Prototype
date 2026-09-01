@@ -36,6 +36,7 @@ public class SopService {
     private final TaskSchedulerService taskSchedulerService;
     private final AuditLogRepository auditLogRepository;
     private final SopEventRepository sopEventRepository;
+    private final NotificationPublisherService notificationPublisherService;
 
     @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
@@ -156,6 +157,18 @@ public class SopService {
             .comment("SOP creation task assigned to creator")
             .build());
 
+        // Publish In-App Notification
+        if (saved.getAssignedCreatorId() != null) {
+            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                .recipientUserId(saved.getAssignedCreatorId())
+                .eventType("SOP_ASSIGNED")
+                .title("SOP Creation Task Assigned")
+                .message("You have been assigned to draft SOP " + saved.getSopCode() + " (" + saved.getProcessCategory() + ")")
+                .referenceEntityType("SOP")
+                .referenceEntityId(saved.getSopId().toString())
+                .build());
+        }
+
         return mapToDto(saved);
     }
 
@@ -194,6 +207,18 @@ public class SopService {
             .toStatus(SopStatus.PENDING_APPROVAL)
             .comment("SOP draft submitted for approval")
             .build());
+
+        // Publish In-App Notification to Approver
+        if (saved.getAssignedApproverId() != null) {
+            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                .recipientUserId(saved.getAssignedApproverId())
+                .eventType("SOP_SUBMITTED")
+                .title("SOP Approval Required")
+                .message("SOP draft " + saved.getSopCode() + " (" + saved.getTitle() + ") requires your approval.")
+                .referenceEntityType("SOP")
+                .referenceEntityId(saved.getSopId().toString())
+                .build());
+        }
 
         return mapToDto(saved);
     }
@@ -235,6 +260,18 @@ public class SopService {
             .toStatus(isApproved ? SopStatus.ACTIVE : SopStatus.REJECTED)
             .comment(isApproved ? "SOP approved and activated" : (request.getComment() != null ? request.getComment() : "SOP draft rejected back to creator"))
             .build());
+
+        // Publish In-App Notification to Creator
+        if (saved.getAssignedCreatorId() != null) {
+            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                .recipientUserId(saved.getAssignedCreatorId())
+                .eventType(isApproved ? "SOP_APPROVED" : "SOP_REJECTED")
+                .title(isApproved ? "SOP Approved & Activated" : "SOP Draft Rejected")
+                .message(isApproved ? "Your SOP draft " + saved.getSopCode() + " was approved and activated." : "Your SOP draft " + saved.getSopCode() + " was rejected. Reason: " + (request.getComment() != null ? request.getComment() : "Needs revision."))
+                .referenceEntityType("SOP")
+                .referenceEntityId(saved.getSopId().toString())
+                .build());
+        }
 
         return mapToDto(saved);
     }

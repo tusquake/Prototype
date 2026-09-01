@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { clearSession, getSession, saveSession, USERS } from '../auth/auth';
 import { hasPermission } from '../auth/rbac';
-import { getSops } from '../services/api';
+import NotificationBell from './NotificationBell';
 import styles from './Sidebar.module.css';
 
 const NAV_ITEMS = [
@@ -65,72 +64,13 @@ const NAV_ITEMS = [
   },
 ];
 
-export default function Sidebar({ onOpenSopTask }) {
+export default function Sidebar() {
   const navigate = useNavigate();
-  const location = useLocation();
   const session = getSession();
   const currentUser = session?.user ?? USERS[0];
 
-  const [pendingTasks, setPendingTasks] = useState([]);
-  const [showNotifMenu, setShowNotifMenu] = useState(false);
-  const notifRef = useRef(null);
-
   if (!session) {
     saveSession(USERS[0], 'demo-token');
-  }
-
-  // Fetch pending SOP creation tasks for assigned creator & pending approval tasks for assigned approver
-  async function loadPendingTasks() {
-    if (!currentUser?.id) return;
-    try {
-      const all = await getSops([]);
-      const mine = (all || []).filter(s => {
-        if (s.status === 'PENDING_CREATION' && s.assignedCreatorId === currentUser.id) return true;
-        if (s.status === 'PENDING_APPROVAL' && (s.assignedApproverId === currentUser.id || currentUser.role === 'ADMIN')) return true;
-        if (s.status === 'REJECTED' && s.assignedCreatorId === currentUser.id) return true;
-        return false;
-      });
-      setPendingTasks(mine);
-    } catch {
-      // silent catch
-    }
-  }
-
-  useEffect(() => {
-    loadPendingTasks();
-    const interval = setInterval(loadPendingTasks, 10000);
-    window.addEventListener('sop-updated', loadPendingTasks);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('sop-updated', loadPendingTasks);
-    };
-  }, [currentUser?.id]);
-
-  // Click outside listener for notification menu
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (notifRef.current && !notifRef.current.contains(e.target)) {
-        setShowNotifMenu(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  function handleNotifItemClick(task) {
-    setShowNotifMenu(false);
-    if (task.status === 'PENDING_APPROVAL') {
-      window.dispatchEvent(new CustomEvent('open-sop-review', { detail: task }));
-      if (location.pathname !== '/sops') {
-        navigate(`/sops?reviewSopCode=${task.code || task.sopCode}`);
-      }
-    } else {
-      window.dispatchEvent(new CustomEvent('open-sop-draft', { detail: task }));
-      if (onOpenSopTask) onOpenSopTask(task);
-      if (location.pathname !== '/sops') {
-        navigate(`/sops?draftSopCode=${task.code || task.sopCode}`);
-      }
-    }
   }
 
   function handleLogout() {
@@ -167,104 +107,7 @@ export default function Sidebar({ onOpenSopTask }) {
       </nav>
 
       <div className={styles.footer}>
-        {/* Notification Bell Bar directly above Logged In User */}
-        <div className={styles.notifContainer} ref={notifRef}>
-          <button
-            type="button"
-            className={`${styles.notifBellBtn} ${showNotifMenu ? styles.notifBellBtnActive : ''}`}
-            onClick={() => setShowNotifMenu(!showNotifMenu)}
-            title="Notifications"
-          >
-            <div className={styles.notifBellIconWrap}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
-              {pendingTasks.length > 0 && (
-                <span className={styles.notifBadgeDot}>{pendingTasks.length}</span>
-              )}
-            </div>
-            <span className={styles.notifBellLabel}>Notifications</span>
-            {pendingTasks.length > 0 && (
-              <span className={styles.notifCountPill}>{pendingTasks.length} pending</span>
-            )}
-          </button>
-
-          {/* Clean Notification List Popover */}
-          {showNotifMenu && (
-            <div className={styles.notifPopover}>
-              <div className={styles.notifHeader}>
-                <span className={styles.notifTitle}>Notifications</span>
-                {pendingTasks.length > 0 && (
-                  <span className={styles.notifHeaderBadge}>{pendingTasks.length} New</span>
-                )}
-              </div>
-
-              <div className={styles.notifList}>
-                {pendingTasks.length === 0 ? (
-                  <div className={styles.notifEmpty}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                      <polyline points="22 4 12 14.01 9 11.01" />
-                    </svg>
-                    <span>No pending notifications</span>
-                  </div>
-                ) : (
-                  pendingTasks.map(task => {
-                    const isPendingCreation = task.status === 'PENDING_CREATION';
-                    const isPendingApproval = task.status === 'PENDING_APPROVAL';
-                    const isRejected = task.status === 'REJECTED';
-
-                    const titleLabel = isPendingCreation ? 'SOP Creation Task' :
-                                       isPendingApproval ? 'SOP Approval Required' :
-                                       'SOP Draft Revision Required';
-
-                    const actionLabel = isPendingCreation ? 'Draft SOP Now' :
-                                        isPendingApproval ? 'Review & Approve' :
-                                        'Revise SOP Draft';
-
-                    const strokeColor = isPendingApproval ? '#22c55e' : isRejected ? '#ef4444' : '#38bdf8';
-
-                    return (
-                      <div
-                        key={task.id || task.code}
-                        className={styles.notifItem}
-                        onClick={() => handleNotifItemClick(task)}
-                      >
-                        <div className={styles.notifItemIcon} style={{ background: isPendingApproval ? 'rgba(34, 197, 94, 0.12)' : isRejected ? 'rgba(239, 68, 68, 0.12)' : 'rgba(56, 189, 248, 0.1)' }}>
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={strokeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                            {isPendingApproval ? (
-                              <polyline points="9 15 11 17 15 11" />
-                            ) : (
-                              <line x1="12" y1="18" x2="12" y2="12" />
-                            )}
-                          </svg>
-                        </div>
-                        <div className={styles.notifItemContent}>
-                          <div className={styles.notifItemTitle}>
-                            {titleLabel}: <strong>{task.code}</strong>
-                          </div>
-                          <div className={styles.notifItemMeta}>
-                            {task.process || task.processCategory} • {task.entity || task.entityCode}
-                          </div>
-                          <div className={styles.notifItemAction} style={{ color: isPendingApproval ? '#4ade80' : isRejected ? '#f87171' : '#38bdf8' }}>
-                            <span>{actionLabel}</span>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <line x1="5" y1="12" x2="19" y2="12" />
-                              <polyline points="12 5 19 12 12 19" />
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+        <NotificationBell currentUser={currentUser} />
 
         {/* Logged in User Card */}
         <div className={styles.userCard}>

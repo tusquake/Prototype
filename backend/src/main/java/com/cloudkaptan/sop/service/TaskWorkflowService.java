@@ -34,6 +34,7 @@ public class TaskWorkflowService {
     private final com.cloudkaptan.sop.repository.AuditLogRepository auditLogRepository;
     private final com.cloudkaptan.sop.repository.TaskEventRepository taskEventRepository;
     private final com.cloudkaptan.sop.repository.TaskCommentRepository taskCommentRepository;
+    private final NotificationPublisherService notificationPublisherService;
 
     @Transactional
     public TaskDto processTaskAction(UUID taskId, com.cloudkaptan.sop.dto.TaskActionRequest request) {
@@ -70,6 +71,25 @@ public class TaskWorkflowService {
         Task saved = taskRepository.save(task);
         String actionName = (fromStatus == TaskStatus.REJECTED) ? "RESUBMIT" : "SUBMIT";
         eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), actionName, comment));
+
+        // Publish In-App Notification to assigned Checkers
+        List<String> checkerIds = (saved.getAssignedCheckerIds() != null && !saved.getAssignedCheckerIds().isEmpty())
+                ? saved.getAssignedCheckerIds()
+                : (saved.getChecker() != null ? List.of(saved.getChecker().getUserId()) : List.of("usr-vivek-108", "usr-mainak-215"));
+
+        for (String cId : checkerIds) {
+            if (!cId.equals(actorId)) {
+                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                        .recipientUserId(cId)
+                        .eventType("TASK_SUBMITTED")
+                        .title("Compliance Task Review Required")
+                        .message("Task " + saved.getRecordNo() + " (" + saved.getSop().getTitle() + ") submitted by " + actor.getFullName())
+                        .referenceEntityType("TASK")
+                        .referenceEntityId(saved.getTaskId().toString())
+                        .build());
+            }
+        }
+
         return mapToDto(saved);
     }
 
@@ -89,6 +109,20 @@ public class TaskWorkflowService {
 
         Task saved = taskRepository.save(task);
         eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), "APPROVE", comment));
+
+        // Publish In-App Notification to assigned Maker
+        String makerId = saved.getMaker() != null ? saved.getMaker().getUserId() : (saved.getAssignedMakerIds() != null && !saved.getAssignedMakerIds().isEmpty() ? saved.getAssignedMakerIds().get(0) : null);
+        if (makerId != null) {
+            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                    .recipientUserId(makerId)
+                    .eventType("TASK_APPROVED")
+                    .title("Compliance Task Approved")
+                    .message("Task " + saved.getRecordNo() + " (" + saved.getSop().getTitle() + ") approved by " + actor.getFullName())
+                    .referenceEntityType("TASK")
+                    .referenceEntityId(saved.getTaskId().toString())
+                    .build());
+        }
+
         return mapToDto(saved);
     }
 
@@ -116,6 +150,20 @@ public class TaskWorkflowService {
         Task saved = taskRepository.save(task);
         String actionName = Boolean.TRUE.equals(permanentRejection) ? "PERMANENT_REJECT" : "REJECT";
         eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), actionName, comment));
+
+        // Publish In-App Notification to assigned Maker
+        String makerId = saved.getMaker() != null ? saved.getMaker().getUserId() : (saved.getAssignedMakerIds() != null && !saved.getAssignedMakerIds().isEmpty() ? saved.getAssignedMakerIds().get(0) : null);
+        if (makerId != null) {
+            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                    .recipientUserId(makerId)
+                    .eventType("TASK_REJECTED")
+                    .title("Compliance Task Rejected")
+                    .message("Task " + saved.getRecordNo() + " (" + saved.getSop().getTitle() + ") was rejected. Reason: " + (comment != null ? comment : "Needs revision."))
+                    .referenceEntityType("TASK")
+                    .referenceEntityId(saved.getTaskId().toString())
+                    .build());
+        }
+
         return mapToDto(saved);
     }
 
