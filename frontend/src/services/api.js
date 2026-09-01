@@ -208,15 +208,35 @@ export function mapSop(dto) {
     ? dto.defaultCheckerNames
     : (dto.defaultCheckerName ? [dto.defaultCheckerName] : defaultCheckers);
 
+  const rawHistory = (dto.history && dto.history.length > 0)
+    ? dto.history.map(h => ({
+        eventId: h.eventId,
+        actorId: h.actorId,
+        actorName: h.actorName,
+        actorRole: h.actorRole,
+        action: h.action,
+        fromStatus: h.fromStatus,
+        toStatus: h.toStatus,
+        comment: h.comment,
+        timestamp: h.timestamp,
+      }))
+    : [];
+
   return {
     id: dto.sopId || dto.id,
+    sopId: dto.sopId || dto.id,
     code: dto.sopCode || dto.code || 'N/A',
+    sopCode: dto.sopCode || dto.code || 'N/A',
     name: dto.title || dto.name || 'N/A',
+    title: dto.title || dto.name || 'N/A',
+    description: dto.description || '',
     process: dto.processCategory || dto.process || 'N/A',
+    processCategory: dto.processCategory || dto.process || 'N/A',
     entity: dto.entityName || dto.entity || dto.entityCode || 'N/A',
     entityCode: dto.entityCode || dto.entityId,
     frequency: dto.frequency || 'MONTHLY',
     dueDay: dto.dueDayOffset ?? dto.dueDay ?? 1,
+    dueDayOffset: dto.dueDayOffset ?? dto.dueDay ?? 1,
     isRecurring: dto.isRecurring !== undefined ? !!dto.isRecurring : false,
     maker: makers.join(', '),
     checker: checkers.join(', '),
@@ -231,8 +251,11 @@ export function mapSop(dto) {
     assignedApproverId: dto.assignedApproverId,
     assignedApproverName: dto.assignedApproverName || dto.assignedApproverId,
     rejectionReason: dto.rejectionReason,
-    status: dto.status || 'ACTIVE',
-    version: dto.version || dto.versionNumber || 1,
+    status: (dto.status && typeof dto.status === 'string') ? dto.status : 'PENDING_CREATION',
+    version: dto.version != null ? dto.version : (dto.versionNumber != null ? dto.versionNumber : 1),
+    history: rawHistory,
+    createdAt: dto.createdAt,
+    updatedAt: dto.updatedAt,
   };
 }
 
@@ -585,11 +608,29 @@ export async function rejectTask(taskId, actorId = 'usr-mainak-215', comment = '
 }
 
 export async function updateSop(sopId, sopData) {
-  const res = await fetchJson(`/sops/${sopId}`, {
-    method: 'PUT',
-    body: JSON.stringify(sopData),
-  }).catch(() => null);
+  let apiResult = null;
+  try {
+    apiResult = await fetchJson(`/sops/${sopId}`, {
+      method: 'PUT',
+      body: JSON.stringify(sopData),
+    });
+  } catch (err) {
+    // API unavailable — will fall through to mock
+  }
 
+  // If the real backend returned a valid response, use it directly.
+  // The backend correctly sets status=PENDING_APPROVAL and preserves version.
+  if (apiResult) {
+    const mapped = mapSop(apiResult);
+    // Also update the local mock cache so the list refreshes correctly
+    const targetIdx = MOCK_SOPS.findIndex(s => s.sopId === sopId || s.id === sopId || s.code === (apiResult.sopCode || sopData.sopCode));
+    if (targetIdx !== -1) {
+      MOCK_SOPS[targetIdx] = { ...MOCK_SOPS[targetIdx], ...mapped };
+    }
+    return mapped;
+  }
+
+  // Fallback: backend unavailable — update mock state directly
   const targetIdx = MOCK_SOPS.findIndex(s => s.sopId === sopId || s.id === sopId || s.sopCode === sopData.sopCode || s.code === sopData.sopCode);
   if (targetIdx !== -1) {
     const existing = MOCK_SOPS[targetIdx];
@@ -597,9 +638,10 @@ export async function updateSop(sopId, sopData) {
     const updatedMakers = (sopData.defaultMakerNames || sopData.defaultMakerIds || []).map(m => m.replace('usr-', '').replace(/\b\w/g, l => l.toUpperCase()));
     const updatedCheckers = (sopData.defaultCheckerNames || sopData.defaultCheckerIds || []).map(c => c.replace('usr-', '').replace(/\b\w/g, l => l.toUpperCase()));
 
+    // CRITICAL: Keep version unchanged — do NOT increment
     const currentVersion = existing.version || 1;
-    const actorId = sopData.createdById || 'usr-tushar-304';
-    const actorName = actorId === 'usr-tushar-304' ? 'Tushar Seth' : (actorId === 'usr-prayasa-410' ? 'Prayasa Sharma' : 'Manoj Agarwal');
+    const actorId = sopData.createdById || sopData.actorId || 'usr-tushar-304';
+    const actorName = actorId === 'usr-tushar-304' ? 'Tushar Seth' : (actorId === 'usr-prayasa-410' ? 'Prayasa Sharma' : (actorId === 'usr-vivek-108' ? 'Vivek Raj' : 'Manoj Agarwal'));
     const approverId = existing.assignedApproverId || 'usr-vivek-108';
     const approverName = existing.assignedApproverName || 'Vivek Raj';
 
@@ -633,32 +675,34 @@ export async function updateSop(sopId, sopData) {
       defaultCheckerNames: updatedCheckers.length ? updatedCheckers : existing.defaultCheckerNames,
       makers: updatedMakers.length ? updatedMakers : existing.makers,
       checkers: updatedCheckers.length ? updatedCheckers : existing.checkers,
+      // CRITICAL: status must be PENDING_APPROVAL after edit
       status: 'PENDING_APPROVAL',
+      // CRITICAL: version stays the same — no increment
       version: currentVersion,
       history: existing.history,
     };
 
-    // Dispatch custom notification event for in-app notification bell
+    // Fire in-app notification event for the approver
     try {
-      const notifEvent = new CustomEvent('add-notification', {
+      window.dispatchEvent(new CustomEvent('add-notification', {
         detail: {
           recipientUserId: approverId,
           recipientName: approverName,
           title: 'SOP Modified — Approval Required',
           message: `SOP ${existing.sopCode || existing.code} (${sopData.title || existing.title}) was modified by ${actorName} and requires your approval.`,
+          eventType: 'SOP_SUBMITTED',
           referenceEntityType: 'SOP',
           referenceEntityId: existing.sopId || existing.id || existing.code,
           timestamp: new Date().toISOString(),
         }
-      });
-      window.dispatchEvent(notifEvent);
+      }));
     } catch (e) {
       // Ignore if SSR
     }
 
     return mapSop(MOCK_SOPS[targetIdx]);
   }
-  return res ? mapSop(res) : null;
+  return null;
 }
 
 export async function deleteSop(sopId) {

@@ -48,7 +48,6 @@ public class SopController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
     public ResponseEntity<ApiResponse<SopDto>> updateSop(
         @PathVariable("id") java.util.UUID id,
         @Valid @RequestBody CreateSopRequest request

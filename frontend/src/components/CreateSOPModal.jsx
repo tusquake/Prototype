@@ -166,6 +166,16 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
 
   const modalSubtitle = 'Configure compliance schedule, assigned Maker pool, and Checker pool.';
 
+  const isEditOfApprovedSop = !!editingSop && editingSop.status !== 'PENDING_CREATION' && editingSop.status !== 'REJECTED';
+
+  const submitLabel = saving
+    ? 'Submitting...'
+    : isEditOfApprovedSop
+      ? 'Save & Resubmit for Approval'
+      : isCreatorDraftMode || (editingSop && (editingSop.status === 'PENDING_CREATION' || editingSop.status === 'REJECTED'))
+        ? 'Submit for Approval'
+        : 'Create & Send for Approval';
+
   return (
     <>
       <div className={styles.modalOverlay}>
@@ -186,6 +196,28 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
           <form onSubmit={handleFormSubmit}>
             <div className={styles.modalBody}>
               {errorMsg && <div className={styles.errorAlert}>{errorMsg}</div>}
+
+              {isEditOfApprovedSop && (
+                <div style={{
+                  background: 'rgba(37, 99, 235, 0.07)',
+                  border: '1px solid rgba(37, 99, 235, 0.25)',
+                  borderRadius: 8,
+                  padding: '10px 14px',
+                  fontSize: 13,
+                  color: '#1e40af',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 8,
+                  marginBottom: 4,
+                }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop: 1, flexShrink: 0 }}>
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                  <span>
+                    <strong>Re-approval required:</strong> Saving changes will reset status to <strong>Pending Approval</strong> and notify the assigned approver (<strong>{editingSop?.assignedApproverName || 'Approver'}</strong>). Version will remain unchanged.
+                  </span>
+                </div>
+              )}
 
               {/* Clean Form Row with non-editable fields when in creator draft mode */}
               <div className={`${styles.formRow} ${styles.fullWidth}`}>
@@ -396,7 +428,7 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
                 Cancel
               </button>
               <button type="submit" className={styles.submitBtn} disabled={saving}>
-                {saving ? 'Submitting...' : 'Create & Send for Approval'}
+                {submitLabel}
               </button>
             </div>
           </form>

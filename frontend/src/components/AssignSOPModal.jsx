@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import CustomSelect from './CustomSelect';
 import { assignSop, getProcessCategories } from '../services/api';
-import styles from '../pages/Sops.module.css';
+import styles from './SopDetailModal.module.css';
 
 const ENTITY_OPTIONS = [
   { value: 'CK_INDIA', label: 'CK India' },
@@ -74,7 +74,7 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
 
     try {
       setSaving(true);
-      const res = await assignSop(assignForm);
+      await assignSop(assignForm);
       window.dispatchEvent(new Event('sop-updated'));
       if (onSuccess) onSuccess('SOP assigned successfully!');
       onClose();
@@ -86,30 +86,45 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
   }
 
   return (
-    <div className={styles.modalOverlay}>
-      <div className={styles.modalContent} style={{ maxWidth: 540 }}>
-        <div className={styles.modalHeader}>
-          <h3>Assign New SOP</h3>
-          <button className={styles.closeBtn} onClick={onClose}>✕</button>
+    <div className={styles.backdrop} onClick={onClose}>
+      <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 540 }}>
+        
+        {/* Header */}
+        <div className={styles.header}>
+          <div className={styles.titleArea}>
+            <h3 style={{ margin: 0 }}>Assign New SOP</h3>
+          </div>
+          <button type="button" className={styles.closeBtn} onClick={onClose} title="Close modal">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
 
-        {errorMsg && <div style={{ color: '#dc2626', background: '#fee2e2', padding: '8px 12px', borderRadius: 6, fontSize: 13, marginBottom: 12 }}>{errorMsg}</div>}
+        {/* Body */}
+        <div className={styles.body}>
+          {errorMsg && (
+            <div style={{ color: '#dc2626', background: '#fee2e2', border: '1px solid #fca5a5', padding: '10px 14px', borderRadius: 8, fontSize: 13 }}>
+              {errorMsg}
+            </div>
+          )}
 
-        <form onSubmit={handleAssignSubmit}>
-          <div className={styles.formGrid}>
-            <div className={styles.formGroup}>
-              <label>SOP Code *</label>
+          <form id="assign-sop-form" onSubmit={handleAssignSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className={styles.field}>
+              <span className={styles.label}>SOP Code *</span>
               <input
                 type="text"
                 placeholder="e.g. SOP-TAX-2026-005"
                 value={assignForm.sopCode}
                 onChange={e => setAssignForm(prev => ({ ...prev, sopCode: e.target.value }))}
                 required
+                style={{ width: '100%', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13.5, background: '#ffffff', color: '#0f172a', boxSizing: 'border-box', outline: 'none' }}
               />
             </div>
 
-            <div className={styles.formGroup}>
-              <label>Entity *</label>
+            <div className={styles.field}>
+              <span className={styles.label}>Entity *</span>
               <CustomSelect
                 value={assignForm.entityCode}
                 options={ENTITY_OPTIONS}
@@ -117,8 +132,8 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
               />
             </div>
 
-            <div className={styles.formGroup}>
-              <label>Process Category *</label>
+            <div className={styles.field}>
+              <span className={styles.label}>Process Category *</span>
               <CustomSelect
                 value={assignForm.processCategory}
                 options={processOptions}
@@ -126,8 +141,8 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
               />
             </div>
 
-            <div className={styles.formGroup}>
-              <label>Assign SOP Creator *</label>
+            <div className={styles.field}>
+              <span className={styles.label}>Assign SOP Creator *</span>
               <CustomSelect
                 value={assignForm.assignedCreatorId}
                 options={CREATOR_OPTIONS}
@@ -135,23 +150,27 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
               />
             </div>
 
-            <div className={styles.formGroup}>
-              <label>Assign SOP Approver *</label>
+            <div className={styles.field}>
+              <span className={styles.label}>Assign SOP Approver *</span>
               <CustomSelect
                 value={assignForm.assignedApproverId}
                 options={APPROVER_OPTIONS}
                 onChange={e => setAssignForm(prev => ({ ...prev, assignedApproverId: e.target.value }))}
               />
             </div>
-          </div>
+          </form>
+        </div>
 
-          <div className={styles.modalFooter}>
-            <button type="button" className={styles.cancelBtn} onClick={onClose}>Cancel</button>
-            <button type="submit" className={styles.submitBtn} disabled={saving}>
-              {saving ? 'Assigning...' : 'Assign SOP'}
-            </button>
-          </div>
-        </form>
+        {/* Footer */}
+        <div className={styles.footer} style={{ justifyContent: 'flex-end' }}>
+          <button type="button" className={styles.btnSecondary} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" form="assign-sop-form" className={styles.btnPrimary} disabled={saving}>
+            {saving ? 'Assigning...' : 'Assign SOP'}
+          </button>
+        </div>
+
       </div>
     </div>
   );

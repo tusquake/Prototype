@@ -53,15 +53,35 @@ export default function NotificationBell({ currentUser }) {
       }
     });
 
+    // Listen for local mock notifications dispatched from api.js (when backend SSE is unavailable)
+    function handleAddNotification(event) {
+      const detail = event?.detail || {};
+      // Inject for all users in mock mode (or only if recipientUserId matches)
+      const notif = {
+        notificationId: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        title: detail.title || 'SOP Update',
+        message: detail.message || '',
+        eventType: detail.eventType || 'SOP_SUBMITTED',
+        referenceEntityType: detail.referenceEntityType || 'SOP',
+        referenceEntityId: detail.referenceEntityId || '',
+        isRead: false,
+        timestamp: detail.timestamp || new Date().toISOString(),
+      };
+      setNotifications(prev => [notif, ...prev]);
+      setUnreadCount(prev => prev + 1);
+    }
+
     window.addEventListener('sop-updated', fetchNotificationData);
     window.addEventListener('task-updated', fetchNotificationData);
     window.addEventListener('notification-updated', fetchNotificationData);
+    window.addEventListener('add-notification', handleAddNotification);
 
     return () => {
       eventSource.close();
       window.removeEventListener('sop-updated', fetchNotificationData);
       window.removeEventListener('task-updated', fetchNotificationData);
       window.removeEventListener('notification-updated', fetchNotificationData);
+      window.removeEventListener('add-notification', handleAddNotification);
     };
   }, [userId]);
 
