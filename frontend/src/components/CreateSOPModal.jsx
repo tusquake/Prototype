@@ -383,7 +383,7 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
                 Cancel
               </button>
               <button type="submit" className={styles.submitBtn} disabled={saving}>
-                {saving ? 'Submitting...' : 'Create and Send for Approval'}
+                {saving ? 'Submitting...' : 'Create & Send for Approval'}
               </button>
             </div>
           </form>
