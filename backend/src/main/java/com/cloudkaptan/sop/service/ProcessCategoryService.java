@@ -26,33 +26,9 @@ public class ProcessCategoryService {
     private final ProcessCategoryActivityLogRepository activityLogRepository;
     private final AuditLogRepository auditLogRepository;
 
-    private static final List<ProcessCategoryDto> DEFAULT_CATEGORIES = List.of(
-        new ProcessCategoryDto(null, "TAX_COMPLIANCE", "Tax Compliance", "Direct and Indirect Tax Reporting & Compliance"),
-        new ProcessCategoryDto(null, "TREASURY_CASH", "Treasury & Cash Management", "Bank Reconciliations, Cash Flow Forecasting & Liquidity"),
-        new ProcessCategoryDto(null, "FINANCIAL_REPORTING", "Financial Reporting", "GL Close, Balance Sheet & Financial Statements"),
-        new ProcessCategoryDto(null, "FIXED_ASSETS", "Fixed Assets Management", "Capital Expenditure, Asset Depreciation & Verification"),
-        new ProcessCategoryDto(null, "PAYROLL_STATUTORY", "Payroll & Statutory Compliance", "Payroll Processing, Provident Fund & Statutory Deductions"),
-        new ProcessCategoryDto(null, "P2P", "Procure to Pay (P2P)", "Vendor Invoicing, PO Matching & Disbursements"),
-        new ProcessCategoryDto(null, "O2C", "Order to Cash (O2C)", "Customer Invoicing, Receivables & Credit Management")
-    );
-
-    @Transactional
+    @Transactional(readOnly = true)
     public List<ProcessCategoryDto> getAllCategories() {
         List<ProcessCategory> list = categoryRepository.findAll();
-        if (list.isEmpty()) {
-            log.info("Seeding default process categories into database...");
-            for (ProcessCategoryDto def : DEFAULT_CATEGORIES) {
-                if (!categoryRepository.existsByCategoryCode(def.getCategoryCode())) {
-                    categoryRepository.save(ProcessCategory.builder()
-                        .categoryCode(def.getCategoryCode())
-                        .categoryName(def.getCategoryName())
-                        .description(def.getDescription())
-                        .build());
-                }
-            }
-            list = categoryRepository.findAll();
-        }
-
         return list.stream().map(this::mapToDto).toList();
     }
 

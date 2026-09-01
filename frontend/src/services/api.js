@@ -716,21 +716,10 @@ export async function revokeCategoryPermission(userId, processCategory) {
   return res?.data || res;
 }
 
-const DEFAULT_PROCESS_CATEGORIES = [
-  { id: '012ee240-62d4-417e-a7ff-45a09bf667ad', categoryCode: 'TAX_COMPLIANCE', categoryName: 'Tax Compliance', description: 'Direct and Indirect Tax Reporting & Compliance' },
-  { id: 'e087fcb8-d152-4eb6-b16a-22fec2b12714', categoryCode: 'TREASURY_CASH', categoryName: 'Treasury & Cash Management', description: 'Bank Reconciliations, Cash Flow Forecasting & Liquidity' },
-  { id: 'e4d19694-4384-4138-b373-2f3ac3b7f224', categoryCode: 'FINANCIAL_REPORTING', categoryName: 'Financial Reporting', description: 'GL Close, Balance Sheet & Financial Statements' },
-  { id: '8b841470-983d-4a54-93f0-a8cae1bd817b', categoryCode: 'FIXED_ASSETS', categoryName: 'Fixed Assets Management', description: 'Capital Expenditure, Asset Depreciation & Verification' },
-  { id: '6c19a421-5120-4e31-a083-d92ea407c91a', categoryCode: 'PAYROLL_STATUTORY', categoryName: 'Payroll & Statutory Compliance', description: 'Payroll Processing, Provident Fund & Statutory Deductions' },
-  { id: '2f9a1c84-1b03-4e89-9e87-6a5b23d91012', categoryCode: 'P2P', categoryName: 'Procure to Pay (P2P)', description: 'Vendor Invoicing, PO Matching & Disbursements' },
-  { id: '9a01f2e3-4c5d-6e7f-8a9b-0c1d2e3f4a5b', categoryCode: 'O2C', categoryName: 'Order to Cash (O2C)', description: 'Customer Invoicing, Receivables & Credit Management' },
-];
-
 export async function getProcessCategories() {
-  const res = await fetchJson('/process-categories').catch(() => null);
+  const res = await fetchJson('/process-categories').catch(() => []);
   const list = Array.isArray(res) ? res : (res?.data || []);
-  if (list.length > 0) return list;
-  return DEFAULT_PROCESS_CATEGORIES;
+  return list;
 }
 
 export async function createProcessCategory(categoryData) {
