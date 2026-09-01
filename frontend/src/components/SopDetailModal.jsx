@@ -8,6 +8,7 @@ export default function SopDetailModal({
   isOpen,
   sop,
   isAdmin,
+  currentUser,
   onClose,
   onEdit,
   onDelete,
@@ -219,30 +220,32 @@ export default function SopDetailModal({
             </button>
 
             {sop.status === 'PENDING_APPROVAL' && (
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  type="button"
-                  style={{ background: '#16a34a', color: '#ffffff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-                  onClick={() => {
-                    onClose();
-                    if (onApprove) onApprove(sop);
-                  }}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                  Approve &amp; Activate SOP
-                </button>
-                <button
-                  type="button"
-                  style={{ background: '#be123c', color: '#ffffff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-                  onClick={() => {
-                    onClose();
-                    if (onReject) onReject(sop);
-                  }}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  Reject SOP
-                </button>
-              </div>
+              (sop.assignedApproverId === currentUser?.id || (currentUser?.role === 'ADMIN' && sop.assignedCreatorId !== currentUser?.id)) && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    style={{ background: '#16a34a', color: '#ffffff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => {
+                      onClose();
+                      if (onApprove) onApprove(sop);
+                    }}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Approve &amp; Activate SOP
+                  </button>
+                  <button
+                    type="button"
+                    style={{ background: '#be123c', color: '#ffffff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                    onClick={() => {
+                      onClose();
+                      if (onReject) onReject(sop);
+                    }}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    Reject SOP
+                  </button>
+                </div>
+              )
             )}
 
             {isAdmin && sop.status !== 'PENDING_APPROVAL' && (

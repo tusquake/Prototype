@@ -946,22 +946,24 @@ export default function Sops() {
                               </button>
                             )}
                             {sop.status === 'PENDING_APPROVAL' && (
-                              <>
-                                <button
-                                  type="button"
-                                  style={{ background: '#f0fdf4', border: '1px solid #16a34a', color: '#15803d', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-                                  onClick={() => handleApproveSop(sop)}
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  type="button"
-                                  style={{ background: '#fff1f2', border: '1px solid #e11d48', color: '#be123c', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-                                  onClick={() => { setRejectingSop(sop); setRejectionReasonInput(''); }}
-                                >
-                                  Reject
-                                </button>
-                              </>
+                              (sop.assignedApproverId === currentUser.id || (currentUser.role === 'ADMIN' && sop.assignedCreatorId !== currentUser.id)) && (
+                                <>
+                                  <button
+                                    type="button"
+                                    style={{ background: '#f0fdf4', border: '1px solid #16a34a', color: '#15803d', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                                    onClick={() => handleApproveSop(sop)}
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    style={{ background: '#fff1f2', border: '1px solid #e11d48', color: '#be123c', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                                    onClick={() => { setRejectingSop(sop); setRejectionReasonInput(''); }}
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )
                             )}
                             <button
                               type="button"
@@ -1000,6 +1002,7 @@ export default function Sops() {
         isOpen={!!viewingSop}
         sop={viewingSop}
         isAdmin={isAdmin}
+        currentUser={currentUser}
         onClose={() => setViewingSop(null)}
         onEdit={sop => openEditModal(sop)}
         onDelete={sop => setDeletingSop(sop)}
