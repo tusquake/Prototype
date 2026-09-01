@@ -133,7 +133,7 @@ export default function SopDetailModal({
 
               <div className={styles.field}>
                 <span className={styles.label}>Frequency</span>
-                <span className={styles.value}>{FREQ_LABEL[sop.frequency] || sop.frequency}</span>
+                <span className={styles.value}>{sop.isRecurring ? (FREQ_LABEL[sop.frequency] || sop.frequency) : 'N/A (One-Time Task)'}</span>
               </div>
 
               <div className={styles.field}>

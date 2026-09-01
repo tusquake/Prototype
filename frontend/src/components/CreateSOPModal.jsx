@@ -259,6 +259,7 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
                       style={{
                         position: 'relative',
                         width: 44,
+                        minWidth: 44,
                         height: 24,
                         borderRadius: 12,
                         background: formData.isRecurring ? '#2563eb' : '#cbd5e1',
@@ -266,6 +267,9 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
                         cursor: 'pointer',
                         transition: 'background-color 0.2s ease',
                         padding: 2,
+                        flexShrink: 0,
+                        boxSizing: 'border-box',
+                        display: 'inline-block',
                       }}
                     >
                       <div
@@ -288,12 +292,21 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
 
                 <div className={styles.formGroup}>
                   <label>COMPLIANCE FREQUENCY *</label>
-                  <CustomSelect
-                    name="frequency"
-                    value={formData.frequency}
-                    options={FREQ_OPTIONS}
-                    onChange={handleInputChange}
-                  />
+                  {formData.isRecurring ? (
+                    <CustomSelect
+                      name="frequency"
+                      value={formData.frequency}
+                      options={FREQ_OPTIONS}
+                      onChange={handleInputChange}
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value="N/A (One-Time Task)"
+                      disabled
+                      style={{ backgroundColor: '#f1f5f9', color: '#64748b', borderColor: '#cbd5e1', cursor: 'not-allowed', fontWeight: 600, fontSize: 13 }}
+                    />
+                  )}
                 </div>
 
                 <div className={styles.formGroup}>
