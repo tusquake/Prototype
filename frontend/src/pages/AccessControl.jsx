@@ -12,6 +12,7 @@ const DEMO_USERS = [
   { id: 'usr-mainak-215', name: 'Mainak Gupta', email: 'mainak@cloudkaptan.com', role: 'NON_ADMIN' },
   { id: 'usr-prayas-412', name: 'Prayasa Sharma', email: 'prayas@cloudkaptan.com', role: 'NON_ADMIN' },
   { id: 'usr-manoj-042', name: 'Manoj Kumar', email: 'manoj@cloudkaptan.com', role: 'NON_ADMIN' },
+  { id: 'usr-avisek-499', name: 'Avisek Paul', email: 'avisek@cloudkaptan.com', role: 'NON_ADMIN' },
 ];
 
 export default function AccessControl() {
@@ -36,6 +37,14 @@ export default function AccessControl() {
     type: 'creators', // 'creators' | 'approvers' | 'makers' | 'checkers'
     title: 'Select Users',
     selectedIds: [],
+  });
+
+  // View Full Assigned Users Modal State
+  const [viewUsersModal, setViewUsersModal] = useState({
+    isOpen: false,
+    title: '',
+    categoryName: '',
+    userIds: [],
   });
 
   const session = getSession();
@@ -111,6 +120,15 @@ export default function AccessControl() {
     setPickerModalOpen(false);
   }
 
+  function handleOpenViewUsers(title, categoryName, userIds) {
+    setViewUsersModal({
+      isOpen: true,
+      title,
+      categoryName,
+      userIds: userIds || [],
+    });
+  }
+
   async function handleSaveAccess(e) {
     e.preventDefault();
     if (!activeCategory) return;
@@ -147,8 +165,60 @@ export default function AccessControl() {
   function getUserNames(userIds = []) {
     if (!userIds || userIds.length === 0) return 'None assigned';
     const names = userIds.map(id => DEMO_USERS.find(u => u.id === id)?.name || id);
-    if (names.length <= 2) return names.join(', ');
-    return `${names.slice(0, 2).join(', ')} +${names.length - 2} more`;
+    return names.join(', ');
+  }
+
+  function renderUserListCell(userIds = [], roleTitle = '', categoryName = '') {
+    if (!userIds || userIds.length === 0) {
+      return <span style={{ color: '#94a3b8', fontSize: 12, fontStyle: 'italic' }}>None assigned</span>;
+    }
+
+    const userObjects = userIds.map(id => DEMO_USERS.find(u => u.id === id) || { id, name: id, role: 'USER' });
+    const formattedNames = userObjects.map(u => u.name).join(', ');
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', minWidth: 0 }}>
+        <span
+          style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            fontSize: 12.5,
+            fontWeight: 500,
+            color: '#1e293b',
+            display: 'inline-block',
+            maxWidth: 160,
+          }}
+          title={formattedNames}
+        >
+          {formattedNames}
+        </span>
+
+        <button
+          type="button"
+          onClick={() => handleOpenViewUsers(roleTitle, categoryName, userIds)}
+          title={`View full list of assigned ${roleTitle}`}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#0284c7',
+            cursor: 'pointer',
+            padding: 2,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '50%',
+            flexShrink: 0,
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+        </button>
+      </div>
+    );
   }
 
   const filteredCategories = categories.filter(c => {
@@ -163,6 +233,8 @@ export default function AccessControl() {
   const dualSopUsers = creators.filter(id => approvers.includes(id));
   const dualTaskUsers = makers.filter(id => checkers.includes(id));
   const hasSoDWarning = dualSopUsers.length > 0 || dualTaskUsers.length > 0;
+
+  const viewUsersList = viewUsersModal.userIds.map(id => DEMO_USERS.find(u => u.id === id) || { id, name: id, email: '—', role: 'USER' });
 
   return (
     <div className={styles.layout}>
@@ -220,7 +292,7 @@ export default function AccessControl() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    <th style={{ padding: '12px 16px', width: 220 }}>Process Category</th>
+                    <th style={{ padding: '12px 16px', width: 200 }}>Process Category</th>
                     <th style={{ padding: '12px 16px' }}>SOP Creators</th>
                     <th style={{ padding: '12px 16px' }}>SOP Approvers</th>
                     <th style={{ padding: '12px 16px' }}>Task Submitters</th>
@@ -239,17 +311,17 @@ export default function AccessControl() {
                           <div style={{ fontWeight: 700, color: '#0f172a' }}>{cat.categoryName}</div>
                           <div style={{ fontSize: 11, color: '#0284c7', fontFamily: 'monospace', marginTop: 2 }}>{code}</div>
                         </td>
-                        <td style={{ padding: '14px 16px', color: assign.creatorUserIds?.length ? '#1e293b' : '#94a3b8', fontSize: 12 }}>
-                          {getUserNames(assign.creatorUserIds)}
+                        <td style={{ padding: '14px 16px' }}>
+                          {renderUserListCell(assign.creatorUserIds, 'SOP Creators', cat.categoryName)}
                         </td>
-                        <td style={{ padding: '14px 16px', color: assign.approverUserIds?.length ? '#1e293b' : '#94a3b8', fontSize: 12 }}>
-                          {getUserNames(assign.approverUserIds)}
+                        <td style={{ padding: '14px 16px' }}>
+                          {renderUserListCell(assign.approverUserIds, 'SOP Approvers', cat.categoryName)}
                         </td>
-                        <td style={{ padding: '14px 16px', color: assign.makerUserIds?.length ? '#1e293b' : '#94a3b8', fontSize: 12 }}>
-                          {getUserNames(assign.makerUserIds)}
+                        <td style={{ padding: '14px 16px' }}>
+                          {renderUserListCell(assign.makerUserIds, 'Task Submitters', cat.categoryName)}
                         </td>
-                        <td style={{ padding: '14px 16px', color: assign.checkerUserIds?.length ? '#1e293b' : '#94a3b8', fontSize: 12 }}>
-                          {getUserNames(assign.checkerUserIds)}
+                        <td style={{ padding: '14px 16px' }}>
+                          {renderUserListCell(assign.checkerUserIds, 'Task Approvers', cat.categoryName)}
                         </td>
                         <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                           <button
@@ -436,6 +508,84 @@ export default function AccessControl() {
           onClose={() => setPickerModalOpen(false)}
           onConfirm={handleConfirmUserPicker}
         />
+
+        {/* Full Assigned Users List View Modal */}
+        {viewUsersModal.isOpen && (
+          <div className={modalStyles.backdrop} onClick={() => setViewUsersModal(prev => ({ ...prev, isOpen: false }))}>
+            <div className={modalStyles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
+              
+              <div className={modalStyles.header}>
+                <div className={modalStyles.titleArea}>
+                  <h3>Assigned {viewUsersModal.title}</h3>
+                  <div className={modalStyles.badges}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{viewUsersModal.categoryName}</span>
+                    <span className={modalStyles.codeBadge}>{viewUsersList.length} Users</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className={modalStyles.closeBtn}
+                  onClick={() => setViewUsersModal(prev => ({ ...prev, isOpen: false }))}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className={modalStyles.body} style={{ maxHeight: 380, overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {viewUsersList.map((u, idx) => {
+                    const initials = u.name
+                      ? u.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+                      : u.id.substring(0, 2).toUpperCase();
+
+                    return (
+                      <div
+                        key={u.id || idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justify: 'space-between',
+                          padding: '10px 14px',
+                          background: '#f8fafc',
+                          borderRadius: 8,
+                          border: '1px solid #e2e8f0',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#0284c7', color: '#ffffff', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {initials}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{u.name}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>{u.email}</div>
+                          </div>
+                        </div>
+
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: u.role === 'ADMIN' ? '#fee2e2' : '#e0f2fe', color: u.role === 'ADMIN' ? '#b91c1c' : '#0369a1' }}>
+                          {u.role || 'NON_ADMIN'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className={modalStyles.footer}>
+                <button
+                  type="button"
+                  className={modalStyles.btnSecondary}
+                  onClick={() => setViewUsersModal(prev => ({ ...prev, isOpen: false }))}
+                >
+                  Close
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
 
       </main>
     </div>
