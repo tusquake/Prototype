@@ -5,6 +5,7 @@ import {
   getUnreadNotificationCount,
   markNotificationAsRead,
   markAllNotificationsAsRead,
+  deleteNotification,
 } from '../services/api';
 import styles from './Sidebar.module.css';
 
@@ -114,10 +115,10 @@ export default function NotificationBell({ currentUser }) {
   async function handleDismissNotification(e, item) {
     e.stopPropagation(); // Prevent triggering full notification item click
     if (!item.isRead) {
-      markNotificationAsRead(item.notificationId).catch(() => null);
       setUnreadCount(prev => Math.max(0, prev - 1));
     }
-    // Remove notification from UI state upon user dismissal
+    // Delete notification permanently from backend & local UI state upon user dismissal
+    deleteNotification(item.notificationId).catch(() => null);
     setNotifications(prev => prev.filter(n => n.notificationId !== item.notificationId));
   }
 

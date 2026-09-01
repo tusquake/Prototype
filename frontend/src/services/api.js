@@ -678,3 +678,11 @@ export async function markAllNotificationsAsRead(userId) {
   }).catch(() => null);
   return res?.data || res;
 }
+
+export async function deleteNotification(notificationId) {
+  if (!notificationId) return null;
+  const res = await fetchJson(`/notifications/${notificationId}`, {
+    method: 'DELETE',
+  }).catch(() => null);
+  return res?.data || res;
+}

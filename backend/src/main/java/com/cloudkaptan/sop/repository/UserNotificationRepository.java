@@ -22,4 +22,12 @@ public interface UserNotificationRepository extends JpaRepository<UserNotificati
     @Transactional
     @Query("UPDATE UserNotification u SET u.isRead = true WHERE u.recipientUserId = :recipientUserId AND u.isRead = false")
     void markAllAsReadByRecipientUserId(@Param("recipientUserId") String recipientUserId);
+
+    @Modifying
+    @Transactional
+    void deleteByReferenceEntityId(String referenceEntityId);
+
+    @Modifying
+    @Transactional
+    void deleteByRecipientUserIdAndReferenceEntityId(String recipientUserId, String referenceEntityId);
 }

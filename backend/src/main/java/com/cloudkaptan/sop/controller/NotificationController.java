@@ -46,4 +46,10 @@ public class NotificationController {
         userNotificationService.markAllAsRead(userId);
         return ResponseEntity.ok(ApiResponse.success(Map.of("message", "All notifications marked as read")));
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Map<String, String>>> deleteNotification(@PathVariable("id") UUID notificationId) {
+        userNotificationService.deleteNotification(notificationId);
+        return ResponseEntity.ok(ApiResponse.success(Map.of("message", "Notification deleted successfully")));
+    }
 }

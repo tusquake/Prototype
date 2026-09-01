@@ -110,6 +110,19 @@ public class UserNotificationService {
         userNotificationRepository.markAllAsReadByRecipientUserId(userId);
     }
 
+    @Transactional
+    public void deleteNotification(UUID notificationId) {
+        log.info("Permanently deleting UserNotification with ID [{}]", notificationId);
+        userNotificationRepository.deleteById(notificationId);
+    }
+
+    @Transactional
+    public void deleteByReferenceEntityId(String referenceEntityId) {
+        if (referenceEntityId == null || referenceEntityId.isBlank()) return;
+        log.info("Deleting all stale notifications for reference entity ID [{}]", referenceEntityId);
+        userNotificationRepository.deleteByReferenceEntityId(referenceEntityId);
+    }
+
     public UserNotificationDto mapToDto(UserNotification notification) {
         return UserNotificationDto.builder()
                 .notificationId(notification.getNotificationId())

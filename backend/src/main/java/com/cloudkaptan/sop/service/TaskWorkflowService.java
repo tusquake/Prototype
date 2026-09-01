@@ -35,6 +35,7 @@ public class TaskWorkflowService {
     private final com.cloudkaptan.sop.repository.TaskEventRepository taskEventRepository;
     private final com.cloudkaptan.sop.repository.TaskCommentRepository taskCommentRepository;
     private final NotificationPublisherService notificationPublisherService;
+    private final com.cloudkaptan.sop.repository.UserNotificationRepository userNotificationRepository;
 
     @Transactional
     public TaskDto processTaskAction(UUID taskId, com.cloudkaptan.sop.dto.TaskActionRequest request) {
@@ -71,6 +72,13 @@ public class TaskWorkflowService {
         Task saved = taskRepository.save(task);
         String actionName = (fromStatus == TaskStatus.REJECTED) ? "RESUBMIT" : "SUBMIT";
         eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), actionName, comment));
+
+        // Clean up obsolete notifications for this task ID
+        try {
+            userNotificationRepository.deleteByReferenceEntityId(saved.getTaskId().toString());
+        } catch (Exception e) {
+            // Non-fatal cleanup
+        }
 
         // Publish In-App Notification to assigned Checkers
         List<String> checkerIds = (saved.getAssignedCheckerIds() != null && !saved.getAssignedCheckerIds().isEmpty())
@@ -109,6 +117,13 @@ public class TaskWorkflowService {
 
         Task saved = taskRepository.save(task);
         eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), "APPROVE", comment));
+
+        // Clean up obsolete notifications for this task ID
+        try {
+            userNotificationRepository.deleteByReferenceEntityId(saved.getTaskId().toString());
+        } catch (Exception e) {
+            // Non-fatal cleanup
+        }
 
         // Publish In-App Notification to assigned Maker
         String makerId = saved.getMaker() != null ? saved.getMaker().getUserId() : (saved.getAssignedMakerIds() != null && !saved.getAssignedMakerIds().isEmpty() ? saved.getAssignedMakerIds().get(0) : null);
@@ -150,6 +165,13 @@ public class TaskWorkflowService {
         Task saved = taskRepository.save(task);
         String actionName = Boolean.TRUE.equals(permanentRejection) ? "PERMANENT_REJECT" : "REJECT";
         eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), actionName, comment));
+
+        // Clean up obsolete notifications for this task ID
+        try {
+            userNotificationRepository.deleteByReferenceEntityId(saved.getTaskId().toString());
+        } catch (Exception e) {
+            // Non-fatal cleanup
+        }
 
         // Publish In-App Notification to assigned Maker
         String makerId = saved.getMaker() != null ? saved.getMaker().getUserId() : (saved.getAssignedMakerIds() != null && !saved.getAssignedMakerIds().isEmpty() ? saved.getAssignedMakerIds().get(0) : null);

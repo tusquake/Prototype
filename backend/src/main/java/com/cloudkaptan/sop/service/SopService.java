@@ -37,6 +37,7 @@ public class SopService {
     private final AuditLogRepository auditLogRepository;
     private final SopEventRepository sopEventRepository;
     private final NotificationPublisherService notificationPublisherService;
+    private final UserNotificationRepository userNotificationRepository;
 
     @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
@@ -208,6 +209,13 @@ public class SopService {
             .comment("SOP draft submitted for approval")
             .build());
 
+        // Clean up obsolete pending creation/draft notifications for this SOP
+        try {
+            userNotificationRepository.deleteByReferenceEntityId(saved.getSopId().toString());
+        } catch (Exception e) {
+            // Non-fatal cleanup
+        }
+
         // Publish In-App Notification to Approver
         if (saved.getAssignedApproverId() != null) {
             notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
@@ -240,6 +248,13 @@ public class SopService {
         }
 
         Sop saved = sopRepository.save(sop);
+
+        // Clean up obsolete approval notifications for this SOP
+        try {
+            userNotificationRepository.deleteByReferenceEntityId(saved.getSopId().toString());
+        } catch (Exception e) {
+            // Non-fatal cleanup
+        }
 
         // Audit & Record SopEvent
         boolean isApproved = "APPROVE".equalsIgnoreCase(request.getAction());
