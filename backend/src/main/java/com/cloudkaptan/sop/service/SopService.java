@@ -17,6 +17,7 @@ import com.cloudkaptan.sop.repository.CorporateEntityRepository;
 import com.cloudkaptan.sop.repository.SopEventRepository;
 import com.cloudkaptan.sop.repository.SopRepository;
 import com.cloudkaptan.sop.repository.UserRepository;
+import com.cloudkaptan.sop.repository.UserNotificationRepository;
 import com.cloudkaptan.sop.entity.SopEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
