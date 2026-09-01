@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@org.springframework.scheduling.annotation.EnableScheduling
 public class RabbitMQConfig {
 
     public static final String NOTIFICATION_EXCHANGE = "finsop.notification.exchange";

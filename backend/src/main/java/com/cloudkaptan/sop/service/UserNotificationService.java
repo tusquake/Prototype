@@ -52,6 +52,20 @@ public class UserNotificationService {
         }
     }
 
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 25000)
+    public void sendHeartbeat() {
+        if (emittersMap.isEmpty()) return;
+        emittersMap.forEach((userId, list) -> {
+            for (SseEmitter emitter : list) {
+                try {
+                    emitter.send(SseEmitter.event().comment("ping"));
+                } catch (Exception e) {
+                    removeEmitter(userId, emitter);
+                }
+            }
+        });
+    }
+
     public void pushSseNotification(UserNotification notification) {
         if (notification == null || notification.getRecipientUserId() == null) return;
         UserNotificationDto dto = mapToDto(notification);

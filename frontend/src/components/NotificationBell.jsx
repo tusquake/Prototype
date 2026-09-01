@@ -90,19 +90,24 @@ export default function NotificationBell({ currentUser }) {
     // 2. Navigate and open detail view
     const isSop = item.referenceEntityType === 'SOP';
     const isTask = item.referenceEntityType === 'TASK';
+    const refId = item.referenceEntityId;
 
     if (isSop) {
       const isReview = item.eventType === 'SOP_SUBMITTED' || item.eventType === 'SOP_APPROVAL';
-      const eventName = isReview ? 'open-sop-review' : 'open-sop-draft';
-      window.dispatchEvent(new CustomEvent(eventName, { detail: { sopId: item.referenceEntityId, code: item.referenceEntityId } }));
-      if (location.pathname !== '/sops') {
-        navigate(`/sops?sopId=${item.referenceEntityId}`);
-      }
+      const isDraft = item.eventType === 'SOP_ASSIGNED' || item.eventType === 'SOP_REJECTED';
+      
+      let queryParam = 'sopId';
+      if (isReview) queryParam = 'reviewSopCode';
+      else if (isDraft) queryParam = 'draftSopCode';
+      else queryParam = 'viewSopCode';
+
+      const eventName = isReview ? 'open-sop-review' : isDraft ? 'open-sop-draft' : 'open-sop-view';
+      window.dispatchEvent(new CustomEvent(eventName, { detail: { sopId: refId, code: refId, id: refId } }));
+      
+      navigate(`/sops?${queryParam}=${encodeURIComponent(refId)}`);
     } else if (isTask) {
-      window.dispatchEvent(new CustomEvent('open-task-action', { detail: { taskId: item.referenceEntityId, id: item.referenceEntityId } }));
-      if (location.pathname !== '/tasks' && location.pathname !== '/inbox') {
-        navigate(`/tasks?openTaskId=${item.referenceEntityId}`);
-      }
+      window.dispatchEvent(new CustomEvent('open-task-action', { detail: { taskId: refId, id: refId } }));
+      navigate(`/tasks?openTaskId=${encodeURIComponent(refId)}`);
     }
   }
 

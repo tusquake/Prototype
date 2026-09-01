@@ -240,22 +240,30 @@ export default function Sops() {
       }
     }
 
+    function handleViewEvent(e) {
+      if (e.detail) {
+        setViewingSop(e.detail);
+      }
+    }
+
     function handleUpdateEvent() {
       loadData();
     }
 
     window.addEventListener('open-sop-draft', handleDraftEvent);
     window.addEventListener('open-sop-review', handleReviewEvent);
+    window.addEventListener('open-sop-view', handleViewEvent);
     window.addEventListener('sop-updated', handleUpdateEvent);
 
-    // Check for draftSopCode or reviewSopCode query params
+    // Check for draftSopCode, reviewSopCode, viewSopCode or sopId query params
     const params = new URLSearchParams(window.location.search);
     const draftCode = params.get('draftSopCode');
     const reviewCode = params.get('reviewSopCode');
+    const viewCode = params.get('viewSopCode') || params.get('sopId') || params.get('sopCode');
 
     if (draftCode) {
       getSops([]).then(all => {
-        const target = (all || []).find(s => (s.code === draftCode || s.sopCode === draftCode));
+        const target = (all || []).find(s => (s.code === draftCode || s.sopCode === draftCode || s.id === draftCode || s.sopId === draftCode));
         if (target) {
           setLockedAssignment(target);
           setEditingSop(null);
@@ -265,9 +273,22 @@ export default function Sops() {
       window.history.replaceState({}, '', window.location.pathname);
     } else if (reviewCode) {
       getSops([]).then(all => {
-        const target = (all || []).find(s => (s.code === reviewCode || s.sopCode === reviewCode));
+        const target = (all || []).find(s => (s.code === reviewCode || s.sopCode === reviewCode || s.id === reviewCode || s.sopId === reviewCode));
         if (target) {
           setViewingSop(target);
+        }
+      });
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (viewCode) {
+      getSops([]).then(all => {
+        const target = (all || []).find(s => (s.code === viewCode || s.sopCode === viewCode || s.id === viewCode || s.sopId === viewCode));
+        if (target) {
+          if (target.status === 'PENDING_CREATION' || target.status === 'REJECTED') {
+            setLockedAssignment(target);
+            setShowModal(true);
+          } else {
+            setViewingSop(target);
+          }
         }
       });
       window.history.replaceState({}, '', window.location.pathname);
@@ -276,6 +297,7 @@ export default function Sops() {
     return () => {
       window.removeEventListener('open-sop-draft', handleDraftEvent);
       window.removeEventListener('open-sop-review', handleReviewEvent);
+      window.removeEventListener('open-sop-view', handleViewEvent);
       window.removeEventListener('sop-updated', handleUpdateEvent);
     };
   }, [selected]);
@@ -537,8 +559,8 @@ export default function Sops() {
   const filtered = sopList.filter(s => {
     if (!selected.includes(s.entityCode)) return false;
 
-    // Non-admin users: hide raw PENDING_CREATION stubs — they are shown as notifications instead
-    if (!isAdmin && s.status === 'PENDING_CREATION') return false;
+    // Non-admin users: hide raw PENDING_CREATION stubs unless assigned to currentUser
+    if (!isAdmin && s.status === 'PENDING_CREATION' && s.assignedCreatorId !== currentUser.id) return false;
 
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase().trim();
@@ -937,13 +959,19 @@ export default function Sops() {
                         <td onClick={e => e.stopPropagation()}>
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                             {(sop.status === 'PENDING_CREATION' || sop.status === 'REJECTED') && (
-                              <button
-                                type="button"
-                                style={{ background: '#f0f9ff', border: '1px solid #0284c7', color: '#0369a1', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-                                onClick={() => openEditModal(sop)}
-                              >
-                                Draft SOP
-                              </button>
+                              (sop.assignedCreatorId === currentUser.id || currentUser.role === 'ADMIN') && (
+                                <button
+                                  type="button"
+                                  style={{ background: '#f0f9ff', border: '1px solid #0284c7', color: '#0369a1', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                                  onClick={() => {
+                                    setLockedAssignment(sop);
+                                    setEditingSop(null);
+                                    setShowModal(true);
+                                  }}
+                                >
+                                  Draft SOP
+                                </button>
+                              )
                             )}
                             {sop.status === 'PENDING_APPROVAL' && (
                               (sop.assignedApproverId === currentUser.id || (currentUser.role === 'ADMIN' && sop.assignedCreatorId !== currentUser.id)) && (
