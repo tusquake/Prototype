@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import UserPickerModal from '../components/UserPickerModal';
+import Toast from '../components/Toast';
 import {
   getProcessCategories,
   getCategoryAccessAssignments,
@@ -184,7 +185,6 @@ export default function AccessControl() {
 
       setSuccessMsg(`Access permissions saved successfully for category '${catCode}'.`);
       setActiveCategory(null);
-      setTimeout(() => setSuccessMsg(null), 3500);
     } catch (err) {
       console.error('Failed to save access control:', err);
       setError('Failed to save access control: ' + err.message);
@@ -284,18 +284,6 @@ export default function AccessControl() {
 
         {/* Page Content View */}
         <div className={styles.page}>
-          {error && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '12px 16px', borderRadius: 8, fontSize: 13, marginBottom: 20 }}>
-              {error}
-            </div>
-          )}
-
-          {successMsg && (
-            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '12px 16px', borderRadius: 8, fontSize: 13, marginBottom: 20, fontWeight: 600 }}>
-              {successMsg}
-            </div>
-          )}
-
           {/* Filter Bar */}
           <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px 10px 0 0', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ flex: 1, maxWidth: 380 }}>
@@ -730,6 +718,18 @@ export default function AccessControl() {
             </div>
           </div>
         )}
+
+        {/* Floating Toast Notifications */}
+        <Toast
+          message={successMsg}
+          type="success"
+          onClose={() => setSuccessMsg(null)}
+        />
+        <Toast
+          message={error}
+          type="error"
+          onClose={() => setError(null)}
+        />
 
       </main>
     </div>

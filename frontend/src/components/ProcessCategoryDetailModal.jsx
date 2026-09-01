@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { updateProcessCategory, getCategoryActivityLogs } from '../services/api';
+import Toast from './Toast';
 import styles from './SopDetailModal.module.css';
 
 export default function ProcessCategoryDetailModal({ isOpen, category, onClose, onUpdated }) {
@@ -57,7 +58,6 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
       });
       setSuccessMsg('Process Category updated successfully.');
       if (onUpdated) onUpdated();
-      setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       console.error('Failed to update process category:', err);
       setErrorMsg(err.message || 'Failed to update process category');
@@ -78,7 +78,12 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
               <span className={styles.codeBadge}>{category.categoryCode}</span>
             </div>
           </div>
-          <button className={styles.closeBtn} onClick={onClose} title="Close modal">
+          <button
+            type="button"
+            className={styles.closeBtn}
+            onClick={onClose}
+            title="Close modal"
+          >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
@@ -86,8 +91,8 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
           </button>
         </div>
 
-        {/* Icon Tabs */}
-        <div style={{ display: 'flex', gap: 8, padding: '0 28px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+        {/* Icon-Tabs Header Bar */}
+        <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', padding: '0 24px' }}>
           <button
             type="button"
             onClick={() => setActiveTab('DETAILS')}
@@ -141,9 +146,6 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
 
         {/* Modal Body */}
         <div className={styles.body}>
-          {errorMsg && <div style={{ color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: 8, fontSize: 13 }}>{errorMsg}</div>}
-          {successMsg && <div style={{ color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '10px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>{successMsg}</div>}
-
           {/* Tab 1: Category Details Form */}
           {activeTab === 'DETAILS' && (
             <form id="category-edit-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -158,8 +160,8 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
+                  placeholder="Enter Category Name"
                   required
-                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13, background: '#ffffff', color: '#0f172a', fontWeight: 500, boxSizing: 'border-box' }}
                 />
               </div>
 
@@ -169,51 +171,53 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
                   rows={4}
                   value={description}
                   onChange={e => setDescription(e.target.value)}
-                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13, background: '#ffffff', color: '#0f172a', resize: 'vertical', boxSizing: 'border-box' }}
+                  placeholder="Enter category scope and description"
                 />
               </div>
             </form>
           )}
 
-          {/* Tab 2: Activity Log Timeline */}
+          {/* Tab 2: Activity Log History */}
           {activeTab === 'ACTIVITY' && (
-            <div style={{ minHeight: 220 }}>
+            <div>
               {loadingLogs ? (
-                <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
-                  Loading activity logs...
+                <div style={{ padding: 30, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                  Loading category activity history...
                 </div>
               ) : logs.length === 0 ? (
-                <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
-                  No activity logs recorded for this category yet.
+                <div style={{ padding: 30, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                  No activity logged for this category yet.
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {logs.map((logItem, idx) => (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {logs.map(log => (
                     <div
-                      key={logItem.id || idx}
+                      key={log.id}
                       style={{
-                        padding: '12px 16px',
                         background: '#f8fafc',
-                        borderRadius: 10,
                         border: '1px solid #e2e8f0',
+                        borderRadius: 8,
+                        padding: '12px 16px',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: 4,
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ background: 'rgba(37, 99, 235, 0.1)', color: '#2563eb', borderRadius: 6, padding: '3px 8px', fontSize: 11, fontWeight: 700 }}>
-                          {logItem.action}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 4, textTransform: 'uppercase' }}>
+                          {log.action}
                         </span>
                         <span style={{ fontSize: 11, color: '#64748b' }}>
-                          {logItem.timestamp ? new Date(logItem.timestamp).toLocaleString() : 'Just now'}
+                          {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Just now'}
                         </span>
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginTop: 2 }}>
-                        {logItem.details || `Performed ${logItem.action}`}
+
+                      <div style={{ fontSize: 13, color: '#1e293b', marginTop: 4 }}>
+                        {log.details}
                       </div>
-                      <div style={{ fontSize: 11.5, color: '#64748b' }}>
-                        Actor: <strong style={{ color: '#334155' }}>{logItem.actorName || logItem.actorId}</strong>
+
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                        Performed by: <span style={{ fontWeight: 600, color: '#475569' }}>{log.actorName || log.actorId}</span>
                       </div>
                     </div>
                   ))}
@@ -239,6 +243,18 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
             </button>
           )}
         </div>
+
+        {/* Floating Toast Notifications */}
+        <Toast
+          message={successMsg}
+          type="success"
+          onClose={() => setSuccessMsg('')}
+        />
+        <Toast
+          message={errorMsg}
+          type="error"
+          onClose={() => setErrorMsg('')}
+        />
 
       </div>
     </div>

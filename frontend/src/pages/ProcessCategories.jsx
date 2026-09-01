@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import ProcessCategoryDetailModal from '../components/ProcessCategoryDetailModal';
+import Toast from '../components/Toast';
 import { getProcessCategories, createProcessCategory, deleteProcessCategory } from '../services/api';
 import { getSession } from '../auth/auth';
 import styles from './AuditLogs.module.css';
@@ -64,7 +65,6 @@ export default function ProcessCategories() {
       setDescription('');
       setShowCreateModal(false);
       await fetchCategories();
-      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       console.error('Failed to create process category:', err);
       setError('Failed to create process category: ' + err.message);
@@ -85,7 +85,6 @@ export default function ProcessCategories() {
       await deleteProcessCategory(categoryCode);
       setSuccessMsg(`Process Category '${categoryCode}' deleted successfully.`);
       await fetchCategories();
-      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
       console.error('Failed to delete process category:', err);
       setError('Failed to delete process category: ' + err.message);
@@ -121,18 +120,6 @@ export default function ProcessCategories() {
 
         {/* Page Content View */}
         <div className={styles.page}>
-          {error && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '12px 16px', borderRadius: 8, fontSize: 13, marginBottom: 20 }}>
-              {error}
-            </div>
-          )}
-
-          {successMsg && (
-            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '12px 16px', borderRadius: 8, fontSize: 13, marginBottom: 20, fontWeight: 600 }}>
-              {successMsg}
-            </div>
-          )}
-
           {/* Action & Filter Bar on Top of Table */}
           <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px 10px 0 0', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
             <div style={{ flex: 1, maxWidth: 360 }}>
@@ -288,6 +275,18 @@ export default function ProcessCategories() {
           category={editingCategory}
           onClose={() => setEditingCategory(null)}
           onUpdated={fetchCategories}
+        />
+
+        {/* Floating Toast Notifications */}
+        <Toast
+          message={successMsg}
+          type="success"
+          onClose={() => setSuccessMsg(null)}
+        />
+        <Toast
+          message={error}
+          type="error"
+          onClose={() => setError(null)}
         />
 
       </main>
