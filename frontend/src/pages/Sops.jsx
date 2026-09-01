@@ -6,6 +6,7 @@ import UserPickerModal from '../components/UserPickerModal';
 import TableSkeleton from '../components/TableSkeleton';
 import Pagination from '../components/Pagination';
 import SopDetailModal from '../components/SopDetailModal';
+import AssignedSopDetailsModal from '../components/AssignedSopDetailsModal';
 import AssignSOPModal from '../components/AssignSOPModal';
 import CreateSOPModal from '../components/CreateSOPModal';
 import ConfirmationModal from '../components/ConfirmationModal';
@@ -145,6 +146,7 @@ export default function Sops() {
   const [showModal, setShowModal] = useState(false);
   const [editingSop, setEditingSop] = useState(null);
   const [viewingSop, setViewingSop] = useState(null);
+  const [viewingAssignment, setViewingAssignment] = useState(null);
   const [deletingSop, setDeletingSop] = useState(null);
 
   const [showMakerPicker, setShowMakerPicker] = useState(false);
@@ -533,7 +535,7 @@ export default function Sops() {
                 options={MAKER_FILTER_OPTIONS}
                 onChange={e => {
                   setSelectedMaker(e.target.value);
-                  setCurrentPage(1);
+                setCurrentPage(1);
                 }}
               />
             </div>
@@ -571,7 +573,7 @@ export default function Sops() {
                   <line x1="16" y1="13" x2="8" y2="13" />
                   <line x1="16" y1="17" x2="8" y2="17" />
                 </svg>
-                Master Operating Procedures
+                {isAdmin ? 'SOP Governance Assignments' : 'Master Operating Procedures'}
               </span>
               {isAdmin && (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -589,158 +591,207 @@ export default function Sops() {
             </div>
 
             <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>CODE</th>
-                    <th>NAME</th>
-                    <th>PROCESS</th>
-                    <th>ENTITY</th>
-                    <th>STATUS</th>
-                    <th>FREQUENCY</th>
-                    <th>CREATOR</th>
-                    <th>APPROVER</th>
-                    <th>VERSION</th>
-                    <th style={{ textAlign: 'right' }}>ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <TableSkeleton rows={4} columns={10} />
-                  ) : filtered.length === 0 ? (
-                    <tr><td colSpan={10} className={styles.empty}>No SOPs for selected entities.</td></tr>
-                  ) : paginatedSops.map(sop => (
-                    <tr key={sop.id || sop.code} style={{ cursor: 'pointer' }} onClick={() => setViewingSop(sop)}>
-                      <td className={styles.tdCode}>{sop.code}</td>
-                      <td className={styles.tdName}>{sop.name || sop.title}</td>
-                      <td>{sop.process || sop.processCategory}</td>
-                      <td>{sop.entity || sop.entityName}</td>
-                      <td>
-                        {sop.status === 'PENDING_CREATION' && (
-                          <span style={{ fontSize: 11, background: '#ffedd5', color: '#c2410c', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
-                            PENDING CREATION
-                          </span>
-                        )}
-                        {sop.status === 'PENDING_APPROVAL' && (
-                          <span style={{ fontSize: 11, background: '#fef3c7', color: '#b45309', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
-                            PENDING APPROVAL
-                          </span>
-                        )}
-                        {(sop.status === 'ACTIVE' || sop.status === 'APPROVED') && (
-                          <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
-                            ACTIVE
-                          </span>
-                        )}
-                        {sop.status === 'REJECTED' && (
-                          <span style={{ fontSize: 11, background: '#fee2e2', color: '#b91c1c', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
-                            REJECTED
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <span className={styles.freqBadge}>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4, verticalAlign: 'middle' }}>
-                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                            <line x1="16" y1="2" x2="16" y2="6" />
-                            <line x1="8" y1="2" x2="8" y2="6" />
-                            <line x1="3" y1="10" x2="21" y2="10" />
-                          </svg>
-                          {FREQ_LABEL[sop.frequency] || sop.frequency}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
-                        {sop.assignedCreatorName || sop.assignedCreatorId || 'N/A'}
-                      </td>
-                      <td style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
-                        {sop.assignedApproverName || sop.assignedApproverId || 'N/A'}
-                      </td>
-                      <td>v{sop.version || 1}</td>
-                      <td onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                          {(sop.status === 'PENDING_CREATION' || sop.status === 'REJECTED') && (
+              {isAdmin ? (
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>SOP CODE</th>
+                      <th>PROCESS CATEGORY</th>
+                      <th>CORPORATE ENTITY</th>
+                      <th>ASSIGNED CREATOR</th>
+                      <th>ASSIGNED APPROVER</th>
+                      <th>STATUS</th>
+                      <th style={{ textAlign: 'right' }}>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <TableSkeleton rows={4} columns={7} />
+                    ) : filtered.length === 0 ? (
+                      <tr><td colSpan={7} className={styles.empty}>No SOP assignments created yet.</td></tr>
+                    ) : paginatedSops.map(sop => (
+                      <tr key={sop.id || sop.code} style={{ cursor: 'pointer' }} onClick={() => setViewingAssignment(sop)}>
+                        <td className={styles.tdCode}>{sop.code}</td>
+                        <td>{sop.process || sop.processCategory}</td>
+                        <td>{sop.entity || sop.entityName}</td>
+                        <td style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                          {sop.assignedCreatorName || sop.assignedCreatorId || 'N/A'}
+                        </td>
+                        <td style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                          {sop.assignedApproverName || sop.assignedApproverId || 'N/A'}
+                        </td>
+                        <td>
+                          {sop.status === 'PENDING_CREATION' && (
+                            <span style={{ fontSize: 11, background: '#ffedd5', color: '#c2410c', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                              PENDING CREATION
+                            </span>
+                          )}
+                          {sop.status === 'PENDING_APPROVAL' && (
+                            <span style={{ fontSize: 11, background: '#fef3c7', color: '#b45309', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                              PENDING APPROVAL
+                            </span>
+                          )}
+                          {(sop.status === 'ACTIVE' || sop.status === 'APPROVED') && (
+                            <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                              ACTIVE
+                            </span>
+                          )}
+                          {sop.status === 'REJECTED' && (
+                            <span style={{ fontSize: 11, background: '#fee2e2', color: '#b91c1c', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                              REJECTED
+                            </span>
+                          )}
+                        </td>
+                        <td onClick={e => e.stopPropagation()}>
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                             <button
                               type="button"
-                              title="Draft SOP Specification"
-                              style={{ background: '#f0f9ff', border: '1px solid #0284c7', color: '#0369a1', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-                              onClick={() => openEditModal(sop)}
+                              title="View Assignment Details"
+                              style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#334155', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              onClick={() => setViewingAssignment(sop)}
                             >
-                              Draft SOP
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                              </svg>
+                              View
                             </button>
-                          )}
-
-                          {sop.status === 'PENDING_APPROVAL' && (
-                            <>
-                              <button
-                                type="button"
-                                title="Approve SOP"
-                                style={{ background: '#f0fdf4', border: '1px solid #16a34a', color: '#15803d', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-                                onClick={() => handleApproveSop(sop)}
-                              >
-                                Approve
-                              </button>
-
-                              <button
-                                type="button"
-                                title="Reject SOP"
-                                style={{ background: '#fff1f2', border: '1px solid #e11d48', color: '#be123c', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-                                onClick={() => {
-                                  setRejectingSop(sop);
-                                  setRejectionReasonInput('');
-                                }}
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-
-                          <button
-                            type="button"
-                            title="View SOP Details"
-                            style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#334155', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                            onClick={() => setViewingSop(sop)}
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                              <circle cx="12" cy="12" r="3" />
+                            <button
+                              type="button"
+                              title="Delete Assignment"
+                              style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              onClick={() => setDeletingSop(sop)}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>CODE</th>
+                      <th>TITLE</th>
+                      <th>PROCESS</th>
+                      <th>ENTITY</th>
+                      <th>FREQUENCY</th>
+                      <th>MAKERS</th>
+                      <th>CHECKERS</th>
+                      <th>STATUS</th>
+                      <th>VERSION</th>
+                      <th style={{ textAlign: 'right' }}>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading ? (
+                      <TableSkeleton rows={4} columns={10} />
+                    ) : filtered.length === 0 ? (
+                      <tr><td colSpan={10} className={styles.empty}>No SOPs assigned for creation or approval.</td></tr>
+                    ) : paginatedSops.map(sop => (
+                      <tr key={sop.id || sop.code} style={{ cursor: 'pointer' }} onClick={() => setViewingSop(sop)}>
+                        <td className={styles.tdCode}>{sop.code}</td>
+                        <td className={styles.tdName}>{sop.name || sop.title}</td>
+                        <td>{sop.process || sop.processCategory}</td>
+                        <td>{sop.entity || sop.entityName}</td>
+                        <td>
+                          <span className={styles.freqBadge}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4, verticalAlign: 'middle' }}>
+                              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                              <line x1="16" y1="2" x2="16" y2="6" />
+                              <line x1="8" y1="2" x2="8" y2="6" />
+                              <line x1="3" y1="10" x2="21" y2="10" />
                             </svg>
-                            View
-                          </button>
-
-                          {isAdmin && (
-                            <>
+                            {FREQ_LABEL[sop.frequency] || sop.frequency}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 500, color: '#1e293b' }}>
+                            {sop.makers?.length ? sop.makers.join(', ') : sop.maker}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 500, color: '#1e293b' }}>
+                            {sop.checkers?.length ? sop.checkers.join(', ') : sop.checker}
+                          </span>
+                        </td>
+                        <td>
+                          {sop.status === 'PENDING_CREATION' && (
+                            <span style={{ fontSize: 11, background: '#ffedd5', color: '#c2410c', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                              PENDING CREATION
+                            </span>
+                          )}
+                          {sop.status === 'PENDING_APPROVAL' && (
+                            <span style={{ fontSize: 11, background: '#fef3c7', color: '#b45309', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                              PENDING APPROVAL
+                            </span>
+                          )}
+                          {(sop.status === 'ACTIVE' || sop.status === 'APPROVED') && (
+                            <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                              ACTIVE
+                            </span>
+                          )}
+                          {sop.status === 'REJECTED' && (
+                            <span style={{ fontSize: 11, background: '#fee2e2', color: '#b91c1c', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                              REJECTED
+                            </span>
+                          )}
+                        </td>
+                        <td>v{sop.version || 1}</td>
+                        <td onClick={e => e.stopPropagation()}>
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                            {(sop.status === 'PENDING_CREATION' || sop.status === 'REJECTED') && (
                               <button
                                 type="button"
-                                title="Edit SOP"
-                                style={{ background: 'rgba(37, 99, 235, 0.1)', border: '1px solid rgba(37, 99, 235, 0.3)', color: '#2563eb', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                style={{ background: '#f0f9ff', border: '1px solid #0284c7', color: '#0369a1', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
                                 onClick={() => openEditModal(sop)}
                               >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                                </svg>
-                                Edit
+                                Draft SOP
                               </button>
-
-                              <button
-                                type="button"
-                                title="Delete SOP"
-                                style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                                onClick={() => setDeletingSop(sop)}
-                              >
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="3 6 5 6 21 6" />
-                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                </svg>
-                                Delete
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                            )}
+                            {sop.status === 'PENDING_APPROVAL' && (
+                              <>
+                                <button
+                                  type="button"
+                                  style={{ background: '#f0fdf4', border: '1px solid #16a34a', color: '#15803d', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                                  onClick={() => handleApproveSop(sop)}
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  style={{ background: '#fff1f2', border: '1px solid #e11d48', color: '#be123c', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                                  onClick={() => { setRejectingSop(sop); setRejectionReasonInput(''); }}
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            <button
+                              type="button"
+                              style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#334155', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              onClick={() => setViewingSop(sop)}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                <circle cx="12" cy="12" r="3" />
+                              </svg>
+                              View
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
 
             {!loading && (
@@ -756,7 +807,6 @@ export default function Sops() {
         </div>
       </main>
 
-      {/* SOP Details View Modal */}
       <SopDetailModal
         isOpen={!!viewingSop}
         sop={viewingSop}
@@ -766,11 +816,17 @@ export default function Sops() {
         onDelete={sop => setDeletingSop(sop)}
       />
 
-      {/* Confirmation Modal for SOP Deletion */}
+      <AssignedSopDetailsModal
+        isOpen={!!viewingAssignment}
+        sop={viewingAssignment}
+        onClose={() => setViewingAssignment(null)}
+        onDelete={sop => setDeletingSop(sop)}
+      />
+
       <ConfirmationModal
         isOpen={!!deletingSop}
         title="Delete Standard Operating Procedure"
-        message={`Are you sure you want to delete SOP "${deletingSop?.name || deletingSop?.title || deletingSop?.code}"? This will archive the master procedure.`}
+        message={`Are you sure you want to delete SOP "${deletingSop?.name || deletingSop?.title || deletingSop?.code}"?`}
         confirmText="Delete SOP"
         confirmVariant="danger"
         submitting={deleting}
@@ -778,111 +834,50 @@ export default function Sops() {
         onClose={() => setDeletingSop(null)}
       />
 
-      {/* Modular Admin Assignment Modal */}
       <AssignSOPModal
         isOpen={showAssignModal}
         onClose={() => setShowAssignModal(false)}
-        onSuccess={(msg) => {
-          setSuccessMsg(msg);
-          loadData();
-        }}
+        onSuccess={(msg) => { setSuccessMsg(msg); loadData(); }}
       />
 
-      {/* Modular Creator Drafting Modal */}
       <CreateSOPModal
         isOpen={showModal}
         editingSop={editingSop}
         currentUser={currentUser}
         userMap={userMap}
-        onClose={() => {
-          setShowModal(false);
-          setEditingSop(null);
-        }}
-        onSuccess={(msg) => {
-          setSuccessMsg(msg);
-          loadData();
-        }}
+        onClose={() => { setShowModal(false); setEditingSop(null); }}
+        onSuccess={(msg) => { setSuccessMsg(msg); loadData(); }}
       />
 
-      {/* Approver Rejection Modal */}
       {rejectingSop && (
         <div className={styles.modalOverlay}>
           <div className={styles.modal} style={{ maxWidth: 480 }}>
             <div className={styles.modalHeader} style={{ background: '#fff1f2', borderBottom: '1px solid #fecdd3' }}>
               <div>
                 <h3 style={{ color: '#be123c' }}>Reject SOP Draft</h3>
-                <p style={{ color: '#9f1239' }}>Provide revision feedback for creator: {rejectingSop.code || rejectingSop.sopCode}</p>
+                <p style={{ color: '#9f1239' }}>Revision feedback for: {rejectingSop.code}</p>
               </div>
               <button className={styles.closeBtn} onClick={() => setRejectingSop(null)}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
-
             <form onSubmit={handleConfirmRejectSop}>
               <div className={styles.modalBody}>
                 <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                  <label style={{ color: '#be123c', fontWeight: 700 }}>REJECTION COMMENTS / REVISION FEEDBACK *</label>
-                  <textarea
-                    value={rejectionReasonInput}
-                    onChange={e => setRejectionReasonInput(e.target.value)}
-                    placeholder="Specify required corrections for the assigned creator..."
-                    rows={4}
-                    required
-                  />
+                  <label style={{ color: '#be123c', fontWeight: 700 }}>FEEDBACK *</label>
+                  <textarea value={rejectionReasonInput} onChange={e => setRejectionReasonInput(e.target.value)} required rows={4} />
                 </div>
               </div>
-
               <div className={styles.modalFooter}>
-                <button type="button" className={styles.cancelBtn} onClick={() => setRejectingSop(null)}>
-                  Cancel
-                </button>
-                <button type="submit" className={styles.submitBtn} disabled={saving} style={{ background: '#dc2626' }}>
-                  {saving ? 'Rejecting SOP...' : 'Confirm Rejection'}
-                </button>
+                <button type="button" className={styles.cancelBtn} onClick={() => setRejectingSop(null)}>Cancel</button>
+                <button type="submit" className={styles.submitBtn} disabled={saving} style={{ background: '#dc2626' }}>Confirm Rejection</button>
               </div>
             </form>
           </div>
         </div>
       )}
-
-      {/* User Picker Modal for Maker Pool */}
-      <UserPickerModal
-        isOpen={showMakerPicker}
-        title="Select Assigned Maker Pool"
-        entityCode={formData.entityCode}
-        targetRole="MAKER"
-        selectedUserIds={formData.defaultMakerIds}
-        onClose={() => setShowMakerPicker(false)}
-        onConfirm={selectedIds => {
-          setFormData(prev => ({ ...prev, defaultMakerIds: selectedIds }));
-          setShowMakerPicker(false);
-        }}
-        onSelect={selectedIds => {
-          setFormData(prev => ({ ...prev, defaultMakerIds: selectedIds }));
-          setShowMakerPicker(false);
-        }}
-      />
-
-      {/* User Picker Modal for Checker Pool */}
-      <UserPickerModal
-        isOpen={showCheckerPicker}
-        title="Select Assigned Checker Pool"
-        entityCode={formData.entityCode}
-        targetRole="CHECKER"
-        selectedUserIds={formData.defaultCheckerIds}
-        onClose={() => setShowCheckerPicker(false)}
-        onConfirm={selectedIds => {
-          setFormData(prev => ({ ...prev, defaultCheckerIds: selectedIds }));
-          setShowCheckerPicker(false);
-        }}
-        onSelect={selectedIds => {
-          setFormData(prev => ({ ...prev, defaultCheckerIds: selectedIds }));
-          setShowCheckerPicker(false);
-        }}
-      />
     </div>
   );
 }
