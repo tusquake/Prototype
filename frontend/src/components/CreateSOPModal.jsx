@@ -181,15 +181,19 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
       if (isCreatorDraftMode) {
         const sopId = lockedAssignment.id || lockedAssignment.sopId;
         const res = await submitSopDraft(sopId, payload);
+        window.dispatchEvent(new Event('sop-updated'));
         onSuccess(`SOP draft "${formData.title}" submitted for approval successfully!`, res);
       } else if (editingSop && (editingSop.status === 'PENDING_CREATION' || editingSop.status === 'REJECTED')) {
         const res = await submitSopDraft(editingSop.sopId || editingSop.id || editingSop.code, payload);
+        window.dispatchEvent(new Event('sop-updated'));
         onSuccess(`SOP draft "${formData.title}" submitted for approval successfully!`, res);
       } else if (editingSop) {
         const res = await updateSop(editingSop.sopId || editingSop.id || editingSop.code, payload);
+        window.dispatchEvent(new Event('sop-updated'));
         onSuccess(`SOP "${formData.title}" updated successfully!`, res);
       } else {
         const res = await createSop(payload);
+        window.dispatchEvent(new Event('sop-updated'));
         onSuccess(`SOP "${formData.title}" created successfully!`, res);
       }
 

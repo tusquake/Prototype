@@ -57,6 +57,7 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
     try {
       setSaving(true);
       const res = await assignSop(assignForm);
+      window.dispatchEvent(new Event('sop-updated'));
       onSuccess(`SOP Assignment "${assignForm.sopCode}" created successfully! Creator assigned to draft for category "${assignForm.processCategory}".`, res);
       onClose();
       setAssignForm({

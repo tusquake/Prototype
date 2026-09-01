@@ -188,6 +188,41 @@ export default function Sops() {
 
   useEffect(() => {
     loadData();
+
+    function handleDraftEvent(e) {
+      if (e.detail) {
+        setLockedAssignment(e.detail);
+        setEditingSop(null);
+        setShowModal(true);
+      }
+    }
+
+    function handleUpdateEvent() {
+      loadData();
+    }
+
+    window.addEventListener('open-sop-draft', handleDraftEvent);
+    window.addEventListener('sop-updated', handleUpdateEvent);
+
+    // Check for draftSopCode query param
+    const params = new URLSearchParams(window.location.search);
+    const draftCode = params.get('draftSopCode');
+    if (draftCode) {
+      getSops([]).then(all => {
+        const target = (all || []).find(s => (s.code === draftCode || s.sopCode === draftCode));
+        if (target) {
+          setLockedAssignment(target);
+          setEditingSop(null);
+          setShowModal(true);
+        }
+      });
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    return () => {
+      window.removeEventListener('open-sop-draft', handleDraftEvent);
+      window.removeEventListener('sop-updated', handleUpdateEvent);
+    };
   }, [selected]);
 
   function openCreateModal() {

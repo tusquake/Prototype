@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { clearSession, getSession, saveSession, USERS } from '../auth/auth';
 import { hasPermission } from '../auth/rbac';
 import { getSops } from '../services/api';
@@ -67,6 +67,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ onOpenSopTask }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const session = getSession();
   const currentUser = session?.user ?? USERS[0];
 
@@ -78,24 +79,29 @@ export default function Sidebar({ onOpenSopTask }) {
     saveSession(USERS[0], 'demo-token');
   }
 
-  // Fetch pending SOP creation tasks for creator
-  useEffect(() => {
-    async function loadPendingTasks() {
-      if (!currentUser?.id || currentUser?.role === 'ADMIN') return;
-      try {
-        const all = await getSops([]);
-        const mine = (all || []).filter(
-          s => s.status === 'PENDING_CREATION' &&
-               s.assignedCreatorId === currentUser.id
-        );
-        setPendingTasks(mine);
-      } catch {
-        // silent
-      }
+  // Fetch pending SOP creation tasks for assigned creator
+  async function loadPendingTasks() {
+    if (!currentUser?.id || currentUser?.role === 'ADMIN') return;
+    try {
+      const all = await getSops([]);
+      const mine = (all || []).filter(
+        s => s.status === 'PENDING_CREATION' &&
+             s.assignedCreatorId === currentUser.id
+      );
+      setPendingTasks(mine);
+    } catch {
+      // silent catch
     }
+  }
+
+  useEffect(() => {
     loadPendingTasks();
-    const interval = setInterval(loadPendingTasks, 15000);
-    return () => clearInterval(interval);
+    const interval = setInterval(loadPendingTasks, 10000);
+    window.addEventListener('sop-updated', loadPendingTasks);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('sop-updated', loadPendingTasks);
+    };
   }, [currentUser?.id]);
 
   // Click outside listener for notification menu
@@ -108,6 +114,20 @@ export default function Sidebar({ onOpenSopTask }) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  function handleNotifItemClick(task) {
+    setShowNotifMenu(false);
+    // Dispatch custom event for Sops page
+    window.dispatchEvent(new CustomEvent('open-sop-draft', { detail: task }));
+
+    if (onOpenSopTask) {
+      onOpenSopTask(task);
+    }
+
+    if (location.pathname !== '/sops') {
+      navigate(`/sops?draftSopCode=${task.code || task.sopCode}`);
+    }
+  }
 
   function handleLogout() {
     clearSession();
@@ -190,10 +210,7 @@ export default function Sidebar({ onOpenSopTask }) {
                     <div
                       key={task.id || task.code}
                       className={styles.notifItem}
-                      onClick={() => {
-                        setShowNotifMenu(false);
-                        if (onOpenSopTask) onOpenSopTask(task);
-                      }}
+                      onClick={() => handleNotifItemClick(task)}
                     >
                       <div className={styles.notifItemIcon}>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
