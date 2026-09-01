@@ -593,8 +593,28 @@ export async function updateSop(sopId, sopData) {
   const targetIdx = MOCK_SOPS.findIndex(s => s.sopId === sopId || s.id === sopId || s.sopCode === sopData.sopCode || s.code === sopData.sopCode);
   if (targetIdx !== -1) {
     const existing = MOCK_SOPS[targetIdx];
+    const prevStatus = existing.status;
     const updatedMakers = (sopData.defaultMakerNames || sopData.defaultMakerIds || []).map(m => m.replace('usr-', '').replace(/\b\w/g, l => l.toUpperCase()));
     const updatedCheckers = (sopData.defaultCheckerNames || sopData.defaultCheckerIds || []).map(c => c.replace('usr-', '').replace(/\b\w/g, l => l.toUpperCase()));
+
+    const currentVersion = existing.version || 1;
+    const actorId = sopData.createdById || 'usr-tushar-304';
+    const actorName = actorId === 'usr-tushar-304' ? 'Tushar Seth' : (actorId === 'usr-prayasa-410' ? 'Prayasa Sharma' : 'Manoj Agarwal');
+    const approverId = existing.assignedApproverId || 'usr-vivek-108';
+    const approverName = existing.assignedApproverName || 'Vivek Raj';
+
+    if (!existing.history) existing.history = [];
+    existing.history.push({
+      eventId: Date.now(),
+      action: 'UPDATE_SOP',
+      actorId: actorId,
+      actorName: actorName,
+      actorRole: 'MAKER',
+      fromStatus: prevStatus,
+      toStatus: 'PENDING_APPROVAL',
+      comment: `SOP modified by ${actorName} and resubmitted for approval`,
+      timestamp: new Date().toISOString(),
+    });
 
     MOCK_SOPS[targetIdx] = {
       ...existing,
@@ -613,8 +633,29 @@ export async function updateSop(sopId, sopData) {
       defaultCheckerNames: updatedCheckers.length ? updatedCheckers : existing.defaultCheckerNames,
       makers: updatedMakers.length ? updatedMakers : existing.makers,
       checkers: updatedCheckers.length ? updatedCheckers : existing.checkers,
-      version: (existing.version || 1) + 1,
+      status: 'PENDING_APPROVAL',
+      version: currentVersion,
+      history: existing.history,
     };
+
+    // Dispatch custom notification event for in-app notification bell
+    try {
+      const notifEvent = new CustomEvent('add-notification', {
+        detail: {
+          recipientUserId: approverId,
+          recipientName: approverName,
+          title: 'SOP Modified — Approval Required',
+          message: `SOP ${existing.sopCode || existing.code} (${sopData.title || existing.title}) was modified by ${actorName} and requires your approval.`,
+          referenceEntityType: 'SOP',
+          referenceEntityId: existing.sopId || existing.id || existing.code,
+          timestamp: new Date().toISOString(),
+        }
+      });
+      window.dispatchEvent(notifEvent);
+    } catch (e) {
+      // Ignore if SSR
+    }
+
     return mapSop(MOCK_SOPS[targetIdx]);
   }
   return res ? mapSop(res) : null;

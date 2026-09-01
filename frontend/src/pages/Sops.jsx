@@ -324,9 +324,10 @@ export default function Sops() {
   }
 
   function openEditModal(sop) {
-    if (!isAdmin) {
+    const isAllowed = isAdmin || currentUser?.role === 'ADMIN' || sop.assignedCreatorId === currentUser?.id;
+    if (!isAllowed) {
       setSuccessMsg('');
-      setErrorMsg('Access Denied: Only Admin users have permission to edit SOPs.');
+      setErrorMsg('Access Denied: Only assigned creators or Admin users have permission to edit this SOP.');
       return;
     }
     setEditingSop(sop);
@@ -468,8 +469,11 @@ export default function Sops() {
         });
         setSuccessMsg(`SOP draft "${formData.title}" submitted for approval successfully! Status: PENDING_APPROVAL.`);
       } else if (editingSop) {
-        await updateSop(editingSop.sopId || editingSop.id || editingSop.code, payload);
-        setSuccessMsg(`SOP "${formData.title}" updated successfully! Version incremented.`);
+        await updateSop(editingSop.sopId || editingSop.id || editingSop.code, {
+          ...payload,
+          createdById: currentUser?.id || 'usr-tushar-304'
+        });
+        setSuccessMsg(`SOP "${formData.title}" updated & re-submitted for approval! Status is now PENDING_APPROVAL and assigned approver has been notified.`);
       } else {
         await createSop(payload);
         setSuccessMsg(`SOP "${formData.title}" created successfully with assigned Maker/Checker pool! Scheduled compliance tasks generated.`);

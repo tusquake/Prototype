@@ -342,6 +342,7 @@ public class SopService {
             .orElseThrow(() -> new ResourceNotFoundException("SOP not found with ID: " + id));
 
         CorporateEntity entity = resolveEntity(request.getEntityCode());
+        SopStatus prevStatus = sop.getStatus();
 
         sop.setTitle(request.getTitle());
         sop.setDescription(request.getDescription());
@@ -352,7 +353,9 @@ public class SopService {
         if (request.getIsRecurring() != null) {
             sop.setIsRecurring(request.getIsRecurring());
         }
-        sop.setVersion((sop.getVersion() == null ? 1 : sop.getVersion() + 1));
+        if (sop.getVersion() == null) {
+            sop.setVersion(1);
+        }
 
         if (request.getDefaultMakerIds() != null && !request.getDefaultMakerIds().isEmpty()) {
             sop.setDefaultMakerIds(new java.util.ArrayList<>(request.getDefaultMakerIds()));
@@ -360,6 +363,9 @@ public class SopService {
         if (request.getDefaultCheckerIds() != null && !request.getDefaultCheckerIds().isEmpty()) {
             sop.setDefaultCheckerIds(new java.util.ArrayList<>(request.getDefaultCheckerIds()));
         }
+
+        // Set status to PENDING_APPROVAL whenever creator/user makes changes to an existing SOP
+        sop.setStatus(SopStatus.PENDING_APPROVAL);
 
         Sop saved = sopRepository.save(sop);
 
@@ -376,10 +382,30 @@ public class SopService {
             .sop(saved)
             .actor(resolveUser(request.getCreatedById(), UserRole.ADMIN, entity))
             .action("UPDATE_SOP")
-            .fromStatus(saved.getStatus())
-            .toStatus(saved.getStatus())
-            .comment("SOP specification updated to version " + saved.getVersion())
+            .fromStatus(prevStatus)
+            .toStatus(SopStatus.PENDING_APPROVAL)
+            .comment("SOP modified by creator and resubmitted for approval")
             .build());
+
+        // Clean up obsolete pending notifications for this SOP
+        try {
+            userNotificationRepository.deleteByReferenceEntityId(saved.getSopId().toString());
+            userNotificationRepository.deleteByReferenceEntityId(saved.getSopCode());
+        } catch (Exception e) {
+            // Non-fatal
+        }
+
+        // Publish In-App Notification to Assigned Approver
+        if (saved.getAssignedApproverId() != null) {
+            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                .recipientUserId(saved.getAssignedApproverId())
+                .eventType("SOP_SUBMITTED")
+                .title("SOP Modified — Approval Required")
+                .message("SOP " + saved.getSopCode() + " (" + saved.getTitle() + ") was modified by creator and requires re-approval.")
+                .referenceEntityType("SOP")
+                .referenceEntityId(saved.getSopId().toString())
+                .build());
+        }
 
         return mapToDto(saved);
     }
