@@ -88,6 +88,144 @@
   color: #0f172a;
 }
 
+.headerRightGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.historyHeaderBtn {
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.historyHeaderBtn:hover {
+  background: rgba(37, 99, 235, 0.15);
+}
+
+.historyBadgeCount {
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+/* SOP Governance Lifecycle Tracker */
+.lifecycleTracker {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lifecycleTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.flowSteps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.flowStep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.stepBadge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.completedStep .stepBadge {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.currentStep .stepBadge {
+  background: #d97706;
+  color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2);
+}
+
+.approvedStep .stepBadge {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.rejectedStep .stepBadge {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.pendingStep .stepBadge {
+  background: #cbd5e1;
+  color: #475569;
+}
+
+.stepInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stepName {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stepDetail {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.flowConnector {
+  height: 2px;
+  background: #e2e8f0;
+  flex: 0.4;
+  margin: 0 2px;
+}
+
+.activeConnector {
+  background: #2563eb;
+}
+
 .body {
   padding: 24px 28px;
   display: flex;
