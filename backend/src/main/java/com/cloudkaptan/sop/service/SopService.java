@@ -213,6 +213,7 @@ public class SopService {
         // Clean up obsolete pending creation/draft notifications for this SOP
         try {
             userNotificationRepository.deleteByReferenceEntityId(saved.getSopId().toString());
+            userNotificationRepository.deleteByReferenceEntityId(saved.getSopCode());
         } catch (Exception e) {
             // Non-fatal cleanup
         }
@@ -250,9 +251,10 @@ public class SopService {
 
         Sop saved = sopRepository.save(sop);
 
-        // Clean up obsolete approval notifications for this SOP
+        // Clean up obsolete approval notifications for this SOP across all users
         try {
             userNotificationRepository.deleteByReferenceEntityId(saved.getSopId().toString());
+            userNotificationRepository.deleteByReferenceEntityId(saved.getSopCode());
         } catch (Exception e) {
             // Non-fatal cleanup
         }

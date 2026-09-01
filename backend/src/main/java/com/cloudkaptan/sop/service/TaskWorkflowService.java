@@ -73,9 +73,10 @@ public class TaskWorkflowService {
         String actionName = (fromStatus == TaskStatus.REJECTED) ? "RESUBMIT" : "SUBMIT";
         eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), actionName, comment));
 
-        // Clean up obsolete notifications for this task ID
+        // Clean up obsolete notifications for this task ID across all users
         try {
             userNotificationRepository.deleteByReferenceEntityId(saved.getTaskId().toString());
+            userNotificationRepository.deleteByReferenceEntityId(saved.getRecordNo());
         } catch (Exception e) {
             // Non-fatal cleanup
         }
@@ -118,9 +119,10 @@ public class TaskWorkflowService {
         Task saved = taskRepository.save(task);
         eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), "APPROVE", comment));
 
-        // Clean up obsolete notifications for this task ID
+        // Clean up obsolete notifications for this task ID across all users
         try {
             userNotificationRepository.deleteByReferenceEntityId(saved.getTaskId().toString());
+            userNotificationRepository.deleteByReferenceEntityId(saved.getRecordNo());
         } catch (Exception e) {
             // Non-fatal cleanup
         }
@@ -166,9 +168,10 @@ public class TaskWorkflowService {
         String actionName = Boolean.TRUE.equals(permanentRejection) ? "PERMANENT_REJECT" : "REJECT";
         eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), actionName, comment));
 
-        // Clean up obsolete notifications for this task ID
+        // Clean up obsolete notifications for this task ID across all users
         try {
             userNotificationRepository.deleteByReferenceEntityId(saved.getTaskId().toString());
+            userNotificationRepository.deleteByReferenceEntityId(saved.getRecordNo());
         } catch (Exception e) {
             // Non-fatal cleanup
         }
