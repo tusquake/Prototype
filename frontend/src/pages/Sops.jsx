@@ -6,10 +6,12 @@ import UserPickerModal from '../components/UserPickerModal';
 import TableSkeleton from '../components/TableSkeleton';
 import Pagination from '../components/Pagination';
 import SopDetailModal from '../components/SopDetailModal';
+import AssignSOPModal from '../components/AssignSOPModal';
+import CreateSOPModal from '../components/CreateSOPModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { ENTITIES, getSops, createSop, updateSop, deleteSop, getUsers, generateScheduledTasks, assignSop, submitSopDraft, actionSop } from '../services/api';
+import { ENTITIES, getSops, deleteSop, getUsers, actionSop } from '../services/api';
 import styles from './Sops.module.css';
 
 const FREQ_LABEL = { MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', ANNUAL: 'Annual', DAILY: 'Daily', WEEKLY: 'Weekly' };
@@ -191,7 +193,11 @@ export default function Sops() {
   }
 
   function openEditModal(sop) {
-    const isAssignedCreator = !sop.assignedCreatorId || sop.assignedCreatorId === currentUser?.id || true;
+    if (!isAdmin) {
+      setSuccessMsg('');
+      setErrorMsg('Access Denied: Only Admin users have permission to edit SOPs.');
+      return;
+    }
     setEditingSop(sop);
 
     let rawMakers = sop.defaultMakerIds || (sop.defaultMakerNames ? sop.defaultMakerNames.map(n => USER_ID_MAP[n] || n) : (sop.defaultMakerId ? [sop.defaultMakerId] : ['usr-tushar-304']));
@@ -567,7 +573,7 @@ export default function Sops() {
                 </svg>
                 Master Operating Procedures
               </span>
-              {isAdmin ? (
+              {isAdmin && (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   <button className={styles.createBtn} onClick={() => setShowAssignModal(true)} style={{ background: '#0284c7' }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -579,21 +585,6 @@ export default function Sops() {
                     <span>Assign SOP Creation</span>
                   </button>
                 </div>
-              ) : (
-                (() => {
-                  const pendingSop = sopList.find(s => s.status === 'PENDING_CREATION' || s.status === 'REJECTED');
-                  return pendingSop ? (
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                      <button className={styles.createBtn} onClick={() => openEditModal(pendingSop)} style={{ background: '#16a34a' }}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="12" y1="5" x2="12" y2="19" />
-                          <line x1="5" y1="12" x2="19" y2="12" />
-                        </svg>
-                        <span>Draft Assigned SOP ({pendingSop.code || pendingSop.sopCode})</span>
-                      </button>
-                    </div>
-                  ) : null;
-                })()
               )}
             </div>
 
@@ -787,368 +778,31 @@ export default function Sops() {
         onClose={() => setDeletingSop(null)}
       />
 
-      {/* Create / Edit SOP Form Modal */}
-      {showModal && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <div>
-                <h3>{editingSop ? 'Edit Standard Operating Procedure' : 'Create Standard Operating Procedure'}</h3>
-                <p>{editingSop ? `Updating ${editingSop.code || editingSop.sopCode}` : 'Configure compliance schedule, assigned Maker pool, and Checker pool.'}</p>
-              </div>
-              <button className={styles.closeBtn} onClick={() => setShowModal(false)}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
+      {/* Modular Admin Assignment Modal */}
+      <AssignSOPModal
+        isOpen={showAssignModal}
+        onClose={() => setShowAssignModal(false)}
+        onSuccess={(msg) => {
+          setSuccessMsg(msg);
+          loadData();
+        }}
+      />
 
-            <form onSubmit={handleFormSubmit}>
-              <div className={styles.modalBody}>
-                {errorMsg && <div className={styles.errorAlert}>{errorMsg}</div>}
-
-                <div className={`${styles.formRow} ${styles.fullWidth}`}>
-                  <div className={styles.formGroup}>
-                    <label>SOP CODE *</label>
-                    <input
-                      type="text"
-                      name="sopCode"
-                      value={formData.sopCode}
-                      onChange={handleInputChange}
-                      placeholder="e.g. SOP-TAX-IN-005"
-                      disabled={!!editingSop}
-                      required
-                    />
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label>PROCESS CATEGORY *</label>
-                    <CustomSelect
-                      name="processCategory"
-                      value={formData.processCategory}
-                      options={PROCESS_OPTIONS}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </div>
-
-                <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                  <label>SOP TITLE / NAME *</label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleInputChange}
-                    placeholder="e.g. Quarterly GST Reconciliation & Filing"
-                    required
-                  />
-                </div>
-
-                <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                  <label>DESCRIPTION</label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    placeholder="Provide operational steps, required documents, and compliance guidelines..."
-                    rows={3}
-                  />
-                </div>
-
-                <div className={`${styles.formRow} ${styles.fullWidth}`}>
-                  <div className={styles.formGroup}>
-                    <label>CORPORATE ENTITY *</label>
-                    <CustomSelect
-                      name="entityCode"
-                      value={formData.entityCode}
-                      options={ENTITY_OPTIONS}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label>FREQUENCY *</label>
-                    <CustomSelect
-                      name="frequency"
-                      value={formData.frequency}
-                      options={FREQUENCY_OPTIONS}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label>DUE DAY OFFSET *</label>
-                    <input
-                      type="number"
-                      name="dueDayOffset"
-                      value={formData.dueDayOffset}
-                      onChange={handleInputChange}
-                      min={1}
-                      max={31}
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Sleek Toggle Switch for Recurring vs One-Time Task */}
-                <div className={`${styles.formGroup} ${styles.fullWidth}`} style={{ marginTop: 12, marginBottom: 16 }}>
-                  <div
-                    onClick={() => setFormData(prev => ({ ...prev, isRecurring: !prev.isRecurring }))}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '12px 16px',
-                      borderRadius: 10,
-                      border: formData.isRecurring ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
-                      background: formData.isRecurring ? '#f0fdf4' : '#f8fafc',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      userSelect: 'none',
-                    }}
-                  >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: formData.isRecurring ? '#15803d' : '#334155' }}>
-                        {formData.isRecurring ? 'Recurring Task Schedule' : 'One-Time Task'}
-                      </span>
-                      <span style={{ fontSize: 11, color: '#64748b' }}>
-                        {formData.isRecurring
-                          ? 'Scheduler automatically generates a new compliance task every recurring period.'
-                          : 'Task generates only once for the initial period.'}
-                      </span>
-                    </div>
-
-                    <div
-                      style={{
-                        width: 44,
-                        height: 24,
-                        borderRadius: 12,
-                        background: formData.isRecurring ? '#22c55e' : '#cbd5e1',
-                        padding: 2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: formData.isRecurring ? 'flex-end' : 'flex-start',
-                        transition: 'all 0.2s ease',
-                        flexShrink: 0,
-                        marginLeft: 16,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: '50%',
-                          background: '#ffffff',
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                          transition: 'all 0.2s ease',
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Maker & Checker Pool Assignments (Vertical Stack) */}
-                <div className={`${styles.assignmentSection} ${styles.fullWidth}`}>
-                  <div className={styles.assignmentTitle}>Pool Assignments</div>
-
-                  <div className={styles.assignmentColumn}>
-                    <div className={styles.formGroup}>
-                      <div className={styles.pickerHeader}>
-                        <label>ASSIGNED MAKER POOL *</label>
-                        <button
-                          type="button"
-                          className={styles.pickerBtn}
-                          onClick={() => setShowMakerPicker(true)}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                            <circle cx="9" cy="7" r="4" />
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                          </svg>
-                          Select Makers ({formData.defaultMakerIds.length})
-                        </button>
-                      </div>
-                      <div className={styles.poolBadgeList}>
-                        {formData.defaultMakerIds.map(id => (
-                          <span key={id} className={styles.userBadge}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                              <circle cx="12" cy="7" r="4" />
-                            </svg>
-                            <span>{userMap[id] || id}</span>
-                            <button
-                              type="button"
-                              className={styles.removeUserBtn}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeMakerUser(id);
-                              }}
-                              title="Remove user from pool"
-                            >
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                                <line x1="18" y1="6" x2="6" y2="18" />
-                                <line x1="6" y1="6" x2="18" y2="18" />
-                              </svg>
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className={styles.formGroup}>
-                      <div className={styles.pickerHeader}>
-                        <label>ASSIGNED CHECKER POOL *</label>
-                        <button
-                          type="button"
-                          className={styles.pickerBtn}
-                          onClick={() => setShowCheckerPicker(true)}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                            <circle cx="9" cy="7" r="4" />
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                          </svg>
-                          Select Checkers ({formData.defaultCheckerIds.length})
-                        </button>
-                      </div>
-                      <div className={styles.poolBadgeList}>
-                        {formData.defaultCheckerIds.map(id => (
-                          <span key={id} className={styles.userBadge}>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                              <circle cx="12" cy="7" r="4" />
-                            </svg>
-                            <span>{userMap[id] || id}</span>
-                            <button
-                              type="button"
-                              className={styles.removeUserBtn}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeCheckerUser(id);
-                              }}
-                              title="Remove user from pool"
-                            >
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                                <line x1="18" y1="6" x2="6" y2="18" />
-                                <line x1="6" y1="6" x2="18" y2="18" />
-                              </svg>
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  className={styles.cancelBtn}
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={styles.submitBtn}
-                  disabled={saving}
-                >
-                  {saving ? 'Submitting Specification...' : (editingSop?.status === 'PENDING_CREATION' || editingSop?.status === 'REJECTED' ? 'Submit for Approval' : (editingSop ? 'Update SOP' : 'Create & Schedule SOP'))}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Admin Assignment Modal */}
-      {showAssignModal && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal} style={{ maxWidth: 620, overflow: 'visible' }}>
-            <div className={styles.modalHeader}>
-              <div>
-                <h3>Assign SOP Creation & Approval</h3>
-              </div>
-              <button className={styles.closeBtn} onClick={() => setShowAssignModal(false)}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleAssignSubmit}>
-              <div className={styles.modalBody} style={{ overflow: 'visible', maxHeight: 'none' }}>
-                {errorMsg && <div className={styles.errorAlert}>{errorMsg}</div>}
-
-                <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                  <label>SOP CODE *</label>
-                  <input
-                    type="text"
-                    value={assignForm.sopCode}
-                    onChange={e => setAssignForm(prev => ({ ...prev, sopCode: e.target.value }))}
-                    placeholder="e.g. SOP-TAX-IN-088"
-                    required
-                  />
-                </div>
-
-                <div className={`${styles.formRow} ${styles.fullWidth}`}>
-                  <div className={styles.formGroup}>
-                    <label>CORPORATE ENTITY *</label>
-                    <CustomSelect
-                      value={assignForm.entityCode}
-                      options={ENTITY_OPTIONS}
-                      onChange={e => setAssignForm(prev => ({ ...prev, entityCode: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label>PROCESS CATEGORY *</label>
-                    <CustomSelect
-                      value={assignForm.processCategory}
-                      options={PROCESS_OPTIONS}
-                      onChange={e => setAssignForm(prev => ({ ...prev, processCategory: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div className={`${styles.formRow} ${styles.fullWidth}`}>
-                  <div className={styles.formGroup}>
-                    <label>ASSIGNED CREATOR *</label>
-                    <CustomSelect
-                      value={assignForm.assignedCreatorId}
-                      options={CREATOR_OPTIONS}
-                      onChange={e => setAssignForm(prev => ({ ...prev, assignedCreatorId: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label>ASSIGNED APPROVER *</label>
-                    <CustomSelect
-                      value={assignForm.assignedApproverId}
-                      options={APPROVER_OPTIONS}
-                      onChange={e => setAssignForm(prev => ({ ...prev, assignedApproverId: e.target.value }))}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className={styles.modalFooter}>
-                <button type="button" className={styles.cancelBtn} onClick={() => setShowAssignModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className={styles.submitBtn} disabled={saving} style={{ background: '#0284c7' }}>
-                  {saving ? 'Creating Assignment...' : 'Assign SOP Creation'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Modular Creator Drafting Modal */}
+      <CreateSOPModal
+        isOpen={showModal}
+        editingSop={editingSop}
+        currentUser={currentUser}
+        userMap={userMap}
+        onClose={() => {
+          setShowModal(false);
+          setEditingSop(null);
+        }}
+        onSuccess={(msg) => {
+          setSuccessMsg(msg);
+          loadData();
+        }}
+      />
 
       {/* Approver Rejection Modal */}
       {rejectingSop && (

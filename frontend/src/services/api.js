@@ -77,19 +77,17 @@ export async function fetchJson(endpoint, options = {}) {
   try {
     let sessionUser = null;
     try {
-      const rawUser = localStorage.getItem('cloudkaptan_user');
-      if (rawUser) sessionUser = JSON.parse(rawUser);
+      const sessionStr = localStorage.getItem('finsop_session');
+      if (sessionStr) sessionUser = JSON.parse(sessionStr)?.user;
     } catch {}
 
     const authHeaders = {};
-    if (sessionUser) {
-      authHeaders['X-User-Id'] = sessionUser.id || (sessionUser.email?.includes('tushar') ? 'usr-tushar-304' : sessionUser.email?.includes('mainak') ? 'usr-mainak-215' : sessionUser.email?.includes('vivek') ? 'usr-vivek-108' : 'usr-manoj-042');
-      authHeaders['X-User-Role'] = sessionUser.role || 'MAKER';
+    if (sessionUser?.role) {
+      authHeaders['X-User-Role'] = sessionUser.role;
       authHeaders['X-User-Email'] = sessionUser.email || '';
     } else {
       authHeaders['X-User-Role'] = 'ADMIN';
-      authHeaders['X-User-Id'] = 'usr-manoj-042';
-      authHeaders['X-User-Email'] = 'manoj.agarwal@cloudkaptan.com';
+      authHeaders['X-User-Email'] = 'admin@cloudkaptan.com';
     }
 
     const res = await fetch(`${API_BASE}${endpoint}`, {

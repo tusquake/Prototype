@@ -78,10 +78,16 @@ public class RowLevelSecurityAspect {
                 List<SopDto> sopList = (List<SopDto>) result;
 
                 return sopList.stream().filter(s -> {
-                    boolean creatorMatch = targetId.equals(s.getAssignedCreatorId()) || targetId.equals(s.getAssignedApproverId());
-                    boolean makerMatch = (s.getDefaultMakerIds() != null && s.getDefaultMakerIds().contains(targetId));
-                    boolean checkerMatch = (s.getDefaultCheckerIds() != null && s.getDefaultCheckerIds().contains(targetId));
-                    return creatorMatch || makerMatch || checkerMatch;
+                    boolean creatorMatch = (s.getAssignedCreatorId() != null && s.getAssignedCreatorId().equals(targetId))
+                        || (s.getAssignedCreatorName() != null && s.getAssignedCreatorName().toLowerCase().contains(targetName));
+                    boolean approverMatch = (s.getAssignedApproverId() != null && s.getAssignedApproverId().equals(targetId))
+                        || (s.getAssignedApproverName() != null && s.getAssignedApproverName().toLowerCase().contains(targetName));
+                    boolean makerMatch = (s.getDefaultMakerIds() != null && s.getDefaultMakerIds().contains(targetId))
+                        || (s.getDefaultMakerId() != null && s.getDefaultMakerId().equals(targetId));
+                    boolean checkerMatch = (s.getDefaultCheckerIds() != null && s.getDefaultCheckerIds().contains(targetId))
+                        || (s.getDefaultCheckerId() != null && s.getDefaultCheckerId().equals(targetId));
+
+                    return creatorMatch || approverMatch || makerMatch || checkerMatch;
                 }).toList();
             }
         }
