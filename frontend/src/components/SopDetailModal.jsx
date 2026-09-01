@@ -21,12 +21,14 @@ export default function SopDetailModal({
   const makersList = sop.makers?.length ? sop.makers : (sop.maker ? [sop.maker] : ['Tushar Seth', 'Prayasa Sharma']);
   const checkersList = sop.checkers?.length ? sop.checkers : (sop.checker ? [sop.checker] : ['Vivek Raj', 'Mainak Gupta']);
 
-  const historyLength = (sop.history && sop.history.length > 0) ? sop.history.length : 1;
-
   const isPendingCreation = sop.status === 'PENDING_CREATION';
   const isPendingApproval = sop.status === 'PENDING_APPROVAL';
   const isActive = sop.status === 'ACTIVE' || sop.status === 'APPROVED';
   const isRejected = sop.status === 'REJECTED';
+
+  const milestoneCount = 1 + (isPendingCreation ? 0 : 1) + (isActive || isRejected ? 1 : 0);
+  const dbLength = sop.history?.length || 0;
+  const historyLength = Math.max(dbLength, milestoneCount);
 
   const creatorName = sop.assignedCreatorName || sop.assignedCreatorId || 'Creator';
   const approverName = sop.assignedApproverName || sop.assignedApproverId || 'Approver';
