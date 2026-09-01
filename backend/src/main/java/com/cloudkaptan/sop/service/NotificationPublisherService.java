@@ -7,6 +7,7 @@ import com.cloudkaptan.sop.repository.UserNotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -16,6 +17,7 @@ public class NotificationPublisherService {
 
     private final RabbitTemplate rabbitTemplate;
     private final UserNotificationRepository userNotificationRepository;
+    private final ObjectProvider<UserNotificationService> userNotificationServiceProvider;
 
     public void publishNotification(NotificationEventDto eventDto) {
         if (eventDto.getRecipientUserId() == null || eventDto.getRecipientUserId().isBlank()) {
@@ -48,9 +50,15 @@ public class NotificationPublisherService {
                     .isRead(false)
                     .build();
 
-            userNotificationRepository.save(notification);
+            UserNotification saved = userNotificationRepository.save(notification);
             log.info("Saved UserNotification to database: notificationId={}, recipient={}",
-                    notification.getNotificationId(), notification.getRecipientUserId());
+                    saved.getNotificationId(), saved.getRecipientUserId());
+
+            // Real-Time SSE Push to connected browser clients
+            UserNotificationService uns = userNotificationServiceProvider.getIfAvailable();
+            if (uns != null) {
+                uns.pushSseNotification(saved);
+            }
         } catch (Exception e) {
             log.error("Failed to save UserNotification to database: {}", e.getMessage(), e);
         }

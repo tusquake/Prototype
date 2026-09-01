@@ -35,14 +35,29 @@ export default function NotificationBell({ currentUser }) {
 
   useEffect(() => {
     fetchNotificationData();
-    const interval = setInterval(fetchNotificationData, 8000);
+
+    if (!userId) return;
+
+    // Connect to Real-Time Server-Sent Events (SSE) Stream
+    const sseUrl = `/finsop/v1/notifications/stream?userId=${encodeURIComponent(userId)}`;
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.addEventListener('NOTIFICATION', (event) => {
+      try {
+        const newNotif = JSON.parse(event.data);
+        setNotifications(prev => [newNotif, ...prev.filter(n => n.notificationId !== newNotif.notificationId)]);
+        setUnreadCount(prev => prev + 1);
+      } catch (err) {
+        console.error('Failed to parse SSE notification:', err);
+      }
+    });
 
     window.addEventListener('sop-updated', fetchNotificationData);
     window.addEventListener('task-updated', fetchNotificationData);
     window.addEventListener('notification-updated', fetchNotificationData);
 
     return () => {
-      clearInterval(interval);
+      eventSource.close();
       window.removeEventListener('sop-updated', fetchNotificationData);
       window.removeEventListener('task-updated', fetchNotificationData);
       window.removeEventListener('notification-updated', fetchNotificationData);
