@@ -111,6 +111,16 @@ export default function NotificationBell({ currentUser }) {
     }
   }
 
+  async function handleDismissNotification(e, item) {
+    e.stopPropagation(); // Prevent triggering full notification item click
+    if (!item.isRead) {
+      markNotificationAsRead(item.notificationId).catch(() => null);
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
+    // Remove notification from UI state upon user dismissal
+    setNotifications(prev => prev.filter(n => n.notificationId !== item.notificationId));
+  }
+
   async function handleMarkAllRead(e) {
     e.stopPropagation();
     if (!userId) return;
@@ -142,7 +152,7 @@ export default function NotificationBell({ currentUser }) {
         )}
       </button>
 
-      {/* Notification Drawer / Popover */}
+      {/* Clean White Notification Drawer / Popover */}
       {showPopover && (
         <div className={styles.notifPopover}>
           <div className={styles.notifHeader}>
@@ -156,7 +166,7 @@ export default function NotificationBell({ currentUser }) {
               <button
                 type="button"
                 onClick={handleMarkAllRead}
-                style={{ background: 'none', border: 'none', color: '#38bdf8', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}
+                style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}
               >
                 Mark all read
               </button>
@@ -166,27 +176,27 @@ export default function NotificationBell({ currentUser }) {
           <div className={styles.notifList}>
             {notifications.length === 0 ? (
               <div className={styles.notifEmpty}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                   <polyline points="22 4 12 14.01 9 11.01" />
                 </svg>
-                <span>No notifications</span>
+                <span>No new notifications</span>
               </div>
             ) : (
               notifications.map(item => {
                 const isUnread = !item.isRead;
                 const isGreen = item.eventType?.includes('APPROVED');
                 const isRed = item.eventType?.includes('REJECTED');
-                const strokeColor = isGreen ? '#22c55e' : isRed ? '#ef4444' : '#38bdf8';
-                const iconBg = isGreen ? 'rgba(34, 197, 94, 0.12)' : isRed ? 'rgba(239, 68, 68, 0.12)' : 'rgba(56, 189, 248, 0.1)';
+                const strokeColor = isGreen ? '#16a34a' : isRed ? '#dc2626' : '#0284c7';
+                const iconBg = isGreen ? 'rgba(22, 163, 74, 0.1)' : isRed ? 'rgba(220, 38, 38, 0.1)' : 'rgba(2, 132, 199, 0.1)';
 
                 return (
                   <div
                     key={item.notificationId}
                     className={styles.notifItem}
                     style={{
-                      background: isUnread ? 'rgba(56, 189, 248, 0.05)' : 'transparent',
-                      borderLeft: isUnread ? '3px solid #38bdf8' : '3px solid transparent',
+                      background: isUnread ? '#f0f9ff' : '#ffffff',
+                      borderLeft: isUnread ? '3px solid #0284c7' : '3px solid transparent',
                     }}
                     onClick={() => handleNotificationClick(item)}
                   >
@@ -201,17 +211,31 @@ export default function NotificationBell({ currentUser }) {
                         )}
                       </svg>
                     </div>
+
                     <div className={styles.notifItemContent}>
-                      <div className={styles.notifItemTitle} style={{ fontWeight: isUnread ? 700 : 500 }}>
+                      <div className={styles.notifItemTitle} style={{ fontWeight: isUnread ? 700 : 600 }}>
                         {item.title}
                       </div>
-                      <div className={styles.notifItemMeta} style={{ color: '#94a3b8', fontSize: 11, marginTop: 2 }}>
+                      <div className={styles.notifItemMeta}>
                         {item.message}
                       </div>
-                      <div className={styles.notifItemAction} style={{ color: strokeColor, marginTop: 4 }}>
+                      <div className={styles.notifItemAction} style={{ color: strokeColor }}>
                         <span>Open {item.referenceEntityType || 'Item'} →</span>
                       </div>
                     </div>
+
+                    {/* Explicit Dismiss / Cross (X) Button */}
+                    <button
+                      type="button"
+                      title="Dismiss notification"
+                      className={styles.notifDismissBtn}
+                      onClick={(e) => handleDismissNotification(e, item)}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
                   </div>
                 );
               })

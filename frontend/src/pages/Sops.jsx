@@ -855,6 +855,19 @@ export default function Sops() {
                         </td>
                         <td onClick={e => e.stopPropagation()}>
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                            {(sop.status === 'PENDING_CREATION' || sop.status === 'REJECTED') && (
+                              <button
+                                type="button"
+                                style={{ background: '#f0f9ff', border: '1px solid #0284c7', color: '#0369a1', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                                onClick={() => {
+                                  setLockedAssignment(sop);
+                                  setEditingSop(null);
+                                  setShowModal(true);
+                                }}
+                              >
+                                {sop.status === 'PENDING_CREATION' ? 'Create SOP' : 'Draft SOP'}
+                              </button>
+                            )}
                             <button
                               type="button"
                               title="View Assignment Details"
@@ -969,7 +982,7 @@ export default function Sops() {
                                     setShowModal(true);
                                   }}
                                 >
-                                  Draft SOP
+                                  {sop.status === 'PENDING_CREATION' ? 'Create SOP' : 'Draft SOP'}
                                 </button>
                               )
                             )}
