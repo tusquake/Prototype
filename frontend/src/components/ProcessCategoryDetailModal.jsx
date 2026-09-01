@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { updateProcessCategory, getCategoryActivityLogs } from '../services/api';
-import styles from '../pages/Sops.module.css';
 
 export default function ProcessCategoryDetailModal({ isOpen, category, onClose, onUpdated }) {
   const [activeTab, setActiveTab] = useState('DETAILS'); // 'DETAILS' | 'ACTIVITY'
@@ -67,20 +66,26 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
   }
 
   return (
-    <div className={styles.modalOverlay}>
-      <div className={styles.modalContent} style={{ maxWidth: 640, padding: 24 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(2px)' }}>
+      <div style={{ background: '#ffffff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 620, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)', border: '1px solid #e2e8f0' }}>
         
         {/* Modal Header */}
-        <div className={styles.modalHeader} style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0f172a' }}>
               Category: {category.categoryName}
             </h3>
-            <span style={{ fontSize: 11, fontFamily: 'monospace', color: '#0284c7' }}>
+            <span style={{ fontSize: 12, fontFamily: 'monospace', color: '#0284c7', fontWeight: 600, display: 'inline-block', marginTop: 2 }}>
               Code: {category.categoryCode}
             </span>
           </div>
-          <button className={styles.closeBtn} onClick={onClose}>✕</button>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{ background: '#f1f5f9', border: 'none', width: 32, height: 32, borderRadius: '50%', fontSize: 14, color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
+          >
+            ✕
+          </button>
         </div>
 
         {/* Icon Filter Tabs Bar */}
@@ -102,7 +107,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
               gap: 8,
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
             </svg>
@@ -126,7 +131,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
               gap: 8,
             }}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
@@ -134,7 +139,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
           </button>
         </div>
 
-        {errorMsg && <div style={{ color: '#dc2626', background: '#fee2e2', padding: '10px 14px', borderRadius: 6, fontSize: 13, marginBottom: 16 }}>{errorMsg}</div>}
+        {errorMsg && <div style={{ color: '#991b1b', background: '#fef2f2', border: '1px solid #fecaca', padding: '10px 14px', borderRadius: 6, fontSize: 13, marginBottom: 16 }}>{errorMsg}</div>}
         {successMsg && <div style={{ color: '#166534', background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '10px 14px', borderRadius: 6, fontSize: 13, marginBottom: 16, fontWeight: 600 }}>{successMsg}</div>}
 
         {/* Tab 1: Category Details Form */}
@@ -148,7 +153,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
                 type="text"
                 value={category.categoryCode}
                 disabled
-                style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, background: '#f1f5f9', color: '#64748b', fontFamily: 'monospace' }}
+                style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, background: '#f1f5f9', color: '#475569', fontFamily: 'monospace' }}
               />
             </div>
 
@@ -177,18 +182,18 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 12, borderTop: '1px solid #f1f5f9', paddingTop: 16 }}>
               <button
                 type="button"
-                className={styles.cancelBtn}
                 onClick={onClose}
+                style={{ padding: '8px 16px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className={styles.submitBtn}
                 disabled={saving}
+                style={{ padding: '8px 18px', background: '#0284c7', color: '#ffffff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
               >
                 {saving ? 'Saving Changes...' : 'Save Changes'}
               </button>
@@ -208,38 +213,44 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
                 No activity logs recorded for this category yet.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 0' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 0', maxHeight: 320, overflowY: 'auto' }}>
                 {logs.map((logItem, idx) => (
                   <div
                     key={logItem.auditId || idx}
                     style={{
                       display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 12,
+                      alignItems: 'center',
+                      justify: 'space-between',
                       padding: 12,
                       background: '#f8fafc',
                       borderRadius: 8,
                       border: '1px solid #e2e8f0',
                     }}
                   >
-                    <div style={{ background: '#e0f2fe', color: '#0369a1', borderRadius: 6, padding: '6px 10px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>
-                      {logItem.action}
+                    <div>
+                      <div style={{ background: '#e0f2fe', color: '#0369a1', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 700, display: 'inline-block', marginBottom: 4 }}>
+                        {logItem.action}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#334155' }}>
+                        Actor: <strong style={{ color: '#0f172a' }}>{logItem.actorId}</strong>
+                      </div>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}>
-                        Actor: {logItem.actorId}
-                      </div>
-                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                        {logItem.timestamp ? new Date(logItem.timestamp).toLocaleString() : 'Just now'}
-                      </div>
+                    <div style={{ fontSize: 11, color: '#64748b', textAlign: 'right' }}>
+                      {logItem.timestamp ? new Date(logItem.timestamp).toLocaleString() : 'Just now'}
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-              <button type="button" className={styles.cancelBtn} onClick={onClose}>Close</button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20, borderTop: '1px solid #f1f5f9', paddingTop: 16 }}>
+              <button
+                type="button"
+                onClick={onClose}
+                style={{ padding: '8px 16px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Close
+              </button>
             </div>
           </div>
         )}
