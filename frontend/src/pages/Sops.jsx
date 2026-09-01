@@ -121,11 +121,43 @@ const MAKER_FILTER_OPTIONS = [
   { value: 'Manoj Agarwal', label: 'Manoj Agarwal' },
 ];
 
+
 const CHECKER_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All Checkers' },
   { value: 'Mainak Gupta', label: 'Mainak Gupta' },
   { value: 'Vivek Raj', label: 'Vivek Raj' },
   { value: 'Manoj Agarwal', label: 'Manoj Agarwal' },
+];
+
+const CREATOR_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Creators' },
+  { value: 'usr-tushar-304', label: 'Tushar Seth' },
+  { value: 'usr-prayasa-410', label: 'Prayasa Sharma' },
+  { value: 'usr-vivek-108', label: 'Vivek Raj' },
+  { value: 'usr-mainak-215', label: 'Mainak Gupta' },
+];
+
+const APPROVER_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Approvers' },
+  { value: 'usr-vivek-108', label: 'Vivek Raj' },
+  { value: 'usr-mainak-215', label: 'Mainak Gupta' },
+  { value: 'usr-manoj-042', label: 'Manoj Agarwal' },
+  { value: 'usr-avisek-499', label: 'Avisek Paul' },
+];
+
+const ADMIN_STATUS_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Statuses' },
+  { value: 'PENDING_CREATION', label: 'Pending Creation' },
+  { value: 'PENDING_APPROVAL', label: 'Pending Approval' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'REJECTED', label: 'Rejected' },
+];
+
+const USER_STATUS_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All Statuses' },
+  { value: 'PENDING_APPROVAL', label: 'Pending Approval' },
+  { value: 'ACTIVE', label: 'Active' },
+  { value: 'REJECTED', label: 'Rejected' },
 ];
 
 export default function Sops() {
@@ -141,6 +173,9 @@ export default function Sops() {
   const [selectedFrequency, setSelectedFrequency] = useState('ALL');
   const [selectedMaker, setSelectedMaker] = useState('ALL');
   const [selectedChecker, setSelectedChecker] = useState('ALL');
+  const [selectedCreator, setSelectedCreator] = useState('ALL');
+  const [selectedApprover, setSelectedApprover] = useState('ALL');
+  const [selectedStatus, setSelectedStatus] = useState('ALL');
 
   // Modal States
   const [showModal, setShowModal] = useState(false);
@@ -462,19 +497,26 @@ export default function Sops() {
     setSelectedFrequency('ALL');
     setSelectedMaker('ALL');
     setSelectedChecker('ALL');
+    setSelectedCreator('ALL');
+    setSelectedApprover('ALL');
+    setSelectedStatus('ALL');
     setCurrentPage(1);
   }
 
-  const isFiltered = searchTerm.trim() !== '' || selectedProcess !== 'ALL' || selectedFrequency !== 'ALL' || selectedMaker !== 'ALL' || selectedChecker !== 'ALL';
+  const isFiltered = searchTerm.trim() !== '' ||
+    selectedProcess !== 'ALL' ||
+    selectedFrequency !== 'ALL' ||
+    selectedMaker !== 'ALL' ||
+    selectedChecker !== 'ALL' ||
+    selectedCreator !== 'ALL' ||
+    selectedApprover !== 'ALL' ||
+    selectedStatus !== 'ALL';
 
   const filtered = sopList.filter(s => {
     if (!selected.includes(s.entityCode)) return false;
 
     // Non-admin users: hide raw PENDING_CREATION stubs — they are shown as notifications instead
     if (!isAdmin && s.status === 'PENDING_CREATION') return false;
-
-    // Admin view: show only assigned (has assignedCreatorId) SOPs in governance table
-    // Non-admin: show their assigned SOPs once drafted (PENDING_APPROVAL, ACTIVE, REJECTED)
 
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase().trim();
@@ -483,7 +525,9 @@ export default function Sops() {
       const processMatch = (s.process || s.processCategory)?.toLowerCase().includes(q);
       const makerMatch = (s.makers?.join(', ') || s.maker)?.toLowerCase().includes(q);
       const checkerMatch = (s.checkers?.join(', ') || s.checker)?.toLowerCase().includes(q);
-      if (!codeMatch && !nameMatch && !processMatch && !makerMatch && !checkerMatch) return false;
+      const creatorMatch = (s.assignedCreatorName || s.assignedCreatorId)?.toLowerCase().includes(q);
+      const approverMatch = (s.assignedApproverName || s.assignedApproverId)?.toLowerCase().includes(q);
+      if (!codeMatch && !nameMatch && !processMatch && !makerMatch && !checkerMatch && !creatorMatch && !approverMatch) return false;
     }
 
     if (selectedProcess !== 'ALL') {
@@ -491,18 +535,34 @@ export default function Sops() {
       if (proc !== selectedProcess) return false;
     }
 
-    if (selectedFrequency !== 'ALL') {
-      if (s.frequency !== selectedFrequency) return false;
+    if (selectedStatus !== 'ALL') {
+      if (s.status !== selectedStatus) return false;
     }
 
-    if (selectedMaker !== 'ALL') {
-      const makerStr = s.makers?.length ? s.makers.join(', ') : (s.maker || '');
-      if (!makerStr.toLowerCase().includes(selectedMaker.toLowerCase())) return false;
-    }
+    if (isAdmin) {
+      if (selectedCreator !== 'ALL') {
+        const creator = s.assignedCreatorId || s.assignedCreatorName || '';
+        if (!creator.toLowerCase().includes(selectedCreator.toLowerCase())) return false;
+      }
 
-    if (selectedChecker !== 'ALL') {
-      const checkerStr = s.checkers?.length ? s.checkers.join(', ') : (s.checker || '');
-      if (!checkerStr.toLowerCase().includes(selectedChecker.toLowerCase())) return false;
+      if (selectedApprover !== 'ALL') {
+        const approver = s.assignedApproverId || s.assignedApproverName || '';
+        if (!approver.toLowerCase().includes(selectedApprover.toLowerCase())) return false;
+      }
+    } else {
+      if (selectedFrequency !== 'ALL') {
+        if (s.frequency !== selectedFrequency) return false;
+      }
+
+      if (selectedMaker !== 'ALL') {
+        const makerStr = s.makers?.length ? s.makers.join(', ') : (s.maker || '');
+        if (!makerStr.toLowerCase().includes(selectedMaker.toLowerCase())) return false;
+      }
+
+      if (selectedChecker !== 'ALL') {
+        const checkerStr = s.checkers?.length ? s.checkers.join(', ') : (s.checker || '');
+        if (!checkerStr.toLowerCase().includes(selectedChecker.toLowerCase())) return false;
+      }
     }
 
     return true;
@@ -563,44 +623,102 @@ export default function Sops() {
               />
             </div>
 
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>Frequency</span>
-              <CustomSelect
-                name="selectedFrequency"
-                value={selectedFrequency}
-                options={FREQUENCY_FILTER_OPTIONS}
-                onChange={e => {
-                  setSelectedFrequency(e.target.value);
-                  setCurrentPage(1);
-                }}
-              />
-            </div>
+            {isAdmin ? (
+              <>
+                <div className={styles.filterGroup}>
+                  <span className={styles.filterLabel}>Creator</span>
+                  <CustomSelect
+                    name="selectedCreator"
+                    value={selectedCreator}
+                    options={CREATOR_FILTER_OPTIONS}
+                    onChange={e => {
+                      setSelectedCreator(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
 
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>Maker</span>
-              <CustomSelect
-                name="selectedMaker"
-                value={selectedMaker}
-                options={MAKER_FILTER_OPTIONS}
-                onChange={e => {
-                  setSelectedMaker(e.target.value);
-                setCurrentPage(1);
-                }}
-              />
-            </div>
+                <div className={styles.filterGroup}>
+                  <span className={styles.filterLabel}>Approver</span>
+                  <CustomSelect
+                    name="selectedApprover"
+                    value={selectedApprover}
+                    options={APPROVER_FILTER_OPTIONS}
+                    onChange={e => {
+                      setSelectedApprover(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
 
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>Checker</span>
-              <CustomSelect
-                name="selectedChecker"
-                value={selectedChecker}
-                options={CHECKER_FILTER_OPTIONS}
-                onChange={e => {
-                  setSelectedChecker(e.target.value);
-                  setCurrentPage(1);
-                }}
-              />
-            </div>
+                <div className={styles.filterGroup}>
+                  <span className={styles.filterLabel}>Status</span>
+                  <CustomSelect
+                    name="selectedStatus"
+                    value={selectedStatus}
+                    options={ADMIN_STATUS_FILTER_OPTIONS}
+                    onChange={e => {
+                      setSelectedStatus(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={styles.filterGroup}>
+                  <span className={styles.filterLabel}>Frequency</span>
+                  <CustomSelect
+                    name="selectedFrequency"
+                    value={selectedFrequency}
+                    options={FREQUENCY_FILTER_OPTIONS}
+                    onChange={e => {
+                      setSelectedFrequency(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+
+                <div className={styles.filterGroup}>
+                  <span className={styles.filterLabel}>Maker</span>
+                  <CustomSelect
+                    name="selectedMaker"
+                    value={selectedMaker}
+                    options={MAKER_FILTER_OPTIONS}
+                    onChange={e => {
+                      setSelectedMaker(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+
+                <div className={styles.filterGroup}>
+                  <span className={styles.filterLabel}>Checker</span>
+                  <CustomSelect
+                    name="selectedChecker"
+                    value={selectedChecker}
+                    options={CHECKER_FILTER_OPTIONS}
+                    onChange={e => {
+                      setSelectedChecker(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+
+                <div className={styles.filterGroup}>
+                  <span className={styles.filterLabel}>Status</span>
+                  <CustomSelect
+                    name="selectedStatus"
+                    value={selectedStatus}
+                    options={USER_STATUS_FILTER_OPTIONS}
+                    onChange={e => {
+                      setSelectedStatus(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+              </>
+            )}
 
             {isFiltered && (
               <button className={styles.resetBtn} onClick={resetFilters} title="Reset all filters">
