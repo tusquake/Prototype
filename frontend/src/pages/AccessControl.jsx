@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
+import UserPickerModal from '../components/UserPickerModal';
 import { getProcessCategories, getCategoryAccessAssignments, saveCategoryAccessAssignments } from '../services/api';
 import { getSession } from '../auth/auth';
 import styles from './AuditLogs.module.css';
+import modalStyles from '../components/SopDetailModal.module.css';
 
 const DEMO_USERS = [
   { id: 'usr-tushar-304', name: 'Tushar Seth', email: 'tushar@cloudkaptan.com', role: 'ADMIN' },
@@ -27,6 +29,14 @@ export default function AccessControl() {
   const [approvers, setApprovers] = useState([]);
   const [makers, setMakers] = useState([]);
   const [checkers, setCheckers] = useState([]);
+
+  // User Picker Modal State
+  const [pickerModalOpen, setPickerModalOpen] = useState(false);
+  const [pickerConfig, setPickerConfig] = useState({
+    type: 'creators', // 'creators' | 'approvers' | 'makers' | 'checkers'
+    title: 'Select Users',
+    selectedIds: [],
+  });
 
   const session = getSession();
   const currentUser = session?.user;
@@ -77,17 +87,28 @@ export default function AccessControl() {
     }
   }
 
-  function handleToggleUser(userId, listType) {
-    const updateFn = {
-      creators: setCreators,
-      approvers: setApprovers,
-      makers: setMakers,
-      checkers: setCheckers,
-    }[listType];
+  function handleOpenUserPicker(type) {
+    const typeConfig = {
+      creators: { title: `Select SOP Creators for ${activeCategory?.categoryName}`, selectedIds: creators },
+      approvers: { title: `Select SOP Approvers for ${activeCategory?.categoryName}`, selectedIds: approvers },
+      makers: { title: `Select Task Submitters (Makers) for ${activeCategory?.categoryName}`, selectedIds: makers },
+      checkers: { title: `Select Task Approvers (Checkers) for ${activeCategory?.categoryName}`, selectedIds: checkers },
+    }[type];
 
-    updateFn(prev =>
-      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
-    );
+    setPickerConfig({
+      type,
+      title: typeConfig.title,
+      selectedIds: typeConfig.selectedIds,
+    });
+    setPickerModalOpen(true);
+  }
+
+  function handleConfirmUserPicker(selectedIds) {
+    if (pickerConfig.type === 'creators') setCreators(selectedIds);
+    if (pickerConfig.type === 'approvers') setApprovers(selectedIds);
+    if (pickerConfig.type === 'makers') setMakers(selectedIds);
+    if (pickerConfig.type === 'checkers') setCheckers(selectedIds);
+    setPickerModalOpen(false);
   }
 
   async function handleSaveAccess(e) {
@@ -193,7 +214,7 @@ export default function AccessControl() {
               </div>
             ) : filteredCategories.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
-                No process categories found.
+                No process categories found. Please create process categories first.
               </div>
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -250,155 +271,171 @@ export default function AccessControl() {
 
         {/* Modal for Configuring Access Control per Category */}
         {activeCategory && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ background: '#ffffff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 760, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+          <div className={modalStyles.backdrop} onClick={() => setActiveCategory(null)}>
+            <div className={modalStyles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 620 }}>
               
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
-                <div>
-                  <h2 style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', margin: 0 }}>
-                    Configure Category Access: <span style={{ color: '#0284c7' }}>{activeCategory.categoryName}</span>
-                  </h2>
-                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 2, fontFamily: 'monospace' }}>
-                    Code: {activeCategory.categoryCode}
+              {/* Header */}
+              <div className={modalStyles.header}>
+                <div className={modalStyles.titleArea}>
+                  <h3>Configure Category Access</h3>
+                  <div className={modalStyles.badges}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{activeCategory.categoryName}</span>
+                    <span className={modalStyles.codeBadge}>{activeCategory.categoryCode}</span>
                   </div>
                 </div>
                 <button
                   type="button"
+                  className={modalStyles.closeBtn}
                   onClick={() => setActiveCategory(null)}
-                  style={{ background: 'transparent', border: 'none', fontSize: 18, color: '#64748b', cursor: 'pointer', fontWeight: 700 }}
+                  title="Close modal"
                 >
-                  ✕
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
                 </button>
               </div>
 
-              {hasSoDWarning && (
-                <div style={{ background: '#fffbe6', border: '1px solid #ffe58f', padding: '10px 14px', borderRadius: 8, fontSize: 12, color: '#873800', marginBottom: 16 }}>
-                  <span style={{ fontWeight: 700 }}>Notice: Segregation of Duties (SoD) Active. </span>
-                  Users assigned both Creator and Approver rights in this category are automatically prohibited by the security engine from self-approving their own drafts.
-                </div>
-              )}
+              {/* Body Form */}
+              <div className={modalStyles.body}>
+                {hasSoDWarning && (
+                  <div style={{ background: '#fffbe6', border: '1px solid #ffe58f', padding: '10px 14px', borderRadius: 8, fontSize: 12, color: '#873800' }}>
+                    <span style={{ fontWeight: 700 }}>Notice: Segregation of Duties (SoD) Active. </span>
+                    Users assigned both Creator and Approver rights in this category are automatically prohibited by the security engine from self-approving their own drafts.
+                  </div>
+                )}
 
-              <form onSubmit={handleSaveAccess} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <form id="access-control-form" onSubmit={handleSaveAccess} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                   
-                  {/* 1. SOP Creators */}
-                  <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 14, background: '#f8fafc' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 2 }}>
-                      SOP Creators
-                    </div>
-                    <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px 0' }}>
-                      Allowed to draft new SOP specifications.
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {DEMO_USERS.map(user => (
-                        <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', background: '#ffffff', padding: '6px 10px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                          <input
-                            type="checkbox"
-                            checked={creators.includes(user.id)}
-                            onChange={() => handleToggleUser(user.id, 'creators')}
-                            style={{ accentColor: '#0284c7' }}
-                          />
-                          <span style={{ fontWeight: 600, color: '#1e293b' }}>{user.name}</span>
-                          <span style={{ color: '#94a3b8', fontSize: 10 }}>({user.role})</span>
-                        </label>
-                      ))}
+                  {/* Read-Only Process Category Field */}
+                  <div className={modalStyles.field}>
+                    <span className={modalStyles.label}>Process Category (Read-Only)</span>
+                    <input
+                      type="text"
+                      value={`${activeCategory.categoryName} (${activeCategory.categoryCode})`}
+                      disabled
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13, background: '#f1f5f9', color: '#475569', fontWeight: 600, boxSizing: 'border-box' }}
+                    />
+                  </div>
+
+                  {/* 1. SOP Creators Trigger Field */}
+                  <div className={modalStyles.field}>
+                    <span className={modalStyles.label}>SOP Creators</span>
+                    <div
+                      onClick={() => handleOpenUserPicker('creators')}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: creators.length ? '#0f172a' : '#94a3b8' }}>
+                          {getUserNames(creators)}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                          Allowed to draft new SOP specifications
+                        </div>
+                      </div>
+                      <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                        {creators.length} Selected ✎
+                      </span>
                     </div>
                   </div>
 
-                  {/* 2. SOP Approvers */}
-                  <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 14, background: '#f8fafc' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 2 }}>
-                      SOP Approvers
-                    </div>
-                    <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px 0' }}>
-                      Allowed to review & approve SOP drafts.
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {DEMO_USERS.map(user => (
-                        <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', background: '#ffffff', padding: '6px 10px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                          <input
-                            type="checkbox"
-                            checked={approvers.includes(user.id)}
-                            onChange={() => handleToggleUser(user.id, 'approvers')}
-                            style={{ accentColor: '#0284c7' }}
-                          />
-                          <span style={{ fontWeight: 600, color: '#1e293b' }}>{user.name}</span>
-                          <span style={{ color: '#94a3b8', fontSize: 10 }}>({user.role})</span>
-                        </label>
-                      ))}
+                  {/* 2. SOP Approvers Trigger Field */}
+                  <div className={modalStyles.field}>
+                    <span className={modalStyles.label}>SOP Approvers</span>
+                    <div
+                      onClick={() => handleOpenUserPicker('approvers')}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: approvers.length ? '#0f172a' : '#94a3b8' }}>
+                          {getUserNames(approvers)}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                          Allowed to review & approve SOP drafts
+                        </div>
+                      </div>
+                      <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                        {approvers.length} Selected ✎
+                      </span>
                     </div>
                   </div>
 
-                  {/* 3. Task Submitters */}
-                  <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 14, background: '#f8fafc' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 2 }}>
-                      Task Submitters (Makers)
-                    </div>
-                    <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px 0' }}>
-                      Allowed to execute & submit tasks.
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {DEMO_USERS.map(user => (
-                        <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', background: '#ffffff', padding: '6px 10px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                          <input
-                            type="checkbox"
-                            checked={makers.includes(user.id)}
-                            onChange={() => handleToggleUser(user.id, 'makers')}
-                            style={{ accentColor: '#0284c7' }}
-                          />
-                          <span style={{ fontWeight: 600, color: '#1e293b' }}>{user.name}</span>
-                          <span style={{ color: '#94a3b8', fontSize: 10 }}>({user.role})</span>
-                        </label>
-                      ))}
+                  {/* 3. Task Submitters (Makers) Trigger Field */}
+                  <div className={modalStyles.field}>
+                    <span className={modalStyles.label}>Task Submitters (Makers)</span>
+                    <div
+                      onClick={() => handleOpenUserPicker('makers')}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: makers.length ? '#0f172a' : '#94a3b8' }}>
+                          {getUserNames(makers)}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                          Allowed to execute & submit compliance tasks
+                        </div>
+                      </div>
+                      <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                        {makers.length} Selected ✎
+                      </span>
                     </div>
                   </div>
 
-                  {/* 4. Task Approvers */}
-                  <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 14, background: '#f8fafc' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', marginBottom: 2 }}>
-                      Task Approvers (Checkers)
-                    </div>
-                    <p style={{ fontSize: 11, color: '#64748b', margin: '0 0 10px 0' }}>
-                      Allowed to verify & approve tasks.
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {DEMO_USERS.map(user => (
-                        <label key={user.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', background: '#ffffff', padding: '6px 10px', borderRadius: 6, border: '1px solid #e2e8f0' }}>
-                          <input
-                            type="checkbox"
-                            checked={checkers.includes(user.id)}
-                            onChange={() => handleToggleUser(user.id, 'checkers')}
-                            style={{ accentColor: '#0284c7' }}
-                          />
-                          <span style={{ fontWeight: 600, color: '#1e293b' }}>{user.name}</span>
-                          <span style={{ color: '#94a3b8', fontSize: 10 }}>({user.role})</span>
-                        </label>
-                      ))}
+                  {/* 4. Task Approvers (Checkers) Trigger Field */}
+                  <div className={modalStyles.field}>
+                    <span className={modalStyles.label}>Task Approvers (Checkers)</span>
+                    <div
+                      onClick={() => handleOpenUserPicker('checkers')}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: checkers.length ? '#0f172a' : '#94a3b8' }}>
+                          {getUserNames(checkers)}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                          Allowed to verify & approve compliance tasks
+                        </div>
+                      </div>
+                      <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                        {checkers.length} Selected ✎
+                      </span>
                     </div>
                   </div>
 
-                </div>
+                </form>
+              </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, borderTop: '1px solid #f1f5f9', paddingTop: 16 }}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveCategory(null)}
-                    style={{ padding: '8px 16px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    style={{ padding: '8px 18px', background: '#0284c7', color: '#ffffff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-                  >
-                    {saving ? 'Saving...' : 'Save Access Control'}
-                  </button>
-                </div>
-              </form>
+              {/* Footer */}
+              <div className={modalStyles.footer}>
+                <button
+                  type="button"
+                  className={modalStyles.btnSecondary}
+                  onClick={() => setActiveCategory(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  form="access-control-form"
+                  className={modalStyles.btnPrimary}
+                  disabled={saving}
+                >
+                  {saving ? 'Saving Access...' : 'Save Access Control'}
+                </button>
+              </div>
+
             </div>
           </div>
         )}
+
+        {/* UserPickerModal MultiSelect Modal */}
+        <UserPickerModal
+          isOpen={pickerModalOpen}
+          title={pickerConfig.title}
+          selectedUserIds={pickerConfig.selectedIds}
+          onClose={() => setPickerModalOpen(false)}
+          onConfirm={handleConfirmUserPicker}
+        />
 
       </main>
     </div>
