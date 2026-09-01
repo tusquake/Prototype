@@ -218,7 +218,7 @@ export default function AccessControl() {
             fontWeight: 500,
             color: '#1e293b',
             display: 'inline-block',
-            maxWidth: 160,
+            maxWidth: 130,
           }}
           title={formattedNames}
         >
@@ -237,7 +237,7 @@ export default function AccessControl() {
             padding: 2,
             display: 'inline-flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            justify: 'center',
             borderRadius: '50%',
             flexShrink: 0,
           }}
@@ -309,8 +309,8 @@ export default function AccessControl() {
             </div>
           </div>
 
-          {/* Categories Table View */}
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 10px 10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)' }}>
+          {/* Categories Table View with Horizontal Scroll & Sticky Actions Column */}
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 10px 10px', overflowX: 'auto', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)' }}>
             {loading ? (
               <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
                 Loading process categories and access permissions...
@@ -320,15 +320,17 @@ export default function AccessControl() {
                 No process categories found. Please create process categories first.
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    <th style={{ padding: '12px 16px', width: 200 }}>Process Category</th>
+                    <th style={{ padding: '12px 16px', width: 180 }}>Process Category</th>
                     <th style={{ padding: '12px 16px' }}>SOP Creators</th>
                     <th style={{ padding: '12px 16px' }}>SOP Approvers</th>
                     <th style={{ padding: '12px 16px' }}>Task Submitters</th>
                     <th style={{ padding: '12px 16px' }}>Task Approvers</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'right', width: 170 }}>Actions</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right', width: 160, position: 'sticky', right: 0, background: '#f8fafc', zIndex: 2, boxShadow: '-4px 0 8px rgba(0,0,0,0.04)' }}>
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -354,11 +356,11 @@ export default function AccessControl() {
                         <td style={{ padding: '14px 16px' }}>
                           {renderUserListCell(assign.checkerUserIds, 'Task Approvers', cat.categoryName)}
                         </td>
-                        <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                        <td style={{ padding: '14px 16px', textAlign: 'right', position: 'sticky', right: 0, background: '#ffffff', zIndex: 1, boxShadow: '-4px 0 8px rgba(0,0,0,0.04)' }}>
                           <button
                             type="button"
                             onClick={() => handleOpenConfigureModal(cat, 'CONFIGURE')}
-                            style={{ background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0284c7', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                            style={{ background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0284c7', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}
                           >
                             Configure & Details
                           </button>
