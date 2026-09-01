@@ -535,7 +535,7 @@ export default function AccessControl() {
               </div>
 
               <div className={modalStyles.body} style={{ maxHeight: 380, overflowY: 'auto' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {viewUsersList.map((u, idx) => {
                     const initials = u.name
                       ? u.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
@@ -548,23 +548,24 @@ export default function AccessControl() {
                           display: 'flex',
                           alignItems: 'center',
                           justify: 'space-between',
-                          padding: '10px 14px',
+                          padding: '12px 16px',
                           background: '#f8fafc',
-                          borderRadius: 8,
+                          borderRadius: 10,
                           border: '1px solid #e2e8f0',
+                          gap: 16,
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#0284c7', color: '#ffffff', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#0284c7', color: '#ffffff', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             {initials}
                           </div>
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{u.name}</div>
-                            <div style={{ fontSize: 11, color: '#64748b' }}>{u.email}</div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f172a' }}>{u.name}</div>
+                            <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
                           </div>
                         </div>
 
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: u.role === 'ADMIN' ? '#fee2e2' : '#e0f2fe', color: u.role === 'ADMIN' ? '#b91c1c' : '#0369a1' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, background: u.role === 'ADMIN' ? '#fee2e2' : '#e0f2fe', color: u.role === 'ADMIN' ? '#b91c1c' : '#0369a1', flexShrink: 0, textTransform: 'uppercase' }}>
                           {u.role || 'NON_ADMIN'}
                         </span>
                       </div>
@@ -573,7 +574,7 @@ export default function AccessControl() {
                 </div>
               </div>
 
-              <div className={modalStyles.footer}>
+              <div className={modalStyles.footer} style={{ justifyContent: 'flex-end' }}>
                 <button
                   type="button"
                   className={modalStyles.btnSecondary}
