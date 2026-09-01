@@ -79,15 +79,17 @@ export default function Sidebar({ onOpenSopTask }) {
     saveSession(USERS[0], 'demo-token');
   }
 
-  // Fetch pending SOP creation tasks for assigned creator
+  // Fetch pending SOP creation tasks for assigned creator & pending approval tasks for assigned approver
   async function loadPendingTasks() {
-    if (!currentUser?.id || currentUser?.role === 'ADMIN') return;
+    if (!currentUser?.id) return;
     try {
       const all = await getSops([]);
-      const mine = (all || []).filter(
-        s => s.status === 'PENDING_CREATION' &&
-             s.assignedCreatorId === currentUser.id
-      );
+      const mine = (all || []).filter(s => {
+        if (s.status === 'PENDING_CREATION' && s.assignedCreatorId === currentUser.id) return true;
+        if (s.status === 'PENDING_APPROVAL' && (s.assignedApproverId === currentUser.id || currentUser.role === 'ADMIN')) return true;
+        if (s.status === 'REJECTED' && s.assignedCreatorId === currentUser.id) return true;
+        return false;
+      });
       setPendingTasks(mine);
     } catch {
       // silent catch
@@ -117,15 +119,17 @@ export default function Sidebar({ onOpenSopTask }) {
 
   function handleNotifItemClick(task) {
     setShowNotifMenu(false);
-    // Dispatch custom event for Sops page
-    window.dispatchEvent(new CustomEvent('open-sop-draft', { detail: task }));
-
-    if (onOpenSopTask) {
-      onOpenSopTask(task);
-    }
-
-    if (location.pathname !== '/sops') {
-      navigate(`/sops?draftSopCode=${task.code || task.sopCode}`);
+    if (task.status === 'PENDING_APPROVAL') {
+      window.dispatchEvent(new CustomEvent('open-sop-review', { detail: task }));
+      if (location.pathname !== '/sops') {
+        navigate(`/sops?reviewSopCode=${task.code || task.sopCode}`);
+      }
+    } else {
+      window.dispatchEvent(new CustomEvent('open-sop-draft', { detail: task }));
+      if (onOpenSopTask) onOpenSopTask(task);
+      if (location.pathname !== '/sops') {
+        navigate(`/sops?draftSopCode=${task.code || task.sopCode}`);
+      }
     }
   }
 
@@ -206,37 +210,56 @@ export default function Sidebar({ onOpenSopTask }) {
                     <span>No pending notifications</span>
                   </div>
                 ) : (
-                  pendingTasks.map(task => (
-                    <div
-                      key={task.id || task.code}
-                      className={styles.notifItem}
-                      onClick={() => handleNotifItemClick(task)}
-                    >
-                      <div className={styles.notifItemIcon}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                          <polyline points="14 2 14 8 20 8" />
-                          <line x1="12" y1="18" x2="12" y2="12" />
-                          <line x1="9" y1="15" x2="15" y2="15" />
-                        </svg>
-                      </div>
-                      <div className={styles.notifItemContent}>
-                        <div className={styles.notifItemTitle}>
-                          SOP Creation Task: <strong>{task.code}</strong>
-                        </div>
-                        <div className={styles.notifItemMeta}>
-                          {task.process || task.processCategory} • {task.entity || task.entityCode}
-                        </div>
-                        <div className={styles.notifItemAction}>
-                          <span>Draft SOP Now</span>
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="5" y1="12" x2="19" y2="12" />
-                            <polyline points="12 5 19 12 12 19" />
+                  pendingTasks.map(task => {
+                    const isPendingCreation = task.status === 'PENDING_CREATION';
+                    const isPendingApproval = task.status === 'PENDING_APPROVAL';
+                    const isRejected = task.status === 'REJECTED';
+
+                    const titleLabel = isPendingCreation ? 'SOP Creation Task' :
+                                       isPendingApproval ? 'SOP Approval Required' :
+                                       'SOP Draft Revision Required';
+
+                    const actionLabel = isPendingCreation ? 'Draft SOP Now' :
+                                        isPendingApproval ? 'Review & Approve' :
+                                        'Revise SOP Draft';
+
+                    const strokeColor = isPendingApproval ? '#22c55e' : isRejected ? '#ef4444' : '#38bdf8';
+
+                    return (
+                      <div
+                        key={task.id || task.code}
+                        className={styles.notifItem}
+                        onClick={() => handleNotifItemClick(task)}
+                      >
+                        <div className={styles.notifItemIcon} style={{ background: isPendingApproval ? 'rgba(34, 197, 94, 0.12)' : isRejected ? 'rgba(239, 68, 68, 0.12)' : 'rgba(56, 189, 248, 0.1)' }}>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={strokeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            {isPendingApproval ? (
+                              <polyline points="9 15 11 17 15 11" />
+                            ) : (
+                              <line x1="12" y1="18" x2="12" y2="12" />
+                            )}
                           </svg>
                         </div>
+                        <div className={styles.notifItemContent}>
+                          <div className={styles.notifItemTitle}>
+                            {titleLabel}: <strong>{task.code}</strong>
+                          </div>
+                          <div className={styles.notifItemMeta}>
+                            {task.process || task.processCategory} • {task.entity || task.entityCode}
+                          </div>
+                          <div className={styles.notifItemAction} style={{ color: isPendingApproval ? '#4ade80' : isRejected ? '#f87171' : '#38bdf8' }}>
+                            <span>{actionLabel}</span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="5" y1="12" x2="19" y2="12" />
+                              <polyline points="12 5 19 12 12 19" />
+                            </svg>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>

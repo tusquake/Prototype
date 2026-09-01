@@ -234,16 +234,25 @@ export default function Sops() {
       }
     }
 
+    function handleReviewEvent(e) {
+      if (e.detail) {
+        setViewingSop(e.detail);
+      }
+    }
+
     function handleUpdateEvent() {
       loadData();
     }
 
     window.addEventListener('open-sop-draft', handleDraftEvent);
+    window.addEventListener('open-sop-review', handleReviewEvent);
     window.addEventListener('sop-updated', handleUpdateEvent);
 
-    // Check for draftSopCode query param
+    // Check for draftSopCode or reviewSopCode query params
     const params = new URLSearchParams(window.location.search);
     const draftCode = params.get('draftSopCode');
+    const reviewCode = params.get('reviewSopCode');
+
     if (draftCode) {
       getSops([]).then(all => {
         const target = (all || []).find(s => (s.code === draftCode || s.sopCode === draftCode));
@@ -254,10 +263,19 @@ export default function Sops() {
         }
       });
       window.history.replaceState({}, '', window.location.pathname);
+    } else if (reviewCode) {
+      getSops([]).then(all => {
+        const target = (all || []).find(s => (s.code === reviewCode || s.sopCode === reviewCode));
+        if (target) {
+          setViewingSop(target);
+        }
+      });
+      window.history.replaceState({}, '', window.location.pathname);
     }
 
     return () => {
       window.removeEventListener('open-sop-draft', handleDraftEvent);
+      window.removeEventListener('open-sop-review', handleReviewEvent);
       window.removeEventListener('sop-updated', handleUpdateEvent);
     };
   }, [selected]);
@@ -358,7 +376,8 @@ export default function Sops() {
     try {
       setSaving(true);
       await actionSop(sop.id || sop.sopId, { action: 'APPROVE', actorId: currentUser?.id || 'usr-vivek-108' });
-      setSuccessMsg(`SOP "${sop.name || sop.title || sop.code}" approved successfully! Status is now ACTIVE for task generation.`);
+      window.dispatchEvent(new Event('sop-updated'));
+      setSuccessMsg(`SOP "${sop.name || sop.title || sop.code}" approved successfully! Status is now ACTIVE for compliance task generation.`);
       await loadData();
     } catch (err) {
       setErrorMsg(err.message || 'Failed to approve SOP');
@@ -377,6 +396,7 @@ export default function Sops() {
         comment: rejectionReasonInput || 'SOP draft requires revision by creator.',
         actorId: currentUser?.id || 'usr-vivek-108'
       });
+      window.dispatchEvent(new Event('sop-updated'));
       setSuccessMsg(`SOP "${rejectingSop.name || rejectingSop.title || rejectingSop.code}" rejected back to creator with revision comments.`);
       setRejectingSop(null);
       setRejectionReasonInput('');
@@ -995,6 +1015,8 @@ export default function Sops() {
         onClose={() => setViewingSop(null)}
         onEdit={sop => openEditModal(sop)}
         onDelete={sop => setDeletingSop(sop)}
+        onApprove={sop => handleApproveSop(sop)}
+        onReject={sop => { setRejectingSop(sop); setRejectionReasonInput(''); }}
       />
 
       <AssignedSopDetailsModal
