@@ -41,4 +41,5 @@ public class SopDto {
     private String rejectionReason;
     private SopStatus status;
     private Integer version;
+    private List<SopEventDto> history;
 }

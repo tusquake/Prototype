@@ -14,8 +14,10 @@ import com.cloudkaptan.sop.exception.ResourceNotFoundException;
 import com.cloudkaptan.sop.entity.AuditLog;
 import com.cloudkaptan.sop.repository.AuditLogRepository;
 import com.cloudkaptan.sop.repository.CorporateEntityRepository;
+import com.cloudkaptan.sop.repository.SopEventRepository;
 import com.cloudkaptan.sop.repository.SopRepository;
 import com.cloudkaptan.sop.repository.UserRepository;
+import com.cloudkaptan.sop.entity.SopEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +35,7 @@ public class SopService {
     private final UserRepository userRepository;
     private final TaskSchedulerService taskSchedulerService;
     private final AuditLogRepository auditLogRepository;
+    private final SopEventRepository sopEventRepository;
 
     @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
@@ -88,6 +91,16 @@ public class SopService {
             .build();
         auditLogRepository.save(auditLog);
 
+        // Record SopEvent
+        sopEventRepository.save(SopEvent.builder()
+            .sop(saved)
+            .actor(createdBy)
+            .action("CREATE_SOP")
+            .fromStatus(null)
+            .toStatus(SopStatus.ACTIVE)
+            .comment("SOP created directly by Admin")
+            .build());
+
         // Automatically trigger scheduler engine to create task for the new SOP
         try {
             taskSchedulerService.generateScheduledTasks();
@@ -125,13 +138,22 @@ public class SopService {
 
         Sop saved = sopRepository.save(sop);
 
-        // Audit: Admin assigned a new SOP creation task to creator
+        // Audit & Record SopEvent
         auditLogRepository.save(AuditLog.builder()
             .actorId(adminCreator.getUserId())
             .action("ASSIGN_SOP_CREATION")
             .entityType("SOP")
             .entityId(saved.getSopCode())
             .correlationId(UUID.randomUUID().toString())
+            .build());
+
+        sopEventRepository.save(SopEvent.builder()
+            .sop(saved)
+            .actor(adminCreator)
+            .action("ASSIGN_SOP")
+            .fromStatus(null)
+            .toStatus(SopStatus.PENDING_CREATION)
+            .comment("SOP creation task assigned to creator")
             .build());
 
         return mapToDto(saved);
@@ -155,13 +177,22 @@ public class SopService {
 
         Sop saved = sopRepository.save(sop);
 
-        // Audit: Creator submitted SOP draft for approval
+        // Audit & Record SopEvent
         auditLogRepository.save(AuditLog.builder()
             .actorId(actor.getUserId())
             .action("SUBMIT_SOP_FOR_APPROVAL")
             .entityType("SOP")
             .entityId(saved.getSopCode())
             .correlationId(UUID.randomUUID().toString())
+            .build());
+
+        sopEventRepository.save(SopEvent.builder()
+            .sop(saved)
+            .actor(actor)
+            .action("SUBMIT_DRAFT")
+            .fromStatus(SopStatus.PENDING_CREATION)
+            .toStatus(SopStatus.PENDING_APPROVAL)
+            .comment("SOP draft submitted for approval")
             .build());
 
         return mapToDto(saved);
@@ -185,14 +216,24 @@ public class SopService {
 
         Sop saved = sopRepository.save(sop);
 
-        // Audit: Approver took action on SOP draft
-        String auditAction = "APPROVE".equalsIgnoreCase(request.getAction()) ? "APPROVE_SOP" : "REJECT_SOP";
+        // Audit & Record SopEvent
+        boolean isApproved = "APPROVE".equalsIgnoreCase(request.getAction());
+        String auditAction = isApproved ? "APPROVE_SOP" : "REJECT_SOP";
         auditLogRepository.save(AuditLog.builder()
             .actorId(actor.getUserId())
             .action(auditAction)
             .entityType("SOP")
             .entityId(saved.getSopCode())
             .correlationId(UUID.randomUUID().toString())
+            .build());
+
+        sopEventRepository.save(SopEvent.builder()
+            .sop(saved)
+            .actor(actor)
+            .action(isApproved ? "APPROVE_SOP" : "REJECT_SOP")
+            .fromStatus(SopStatus.PENDING_APPROVAL)
+            .toStatus(isApproved ? SopStatus.ACTIVE : SopStatus.REJECTED)
+            .comment(isApproved ? "SOP approved and activated" : (request.getComment() != null ? request.getComment() : "SOP draft rejected back to creator"))
             .build());
 
         return mapToDto(saved);
@@ -247,6 +288,15 @@ public class SopService {
             .build();
         auditLogRepository.save(auditLog);
 
+        sopEventRepository.save(SopEvent.builder()
+            .sop(saved)
+            .actor(resolveUser(request.getCreatedById(), UserRole.ADMIN, entity))
+            .action("UPDATE_SOP")
+            .fromStatus(saved.getStatus())
+            .toStatus(saved.getStatus())
+            .comment("SOP specification updated to version " + saved.getVersion())
+            .build());
+
         return mapToDto(saved);
     }
 
@@ -281,6 +331,19 @@ public class SopService {
             .map(id -> userRepository.findById(id).map(User::getFullName).orElse(id))
             .toList();
 
+        List<com.cloudkaptan.sop.entity.SopEvent> rawEvents = sopEventRepository.findBySop_SopIdOrderByTimestampAsc(sop.getSopId());
+        List<SopEventDto> historyList = rawEvents.stream().map(e -> SopEventDto.builder()
+            .eventId(e.getEventId())
+            .action(e.getAction())
+            .fromStatus(e.getFromStatus() != null ? e.getFromStatus().name() : null)
+            .toStatus(e.getToStatus() != null ? e.getToStatus().name() : null)
+            .actorId(e.getActor() != null ? e.getActor().getUserId() : null)
+            .actorName(e.getActor() != null ? e.getActor().getFullName() : "System")
+            .actorRole(e.getActor() != null ? (e.getActor().getRole() != null ? e.getActor().getRole().name() : "USER") : "SYSTEM")
+            .comment(e.getComment())
+            .timestamp(e.getTimestamp())
+            .build()).toList();
+
         return SopDto.builder()
             .sopId(sop.getSopId())
             .sopCode(sop.getSopCode())
@@ -307,6 +370,7 @@ public class SopService {
             .rejectionReason(sop.getRejectionReason())
             .status(sop.getStatus())
             .version(sop.getVersion() != null ? sop.getVersion() : 1)
+            .history(historyList)
             .build();
     }
 

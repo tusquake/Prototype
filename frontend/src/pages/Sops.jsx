@@ -10,6 +10,7 @@ import AssignedSopDetailsModal from '../components/AssignedSopDetailsModal';
 import AssignSOPModal from '../components/AssignSOPModal';
 import CreateSOPModal from '../components/CreateSOPModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import SopActivityLogModal from '../components/SopActivityLogModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
 import { ENTITIES, getSops, deleteSop, getUsers, actionSop } from '../services/api';
@@ -183,6 +184,7 @@ export default function Sops() {
   const [lockedAssignment, setLockedAssignment] = useState(null); // sidebar notification click
   const [viewingSop, setViewingSop] = useState(null);
   const [viewingAssignment, setViewingAssignment] = useState(null);
+  const [viewingSopHistory, setViewingSopHistory] = useState(null);
   const [deletingSop, setDeletingSop] = useState(null);
 
   const [showMakerPicker, setShowMakerPicker] = useState(false);
@@ -943,6 +945,18 @@ export default function Sops() {
                             )}
                             <button
                               type="button"
+                              title="View Event History & Audit Trail"
+                              style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#2563eb', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              onClick={() => setViewingSopHistory(sop)}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10" />
+                                <polyline points="12 6 12 12 16 14" />
+                              </svg>
+                              History
+                            </button>
+                            <button
+                              type="button"
                               style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#334155', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
                               onClick={() => setViewingSop(sop)}
                             >
@@ -1015,6 +1029,12 @@ export default function Sops() {
         userMap={userMap}
         onClose={() => { setShowModal(false); setEditingSop(null); setLockedAssignment(null); }}
         onSuccess={(msg) => { setSuccessMsg(msg); setLockedAssignment(null); loadData(); }}
+      />
+
+      <SopActivityLogModal
+        isOpen={!!viewingSopHistory}
+        sop={viewingSopHistory}
+        onClose={() => setViewingSopHistory(null)}
       />
 
       {rejectingSop && (
