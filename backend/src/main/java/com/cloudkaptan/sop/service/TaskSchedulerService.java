@@ -29,6 +29,7 @@ public class TaskSchedulerService {
     private final TaskRepository taskRepository;
     private final RecurrenceStrategyFactory recurrenceStrategyFactory;
     private final AuditLogRepository auditLogRepository;
+    private final NotificationPublisherService notificationPublisherService;
 
     @Scheduled(cron = "${app.task-scheduler.cron:0 0 0 * * ?}")
     @Transactional
@@ -78,6 +79,20 @@ public class TaskSchedulerService {
                         .correlationId(UUID.randomUUID().toString())
                         .build();
                     auditLogRepository.save(auditLog);
+
+                    // Send In-App Notification to assigned Makers
+                    if (savedTask.getAssignedMakerIds() != null && !savedTask.getAssignedMakerIds().isEmpty()) {
+                        for (String makerId : savedTask.getAssignedMakerIds()) {
+                            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                                .recipientUserId(makerId)
+                                .eventType("TASK_ASSIGNED")
+                                .title("Compliance Task Assigned for Submission")
+                                .message("You have been assigned task " + savedTask.getRecordNo() + " (" + sop.getTitle() + ") to complete by " + savedTask.getDueDate())
+                                .referenceEntityType("TASK")
+                                .referenceEntityId(savedTask.getTaskId().toString())
+                                .build());
+                        }
+                    }
 
                     generatedCount++;
                     log.info("Generated Task [{}] for SOP [{}] and Period [{}]", recordNo, sop.getSopCode(), periodKey);
