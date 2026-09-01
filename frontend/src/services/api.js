@@ -741,11 +741,25 @@ export async function createProcessCategory(categoryData) {
   return res?.data || res;
 }
 
+export async function updateProcessCategory(categoryId, categoryData) {
+  const res = await fetchJson(`/process-categories/${categoryId}`, {
+    method: 'PUT',
+    body: JSON.stringify(categoryData),
+  });
+  return res?.data || res;
+}
+
 export async function deleteProcessCategory(categoryCode) {
   const res = await fetchJson(`/process-categories/${encodeURIComponent(categoryCode)}`, {
     method: 'DELETE',
   }).catch(() => null);
   return res?.data || res;
+}
+
+export async function getCategoryActivityLogs(categoryCode) {
+  if (!categoryCode) return [];
+  const res = await fetchJson(`/process-categories/${encodeURIComponent(categoryCode)}/activity-logs`).catch(() => []);
+  return Array.isArray(res) ? res : (res?.data || []);
 }
 
 export async function getCategoryAccessAssignments(categoryCode) {

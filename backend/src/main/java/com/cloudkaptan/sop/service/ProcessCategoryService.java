@@ -1,8 +1,10 @@
 package com.cloudkaptan.sop.service;
 
 import com.cloudkaptan.sop.dto.ProcessCategoryDto;
+import com.cloudkaptan.sop.entity.AuditLog;
 import com.cloudkaptan.sop.entity.ProcessCategory;
 import com.cloudkaptan.sop.exception.ResourceNotFoundException;
+import com.cloudkaptan.sop.repository.AuditLogRepository;
 import com.cloudkaptan.sop.repository.ProcessCategoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -17,6 +20,7 @@ import java.util.List;
 public class ProcessCategoryService {
 
     private final ProcessCategoryRepository categoryRepository;
+    private final AuditLogRepository auditLogRepository;
 
     private static final List<ProcessCategoryDto> DEFAULT_CATEGORIES = List.of(
         new ProcessCategoryDto(null, "Tax Compliance", "Tax Compliance", "Direct and Indirect Tax Reporting & Compliance"),
@@ -62,8 +66,45 @@ public class ProcessCategoryService {
             .build();
 
         ProcessCategory saved = categoryRepository.save(category);
+
+        AuditLog auditLog = AuditLog.builder()
+            .actorId("usr-manoj-042")
+            .action("CREATE_PROCESS_CATEGORY")
+            .entityType("PROCESS_CATEGORY")
+            .entityId(saved.getCategoryCode())
+            .correlationId(UUID.randomUUID().toString())
+            .build();
+        auditLogRepository.save(auditLog);
+
         log.info("Created new Process Category [{}]", saved.getCategoryCode());
         return mapToDto(saved);
+    }
+
+    @Transactional
+    public ProcessCategoryDto updateCategory(UUID id, ProcessCategoryDto dto) {
+        ProcessCategory category = categoryRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Process Category not found with ID: " + id));
+
+        if (dto.getCategoryName() != null && !dto.getCategoryName().isBlank()) {
+            category.setCategoryName(dto.getCategoryName().trim());
+        }
+        if (dto.getDescription() != null) {
+            category.setDescription(dto.getDescription().trim());
+        }
+
+        ProcessCategory updated = categoryRepository.save(category);
+
+        AuditLog auditLog = AuditLog.builder()
+            .actorId("usr-manoj-042")
+            .action("UPDATE_PROCESS_CATEGORY")
+            .entityType("PROCESS_CATEGORY")
+            .entityId(updated.getCategoryCode())
+            .correlationId(UUID.randomUUID().toString())
+            .build();
+        auditLogRepository.save(auditLog);
+
+        log.info("Updated Process Category [{}]", updated.getCategoryCode());
+        return mapToDto(updated);
     }
 
     @Transactional
@@ -71,7 +112,22 @@ public class ProcessCategoryService {
         ProcessCategory category = categoryRepository.findByCategoryCode(categoryCode)
             .orElseThrow(() -> new ResourceNotFoundException("Process Category not found with code: " + categoryCode));
         categoryRepository.delete(category);
+
+        AuditLog auditLog = AuditLog.builder()
+            .actorId("usr-manoj-042")
+            .action("DELETE_PROCESS_CATEGORY")
+            .entityType("PROCESS_CATEGORY")
+            .entityId(categoryCode)
+            .correlationId(UUID.randomUUID().toString())
+            .build();
+        auditLogRepository.save(auditLog);
+
         log.info("Deleted Process Category [{}]", categoryCode);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AuditLog> getActivityLogs(String categoryCode) {
+        return auditLogRepository.findByEntityTypeAndEntityIdOrderByTimestampDesc("PROCESS_CATEGORY", categoryCode);
     }
 
     private ProcessCategoryDto mapToDto(ProcessCategory entity) {

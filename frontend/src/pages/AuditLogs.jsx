@@ -21,12 +21,16 @@ const LOG_TYPE_OPTIONS = [
   { value: 'DELETE_SOP', label: 'Delete SOP' },
   { value: 'CREATE_TASK', label: 'Create Task' },
   { value: 'DELETE_TASK', label: 'Delete Task' },
+  { value: 'CREATE_PROCESS_CATEGORY', label: 'Create Process Category' },
+  { value: 'UPDATE_PROCESS_CATEGORY', label: 'Update Process Category' },
+  { value: 'DELETE_PROCESS_CATEGORY', label: 'Delete Process Category' },
 ];
 
 const ENTITY_TYPE_OPTIONS = [
   { value: 'ALL', label: 'All Component Types' },
   { value: 'TASK', label: 'Task Records' },
   { value: 'SOP', label: 'SOP Master Definitions' },
+  { value: 'PROCESS_CATEGORY', label: 'Process Categories' },
 ];
 
 const ACTOR_OPTIONS = [

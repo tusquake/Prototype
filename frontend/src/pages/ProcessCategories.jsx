@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
+import ProcessCategoryDetailModal from '../components/ProcessCategoryDetailModal';
 import { getProcessCategories, createProcessCategory, deleteProcessCategory } from '../services/api';
 import { getSession } from '../auth/auth';
 import styles from './AuditLogs.module.css';
@@ -8,13 +9,14 @@ export default function ProcessCategories() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showModal, setShowModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null); // Selected category for detail/activity modal
   const [creating, setCreating] = useState(false);
   const [deletingCode, setDeletingCode] = useState(null);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
 
-  // Form State
+  // Creation Form State
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -60,7 +62,7 @@ export default function ProcessCategories() {
       setCode('');
       setName('');
       setDescription('');
-      setShowModal(false);
+      setShowCreateModal(false);
       await fetchCategories();
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
@@ -145,7 +147,7 @@ export default function ProcessCategories() {
 
             <button
               type="button"
-              onClick={() => setShowModal(true)}
+              onClick={() => setShowCreateModal(true)}
               style={{ padding: '9px 18px', background: '#0284c7', color: '#ffffff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
             >
               <span>+ Create Process Category</span>
@@ -169,7 +171,7 @@ export default function ProcessCategories() {
                     <th style={{ padding: '12px 16px', width: 220 }}>Category Code</th>
                     <th style={{ padding: '12px 16px', width: 260 }}>Category Name</th>
                     <th style={{ padding: '12px 16px' }}>Description</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'right', width: 120 }}>Actions</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right', width: 160 }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -184,7 +186,14 @@ export default function ProcessCategories() {
                       <td style={{ padding: '14px 16px', color: '#64748b' }}>
                         {cat.description || 'No description provided'}
                       </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                      <td style={{ padding: '14px 16px', textAlign: 'right', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <button
+                          type="button"
+                          onClick={() => setEditingCategory(cat)}
+                          style={{ background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0284c7', borderRadius: 4, padding: '5px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                        >
+                          Edit & Details
+                        </button>
                         <button
                           type="button"
                           disabled={deletingCode === cat.categoryCode}
@@ -203,7 +212,7 @@ export default function ProcessCategories() {
         </div>
 
         {/* Modal for Creating New Process Category */}
-        {showModal && (
+        {showCreateModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
             <div style={{ background: '#ffffff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 500, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', margin: '0 0 16px 0' }}>
@@ -255,7 +264,7 @@ export default function ProcessCategories() {
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
                   <button
                     type="button"
-                    onClick={() => setShowModal(false)}
+                    onClick={() => setShowCreateModal(false)}
                     style={{ padding: '8px 16px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                   >
                     Cancel
@@ -272,6 +281,14 @@ export default function ProcessCategories() {
             </div>
           </div>
         )}
+
+        {/* Modal for Editing & Activity Log Details */}
+        <ProcessCategoryDetailModal
+          isOpen={!!editingCategory}
+          category={editingCategory}
+          onClose={() => setEditingCategory(null)}
+          onUpdated={fetchCategories}
+        />
 
       </main>
     </div>
