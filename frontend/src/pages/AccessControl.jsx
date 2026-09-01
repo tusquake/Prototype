@@ -17,7 +17,7 @@ export default function AccessControl() {
   const [categoryAssignments, setCategoryAssignments] = useState({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState(null); // Category currently being configured
+  const [activeCategory, setActiveCategory] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
@@ -43,7 +43,6 @@ export default function AccessControl() {
       const list = Array.isArray(catList) ? catList : [];
       setCategories(list);
 
-      // Fetch assignments for each category to display summary counts in table
       const assignmentsMap = {};
       for (const cat of list) {
         const code = cat.categoryCode || cat.categoryName;
@@ -149,103 +148,104 @@ export default function AccessControl() {
       <Sidebar currentUser={currentUser} />
 
       <main className={styles.main}>
-        {/* Top Header */}
-        <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', margin: 0 }}>
-              Named Access Control Manager
-            </h1>
-            <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0 0' }}>
-              Assign specific SOP Creators, SOP Approvers, Task Submitters, and Task Approvers per Process Category.
-            </p>
+        {/* Standardized Master-Detail Header */}
+        <div className={styles.pageHeader}>
+          <div className={styles.pageHeaderInner}>
+            <div>
+              <h2>Named Access Control Manager</h2>
+              <p>Configure named user permissions for SOP creation, SOP approval, Task execution, and Task verification across process categories.</p>
+            </div>
           </div>
         </div>
 
-        {error && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '12px 16px', borderRadius: 8, fontSize: 13, marginBottom: 20 }}>
-            {error}
-          </div>
-        )}
-
-        {successMsg && (
-          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '12px 16px', borderRadius: 8, fontSize: 13, marginBottom: 20, fontWeight: 600 }}>
-            {successMsg}
-          </div>
-        )}
-
-        {/* Filter Bar */}
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px 10px 0 0', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ flex: 1, maxWidth: 380 }}>
-            <input
-              type="text"
-              placeholder="Search category name or code..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, background: '#f8fafc', color: '#0f172a' }}
-            />
-          </div>
-        </div>
-
-        {/* Categories Table View */}
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 10px 10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)' }}>
-          {loading ? (
-            <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
-              Loading process categories and access permissions...
+        {/* Page Content View */}
+        <div className={styles.page}>
+          {error && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '12px 16px', borderRadius: 8, fontSize: 13, marginBottom: 20 }}>
+              {error}
             </div>
-          ) : filteredCategories.length === 0 ? (
-            <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
-              No process categories found.
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  <th style={{ padding: '12px 16px', width: 220 }}>Process Category</th>
-                  <th style={{ padding: '12px 16px' }}>SOP Creators</th>
-                  <th style={{ padding: '12px 16px' }}>SOP Approvers</th>
-                  <th style={{ padding: '12px 16px' }}>Task Submitters</th>
-                  <th style={{ padding: '12px 16px' }}>Task Approvers</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', width: 140 }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCategories.map(cat => {
-                  const code = cat.categoryCode || cat.categoryName;
-                  const assign = categoryAssignments[code] || {};
-
-                  return (
-                    <tr key={cat.id || code} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '14px 16px' }}>
-                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{cat.categoryName}</div>
-                        <div style={{ fontSize: 11, color: '#0284c7', fontFamily: 'monospace', marginTop: 2 }}>{code}</div>
-                      </td>
-                      <td style={{ padding: '14px 16px', color: assign.creatorUserIds?.length ? '#1e293b' : '#94a3b8', fontSize: 12 }}>
-                        {getUserNames(assign.creatorUserIds)}
-                      </td>
-                      <td style={{ padding: '14px 16px', color: assign.approverUserIds?.length ? '#1e293b' : '#94a3b8', fontSize: 12 }}>
-                        {getUserNames(assign.approverUserIds)}
-                      </td>
-                      <td style={{ padding: '14px 16px', color: assign.makerUserIds?.length ? '#1e293b' : '#94a3b8', fontSize: 12 }}>
-                        {getUserNames(assign.makerUserIds)}
-                      </td>
-                      <td style={{ padding: '14px 16px', color: assign.checkerUserIds?.length ? '#1e293b' : '#94a3b8', fontSize: 12 }}>
-                        {getUserNames(assign.checkerUserIds)}
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenConfigureModal(cat)}
-                          style={{ background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0284c7', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-                        >
-                          Configure Access
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
           )}
+
+          {successMsg && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '12px 16px', borderRadius: 8, fontSize: 13, marginBottom: 20, fontWeight: 600 }}>
+              {successMsg}
+            </div>
+          )}
+
+          {/* Filter Bar */}
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px 10px 0 0', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ flex: 1, maxWidth: 380 }}>
+              <input
+                type="text"
+                placeholder="Search category name or code..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, background: '#f8fafc', color: '#0f172a' }}
+              />
+            </div>
+          </div>
+
+          {/* Categories Table View */}
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 10px 10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)' }}>
+            {loading ? (
+              <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                Loading process categories and access permissions...
+              </div>
+            ) : filteredCategories.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                No process categories found.
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <th style={{ padding: '12px 16px', width: 220 }}>Process Category</th>
+                    <th style={{ padding: '12px 16px' }}>SOP Creators</th>
+                    <th style={{ padding: '12px 16px' }}>SOP Approvers</th>
+                    <th style={{ padding: '12px 16px' }}>Task Submitters</th>
+                    <th style={{ padding: '12px 16px' }}>Task Approvers</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right', width: 140 }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCategories.map(cat => {
+                    const code = cat.categoryCode || cat.categoryName;
+                    const assign = categoryAssignments[code] || {};
+
+                    return (
+                      <tr key={cat.id || code} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '14px 16px' }}>
+                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{cat.categoryName}</div>
+                          <div style={{ fontSize: 11, color: '#0284c7', fontFamily: 'monospace', marginTop: 2 }}>{code}</div>
+                        </td>
+                        <td style={{ padding: '14px 16px', color: assign.creatorUserIds?.length ? '#1e293b' : '#94a3b8', fontSize: 12 }}>
+                          {getUserNames(assign.creatorUserIds)}
+                        </td>
+                        <td style={{ padding: '14px 16px', color: assign.approverUserIds?.length ? '#1e293b' : '#94a3b8', fontSize: 12 }}>
+                          {getUserNames(assign.approverUserIds)}
+                        </td>
+                        <td style={{ padding: '14px 16px', color: assign.makerUserIds?.length ? '#1e293b' : '#94a3b8', fontSize: 12 }}>
+                          {getUserNames(assign.makerUserIds)}
+                        </td>
+                        <td style={{ padding: '14px 16px', color: assign.checkerUserIds?.length ? '#1e293b' : '#94a3b8', fontSize: 12 }}>
+                          {getUserNames(assign.checkerUserIds)}
+                        </td>
+                        <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenConfigureModal(cat)}
+                            style={{ background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0284c7', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                          >
+                            Configure Access
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
 
         {/* Modal for Configuring Access Control per Category */}

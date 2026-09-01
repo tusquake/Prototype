@@ -716,9 +716,21 @@ export async function revokeCategoryPermission(userId, processCategory) {
   return res?.data || res;
 }
 
+const DEFAULT_PROCESS_CATEGORIES = [
+  { id: 'cat-1', categoryCode: 'TAX_COMPLIANCE', categoryName: 'Tax Compliance', description: 'Direct and Indirect Tax Reporting & Compliance' },
+  { id: 'cat-2', categoryCode: 'TREASURY', categoryName: 'Treasury & Cash Management', description: 'Bank Reconciliations, Cash Flow Forecasting & Liquidity' },
+  { id: 'cat-3', categoryCode: 'FIN_REPORTING', categoryName: 'Financial Reporting', description: 'GL Close, Balance Sheet & Financial Statements' },
+  { id: 'cat-4', categoryCode: 'FIXED_ASSETS', categoryName: 'Fixed Assets', description: 'Capital Expenditure, Asset Depreciation & Verification' },
+  { id: 'cat-5', categoryCode: 'PAYROLL', categoryName: 'Payroll & Statutory', description: 'Payroll Processing, Provident Fund & Statutory Deductions' },
+  { id: 'cat-6', categoryCode: 'P2P', categoryName: 'Procure to Pay (P2P)', description: 'Vendor Invoicing, PO Matching & Disbursements' },
+  { id: 'cat-7', categoryCode: 'O2C', categoryName: 'Order to Cash (O2C)', description: 'Customer Invoicing, Receivables & Credit Management' },
+];
+
 export async function getProcessCategories() {
   const res = await fetchJson('/process-categories').catch(() => null);
-  return Array.isArray(res) ? res : (res?.data || []);
+  const list = Array.isArray(res) ? res : (res?.data || []);
+  if (list.length > 0) return list;
+  return DEFAULT_PROCESS_CATEGORIES;
 }
 
 export async function createProcessCategory(categoryData) {

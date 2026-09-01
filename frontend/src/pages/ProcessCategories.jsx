@@ -107,98 +107,99 @@ export default function ProcessCategories() {
       <Sidebar currentUser={currentUser} />
 
       <main className={styles.main}>
-        {/* Top Title Bar */}
-        <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', margin: 0 }}>
-              Process Category Management
-            </h1>
-            <p style={{ fontSize: 13, color: '#64748b', margin: '4px 0 0 0' }}>
-              Define and manage operational categories used across SOP master definitions and compliance task workflows.
-            </p>
+        {/* Standardized Master-Detail Top Header */}
+        <div className={styles.pageHeader}>
+          <div className={styles.pageHeaderInner}>
+            <div>
+              <h2>Process Category Management</h2>
+              <p>Define and manage operational categories used across SOP master definitions and compliance task workflows.</p>
+            </div>
           </div>
         </div>
 
-        {error && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '12px 16px', borderRadius: 8, fontSize: 13, marginBottom: 20 }}>
-            {error}
-          </div>
-        )}
-
-        {successMsg && (
-          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '12px 16px', borderRadius: 8, fontSize: 13, marginBottom: 20, fontWeight: 600 }}>
-            {successMsg}
-          </div>
-        )}
-
-        {/* Action & Filter Bar on Top of Table */}
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px 10px 0 0', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-          <div style={{ flex: 1, maxWidth: 360 }}>
-            <input
-              type="text"
-              placeholder="Search category code or name..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, background: '#f8fafc', color: '#0f172a' }}
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setShowModal(true)}
-            style={{ padding: '9px 18px', background: '#0284c7', color: '#ffffff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <span>+ Create Process Category</span>
-          </button>
-        </div>
-
-        {/* Categories Table View */}
-        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 10px 10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)' }}>
-          {loading ? (
-            <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
-              Loading process categories...
+        {/* Page Content View */}
+        <div className={styles.page}>
+          {error && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '12px 16px', borderRadius: 8, fontSize: 13, marginBottom: 20 }}>
+              {error}
             </div>
-          ) : filteredCategories.length === 0 ? (
-            <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
-              No process categories found matching your query.
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  <th style={{ padding: '12px 16px', width: 220 }}>Category Code</th>
-                  <th style={{ padding: '12px 16px', width: 260 }}>Category Name</th>
-                  <th style={{ padding: '12px 16px' }}>Description</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right', width: 120 }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCategories.map(cat => (
-                  <tr key={cat.id || cat.categoryCode} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontWeight: 600, color: '#0284c7' }}>
-                      {cat.categoryCode}
-                    </td>
-                    <td style={{ padding: '14px 16px', fontWeight: 600, color: '#0f172a' }}>
-                      {cat.categoryName}
-                    </td>
-                    <td style={{ padding: '14px 16px', color: '#64748b' }}>
-                      {cat.description || 'No description provided'}
-                    </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                      <button
-                        type="button"
-                        disabled={deletingCode === cat.categoryCode}
-                        onClick={() => handleDelete(cat.categoryCode)}
-                        style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#b91c1c', borderRadius: 4, padding: '5px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-                      >
-                        {deletingCode === cat.categoryCode ? 'Deleting...' : 'Delete'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           )}
+
+          {successMsg && (
+            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '12px 16px', borderRadius: 8, fontSize: 13, marginBottom: 20, fontWeight: 600 }}>
+              {successMsg}
+            </div>
+          )}
+
+          {/* Action & Filter Bar on Top of Table */}
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px 10px 0 0', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+            <div style={{ flex: 1, maxWidth: 360 }}>
+              <input
+                type="text"
+                placeholder="Search category code or name..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, background: '#f8fafc', color: '#0f172a' }}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowModal(true)}
+              style={{ padding: '9px 18px', background: '#0284c7', color: '#ffffff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <span>+ Create Process Category</span>
+            </button>
+          </div>
+
+          {/* Categories Table View */}
+          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 10px 10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)' }}>
+            {loading ? (
+              <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                Loading process categories...
+              </div>
+            ) : filteredCategories.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                No process categories found matching your query.
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    <th style={{ padding: '12px 16px', width: 220 }}>Category Code</th>
+                    <th style={{ padding: '12px 16px', width: 260 }}>Category Name</th>
+                    <th style={{ padding: '12px 16px' }}>Description</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right', width: 120 }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCategories.map(cat => (
+                    <tr key={cat.id || cat.categoryCode} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontWeight: 600, color: '#0284c7' }}>
+                        {cat.categoryCode}
+                      </td>
+                      <td style={{ padding: '14px 16px', fontWeight: 600, color: '#0f172a' }}>
+                        {cat.categoryName}
+                      </td>
+                      <td style={{ padding: '14px 16px', color: '#64748b' }}>
+                        {cat.description || 'No description provided'}
+                      </td>
+                      <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                        <button
+                          type="button"
+                          disabled={deletingCode === cat.categoryCode}
+                          onClick={() => handleDelete(cat.categoryCode)}
+                          style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#b91c1c', borderRadius: 4, padding: '5px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                        >
+                          {deletingCode === cat.categoryCode ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
 
         {/* Modal for Creating New Process Category */}
