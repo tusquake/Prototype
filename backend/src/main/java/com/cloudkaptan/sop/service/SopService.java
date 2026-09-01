@@ -124,6 +124,16 @@ public class SopService {
             .build();
 
         Sop saved = sopRepository.save(sop);
+
+        // Audit: Admin assigned a new SOP creation task to creator
+        auditLogRepository.save(AuditLog.builder()
+            .actorId(adminCreator.getUserId())
+            .action("ASSIGN_SOP_CREATION")
+            .entityType("SOP")
+            .entityId(saved.getSopCode())
+            .correlationId(UUID.randomUUID().toString())
+            .build());
+
         return mapToDto(saved);
     }
 
@@ -144,6 +154,16 @@ public class SopService {
         if (request.getDefaultCheckerIds() != null && !request.getDefaultCheckerIds().isEmpty()) sop.setDefaultCheckerIds(request.getDefaultCheckerIds());
 
         Sop saved = sopRepository.save(sop);
+
+        // Audit: Creator submitted SOP draft for approval
+        auditLogRepository.save(AuditLog.builder()
+            .actorId(actor.getUserId())
+            .action("SUBMIT_SOP_FOR_APPROVAL")
+            .entityType("SOP")
+            .entityId(saved.getSopCode())
+            .correlationId(UUID.randomUUID().toString())
+            .build());
+
         return mapToDto(saved);
     }
 
@@ -164,6 +184,17 @@ public class SopService {
         }
 
         Sop saved = sopRepository.save(sop);
+
+        // Audit: Approver took action on SOP draft
+        String auditAction = "APPROVE".equalsIgnoreCase(request.getAction()) ? "APPROVE_SOP" : "REJECT_SOP";
+        auditLogRepository.save(AuditLog.builder()
+            .actorId(actor.getUserId())
+            .action(auditAction)
+            .entityType("SOP")
+            .entityId(saved.getSopCode())
+            .correlationId(UUID.randomUUID().toString())
+            .build());
+
         return mapToDto(saved);
     }
 

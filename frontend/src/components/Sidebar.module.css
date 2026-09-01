@@ -166,3 +166,103 @@
   color: #f87171;
   background: rgba(220, 38, 38, 0.15);
 }
+
+/* SOP Task Notification Badge */
+.navBadge {
+  margin-left: auto;
+  background: #f97316;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 6px;
+  min-width: 18px;
+  text-align: center;
+  animation: pulseBadge 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseBadge {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.1); }
+}
+
+/* SOP Task Card Section */
+.sopTaskSection {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sopTaskHeader {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 6px;
+  margin-bottom: 2px;
+}
+
+.sopTaskPulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f97316;
+  flex-shrink: 0;
+  animation: pulseBadge 1.5s ease-in-out infinite;
+}
+
+.sopTaskTitle {
+  font-size: 10px;
+  font-weight: 700;
+  color: #f97316;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.sopTaskCard {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(249, 115, 22, 0.08));
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: all 0.18s ease;
+  color: inherit;
+}
+
+.sopTaskCard:hover {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.25), rgba(249, 115, 22, 0.15));
+  border-color: rgba(249, 115, 22, 0.6);
+  transform: translateX(2px);
+}
+
+.sopTaskCode {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+}
+
+.sopTaskMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 10.5px;
+  color: #94a3b8;
+  margin-bottom: 5px;
+}
+
+.sopTaskEntity {
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.sopTaskCta {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #f97316;
+  letter-spacing: 0.3px;
+}

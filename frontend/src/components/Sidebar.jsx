@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { clearSession, getSession, saveSession, USERS } from '../auth/auth';
 import { hasPermission } from '../auth/rbac';
+import { getSops } from '../services/api';
 import styles from './Sidebar.module.css';
 
 const NAV_ITEMS = [
@@ -63,14 +65,36 @@ const NAV_ITEMS = [
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onOpenSopTask }) {
   const navigate = useNavigate();
   const session = getSession();
   const currentUser = session?.user ?? USERS[0];
 
+  const [pendingTasks, setPendingTasks] = useState([]);
+
   if (!session) {
     saveSession(USERS[0], 'demo-token');
   }
+
+  // Load pending SOP creation assignments for this user
+  useEffect(() => {
+    async function loadPendingTasks() {
+      if (!currentUser?.id || currentUser?.role === 'ADMIN') return;
+      try {
+        const all = await getSops([]);
+        const mine = (all || []).filter(
+          s => s.status === 'PENDING_CREATION' &&
+               s.assignedCreatorId === currentUser.id
+        );
+        setPendingTasks(mine);
+      } catch {
+        // silent
+      }
+    }
+    loadPendingTasks();
+    const interval = setInterval(loadPendingTasks, 30000);
+    return () => clearInterval(interval);
+  }, [currentUser?.id]);
 
   function handleLogout() {
     clearSession();
@@ -91,18 +115,51 @@ export default function Sidebar() {
       </div>
 
       <nav className={styles.nav}>
-        {visibleNavItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              `${styles.navItem} ${isActive ? styles.active : ''}`
-            }
-          >
-            <span className={styles.navIcon}>{item.icon}</span>
-            <span>{item.label}</span>
-          </NavLink>
-        ))}
+        {visibleNavItems.map((item) => {
+          const isSopNav = item.to === '/sops';
+          const hasBadge = isSopNav && pendingTasks.length > 0;
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                `${styles.navItem} ${isActive ? styles.active : ''}`
+              }
+              style={{ position: 'relative' }}
+            >
+              <span className={styles.navIcon}>{item.icon}</span>
+              <span>{item.label}</span>
+              {hasBadge && (
+                <span className={styles.navBadge}>{pendingTasks.length}</span>
+              )}
+            </NavLink>
+          );
+        })}
+
+        {/* SOP Task Notification Cards */}
+        {pendingTasks.length > 0 && (
+          <div className={styles.sopTaskSection}>
+            <div className={styles.sopTaskHeader}>
+              <span className={styles.sopTaskPulse} />
+              <span className={styles.sopTaskTitle}>SOP Task Assigned</span>
+            </div>
+            {pendingTasks.map(task => (
+              <button
+                key={task.id}
+                className={styles.sopTaskCard}
+                onClick={() => onOpenSopTask && onOpenSopTask(task)}
+                title="Click to draft this SOP"
+              >
+                <div className={styles.sopTaskCode}>{task.code}</div>
+                <div className={styles.sopTaskMeta}>
+                  <span>{task.process || task.processCategory}</span>
+                  <span className={styles.sopTaskEntity}>{task.entity || task.entityCode}</span>
+                </div>
+                <div className={styles.sopTaskCta}>Draft SOP Now →</div>
+              </button>
+            ))}
+          </div>
+        )}
       </nav>
 
       <div className={styles.footer}>

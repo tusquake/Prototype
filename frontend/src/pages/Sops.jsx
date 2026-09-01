@@ -145,6 +145,7 @@ export default function Sops() {
   // Modal States
   const [showModal, setShowModal] = useState(false);
   const [editingSop, setEditingSop] = useState(null);
+  const [lockedAssignment, setLockedAssignment] = useState(null); // sidebar notification click
   const [viewingSop, setViewingSop] = useState(null);
   const [viewingAssignment, setViewingAssignment] = useState(null);
   const [deletingSop, setDeletingSop] = useState(null);
@@ -160,6 +161,13 @@ export default function Sops() {
   const session = getSession();
   const currentUser = session?.user;
   const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.email?.includes('mainak');
+
+  // Handler for sidebar SOP task notification card click
+  function handleOpenSopTask(task) {
+    setLockedAssignment(task);
+    setEditingSop(null);
+    setShowModal(true);
+  }
 
   async function loadData() {
     setLoading(true);
@@ -427,6 +435,12 @@ export default function Sops() {
   const filtered = sopList.filter(s => {
     if (!selected.includes(s.entityCode)) return false;
 
+    // Non-admin users: hide raw PENDING_CREATION stubs — they are shown as notifications instead
+    if (!isAdmin && s.status === 'PENDING_CREATION') return false;
+
+    // Admin view: show only assigned (has assignedCreatorId) SOPs in governance table
+    // Non-admin: show their assigned SOPs once drafted (PENDING_APPROVAL, ACTIVE, REJECTED)
+
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase().trim();
       const codeMatch = s.code?.toLowerCase().includes(q);
@@ -463,7 +477,7 @@ export default function Sops() {
 
   return (
     <div className={styles.layout}>
-      <Sidebar />
+      <Sidebar onOpenSopTask={handleOpenSopTask} />
       <main className={styles.main}>
         <div className={styles.pageHeader}>
           <div className={styles.pageHeaderInner}>
@@ -843,10 +857,11 @@ export default function Sops() {
       <CreateSOPModal
         isOpen={showModal}
         editingSop={editingSop}
+        lockedAssignment={lockedAssignment}
         currentUser={currentUser}
         userMap={userMap}
-        onClose={() => { setShowModal(false); setEditingSop(null); }}
-        onSuccess={(msg) => { setSuccessMsg(msg); loadData(); }}
+        onClose={() => { setShowModal(false); setEditingSop(null); setLockedAssignment(null); }}
+        onSuccess={(msg) => { setSuccessMsg(msg); setLockedAssignment(null); loadData(); }}
       />
 
       {rejectingSop && (

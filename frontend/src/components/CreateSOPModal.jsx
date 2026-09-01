@@ -34,15 +34,84 @@ const USER_ID_MAP = {
   'Avisek Paul': 'usr-avisek-499',
 };
 
-export default function CreateSOPModal({ isOpen, editingSop, currentUser, userMap, onClose, onSuccess }) {
+const ENTITY_NAME_MAP = {
+  CK_INDIA: 'CK India',
+  CK_US: 'CK US',
+  CK_UK: 'CK UK',
+  CK_AUSTRALIA: 'CK Australia',
+};
+
+/** Locked field display — shows admin-locked values with a padlock badge */
+function LockedField({ label, value }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {label}
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 3,
+          background: '#fef3c7', color: '#92400e', fontSize: 9.5,
+          fontWeight: 700, borderRadius: 4, padding: '1px 5px',
+          textTransform: 'uppercase', letterSpacing: 0.5,
+        }}>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          Locked by Admin
+        </span>
+      </label>
+      <input
+        type="text"
+        value={value}
+        disabled
+        readOnly
+        style={{
+          background: 'linear-gradient(135deg, #fef9eb, #fffbf5)',
+          border: '1.5px solid #fbbf24',
+          color: '#92400e',
+          cursor: 'not-allowed',
+          fontWeight: 600,
+          borderRadius: 6,
+          padding: '8px 12px',
+          fontSize: 13.5,
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Props:
+ *   isOpen          – boolean
+ *   editingSop      – existing SOP object (for admin edit/update flow)
+ *   lockedAssignment – object { sopCode, entityCode, processCategory, sopId, id } from sidebar notification click
+ *   currentUser     – logged-in user
+ *   userMap         – id → name map
+ *   onClose         – callback
+ *   onSuccess(msg, result) – callback
+ */
+export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, currentUser, userMap, onClose, onSuccess }) {
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [showMakerPicker, setShowMakerPicker] = useState(false);
   const [showCheckerPicker, setShowCheckerPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // isCreatorDraftMode = creator filling a locked assignment from admin
+  const isCreatorDraftMode = !!lockedAssignment && !editingSop;
+
   useEffect(() => {
-    if (editingSop) {
+    if (lockedAssignment) {
+      // Pre-fill locked fields from assignment, rest is blank for creator to fill
+      setFormData({
+        ...INITIAL_FORM,
+        sopCode: lockedAssignment.code || lockedAssignment.sopCode || '',
+        processCategory: lockedAssignment.process || lockedAssignment.processCategory || 'Tax Compliance',
+        entityCode: lockedAssignment.entityCode || 'CK_INDIA',
+        title: '',
+        description: '',
+      });
+    } else if (editingSop) {
       let rawMakers = editingSop.defaultMakerIds || (editingSop.defaultMakerNames ? editingSop.defaultMakerNames.map(n => USER_ID_MAP[n] || n) : (editingSop.defaultMakerId ? [editingSop.defaultMakerId] : ['usr-tushar-304']));
       let rawCheckers = editingSop.defaultCheckerIds || (editingSop.defaultCheckerNames ? editingSop.defaultCheckerNames.map(n => USER_ID_MAP[n] || n) : (editingSop.defaultCheckerId ? [editingSop.defaultCheckerId] : ['usr-mainak-215']));
 
@@ -64,7 +133,8 @@ export default function CreateSOPModal({ isOpen, editingSop, currentUser, userMa
     } else {
       setFormData(INITIAL_FORM);
     }
-  }, [editingSop, isOpen]);
+    setErrorMsg('');
+  }, [editingSop, lockedAssignment, isOpen]);
 
   if (!isOpen) return null;
 
@@ -114,17 +184,24 @@ export default function CreateSOPModal({ isOpen, editingSop, currentUser, userMa
         defaultMakerId: makerId,
         defaultCheckerId: checkerId,
         createdById: currentUser?.id || 'usr-tushar-304',
+        actorId: currentUser?.id || 'usr-tushar-304',
       };
 
-      if (editingSop && (editingSop.status === 'PENDING_CREATION' || editingSop.status === 'REJECTED')) {
-        const res = await submitSopDraft(editingSop.sopId || editingSop.id || editingSop.code, {
-          ...payload,
-          actorId: currentUser?.id || 'usr-tushar-304'
-        });
+      // Creator drafting an admin-assigned SOP
+      if (isCreatorDraftMode) {
+        const sopId = lockedAssignment.id || lockedAssignment.sopId;
+        const res = await submitSopDraft(sopId, payload);
+        onSuccess(`SOP draft "${formData.title}" submitted for approval! It is now awaiting review by the assigned approver.`, res);
+
+      // Creator re-drafting a rejected SOP
+      } else if (editingSop && (editingSop.status === 'PENDING_CREATION' || editingSop.status === 'REJECTED')) {
+        const res = await submitSopDraft(editingSop.sopId || editingSop.id || editingSop.code, payload);
         onSuccess(`SOP draft "${formData.title}" submitted for approval successfully! Status: PENDING_APPROVAL.`, res);
+
       } else if (editingSop) {
         const res = await updateSop(editingSop.sopId || editingSop.id || editingSop.code, payload);
         onSuccess(`SOP "${formData.title}" updated successfully! Version incremented.`, res);
+
       } else {
         const res = await createSop(payload);
         onSuccess(`SOP "${formData.title}" created successfully!`, res);
@@ -138,14 +215,40 @@ export default function CreateSOPModal({ isOpen, editingSop, currentUser, userMa
     }
   }
 
+  const modalTitle = isCreatorDraftMode
+    ? 'Draft Your Assigned SOP'
+    : editingSop
+      ? 'Draft SOP Specification'
+      : 'Create SOP Specification';
+
+  const modalSubtitle = isCreatorDraftMode
+    ? `SOP Code, Entity & Process Category are locked by Admin. Fill in the specification details below.`
+    : editingSop
+      ? `Drafting ${editingSop.code || editingSop.sopCode}`
+      : 'Configure compliance schedule, assigned Maker pool, and Checker pool.';
+
   return (
     <>
       <div className={styles.modalOverlay}>
         <div className={styles.modal}>
           <div className={styles.modalHeader}>
             <div>
-              <h3>{editingSop ? 'Draft SOP Specification' : 'Create SOP Specification'}</h3>
-              <p>{editingSop ? `Drafting ${editingSop.code || editingSop.sopCode}` : 'Configure compliance schedule, assigned Maker pool, and Checker pool.'}</p>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {isCreatorDraftMode && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    background: 'linear-gradient(135deg, #f97316, #ea580c)',
+                    color: '#fff', fontSize: 10, fontWeight: 700,
+                    borderRadius: 5, padding: '2px 7px', textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    Admin Assigned Task
+                  </span>
+                )}
+                {modalTitle}
+              </h3>
+              <p>{modalSubtitle}</p>
             </div>
             <button className={styles.closeBtn} onClick={onClose}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -155,32 +258,65 @@ export default function CreateSOPModal({ isOpen, editingSop, currentUser, userMa
             </button>
           </div>
 
+          {/* Admin-locked fields banner */}
+          {isCreatorDraftMode && (
+            <div style={{
+              background: 'linear-gradient(135deg, #fffbeb, #fef3c7)',
+              border: '1px solid #fbbf24',
+              borderRadius: 8,
+              padding: '10px 20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              margin: '0 20px',
+              fontSize: 12.5,
+              color: '#92400e',
+              fontWeight: 500,
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <span><strong>Admin-Locked:</strong> SOP Code, Entity & Process Category have been set by Admin and cannot be changed.</span>
+            </div>
+          )}
+
           <form onSubmit={handleFormSubmit}>
             <div className={styles.modalBody}>
               {errorMsg && <div className={styles.errorAlert}>{errorMsg}</div>}
 
+              {/* Admin-locked fields row */}
               <div className={`${styles.formRow} ${styles.fullWidth}`}>
-                <div className={styles.formGroup}>
-                  <label>SOP CODE (LOCKED BY ADMIN) *</label>
-                  <input
-                    type="text"
-                    name="sopCode"
-                    value={formData.sopCode}
-                    onChange={handleInputChange}
-                    disabled={!!editingSop}
-                    required
-                  />
-                </div>
-
-                <div className={styles.formGroup}>
-                  <label>PROCESS CATEGORY (LOCKED BY ADMIN) *</label>
-                  <input
-                    type="text"
-                    value={formData.processCategory}
-                    disabled
-                    style={{ background: '#f8fafc', color: '#64748b', cursor: 'not-allowed' }}
-                  />
-                </div>
+                {isCreatorDraftMode ? (
+                  <>
+                    <LockedField label="SOP CODE" value={formData.sopCode} />
+                    <LockedField label="CORPORATE ENTITY" value={ENTITY_NAME_MAP[formData.entityCode] || formData.entityCode} />
+                    <LockedField label="PROCESS CATEGORY" value={formData.processCategory} />
+                  </>
+                ) : (
+                  <>
+                    <div className={styles.formGroup}>
+                      <label>SOP CODE {editingSop ? '(LOCKED BY ADMIN) *' : '*'}</label>
+                      <input
+                        type="text"
+                        name="sopCode"
+                        value={formData.sopCode}
+                        onChange={handleInputChange}
+                        disabled={!!editingSop}
+                        required
+                      />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label>PROCESS CATEGORY {editingSop ? '(LOCKED BY ADMIN) *' : '*'}</label>
+                      <input
+                        type="text"
+                        value={formData.processCategory}
+                        disabled
+                        style={{ background: '#f8fafc', color: '#64748b', cursor: 'not-allowed' }}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className={`${styles.formGroup} ${styles.fullWidth}`}>
@@ -192,6 +328,7 @@ export default function CreateSOPModal({ isOpen, editingSop, currentUser, userMa
                   onChange={handleInputChange}
                   placeholder="e.g. Quarterly GST Reconciliation & Filing"
                   required
+                  autoFocus={isCreatorDraftMode}
                 />
               </div>
 
@@ -339,8 +476,15 @@ export default function CreateSOPModal({ isOpen, editingSop, currentUser, userMa
               <button type="button" className={styles.cancelBtn} onClick={onClose}>
                 Cancel
               </button>
-              <button type="submit" className={styles.submitBtn} disabled={saving}>
-                {saving ? 'Submitting...' : 'Submit for Approval'}
+              <button type="submit" className={styles.submitBtn} disabled={saving} style={
+                isCreatorDraftMode ? { background: 'linear-gradient(135deg, #f97316, #ea580c)' } : {}
+              }>
+                {saving
+                  ? 'Submitting...'
+                  : isCreatorDraftMode
+                    ? 'Submit for Approval →'
+                    : 'Submit for Approval'
+                }
               </button>
             </div>
           </form>
