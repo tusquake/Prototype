@@ -39,7 +39,7 @@ public class SopService {
     public List<SopDto> getSops(List<EntityCode> entities) {
         List<Sop> sops = (entities == null || entities.isEmpty())
             ? sopRepository.findAll()
-            : sopRepository.findByStatusAndEntityIn(SopStatus.ACTIVE, entities);
+            : sopRepository.findByEntityIn(entities);
 
         return sops.stream()
             .map(this::mapToDto)

@@ -21,4 +21,7 @@ public interface SopRepository extends JpaRepository<Sop, UUID> {
 
     @Query("SELECT s FROM Sop s WHERE s.status = :status AND (:entities IS NULL OR s.entity.entityCode IN :entities)")
     List<Sop> findByStatusAndEntityIn(@Param("status") SopStatus status, @Param("entities") List<EntityCode> entities);
+
+    @Query("SELECT s FROM Sop s WHERE (:entities IS NULL OR s.entity.entityCode IN :entities)")
+    List<Sop> findByEntityIn(@Param("entities") List<EntityCode> entities);
 }
