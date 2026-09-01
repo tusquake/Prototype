@@ -72,7 +72,7 @@ export default function Tasks() {
 
   async function loadTasks() {
     setLoading(true);
-    const data = await getTasks(selected);
+    const data = await getTasks(selected, currentUser);
     if (data) {
       setTaskList(data);
     }

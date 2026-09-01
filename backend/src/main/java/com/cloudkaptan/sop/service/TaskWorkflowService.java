@@ -37,6 +37,7 @@ public class TaskWorkflowService {
     private final NotificationPublisherService notificationPublisherService;
     private final com.cloudkaptan.sop.repository.UserNotificationRepository userNotificationRepository;
     private final com.cloudkaptan.sop.config.security.SopSecurityEvaluator sopSecurityEvaluator;
+    private final UserCategoryPermissionService categoryPermissionService;
 
     @Transactional
     public TaskDto processTaskAction(UUID taskId, com.cloudkaptan.sop.dto.TaskActionRequest request) {
@@ -229,7 +230,33 @@ public class TaskWorkflowService {
     @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
     public List<TaskDto> getTasks(List<EntityCode> entities) {
-        return taskRepository.findTasksByEntities(entities).stream()
+        return getTasksForUser(entities, null, "ADMIN");
+    }
+
+    @ApplyRowLevelSecurity
+    @Transactional(readOnly = true)
+    public List<TaskDto> getTasksForUser(List<EntityCode> entities, String userId, String userRole) {
+        List<Task> tasks = taskRepository.findTasksByEntities(entities);
+
+        if ("ADMIN".equalsIgnoreCase(userRole) || userId == null || userId.isBlank()) {
+            return tasks.stream().map(this::mapToDto).toList();
+        }
+
+        // NON_ADMIN user: Filter strictly by assigned process categories & direct assignments
+        List<String> accessibleCategories = categoryPermissionService.getUserAccessibleCategories(userId);
+
+        return tasks.stream()
+            .filter(task -> {
+                String cat = task.getSop() != null ? task.getSop().getProcessCategory() : null;
+                boolean categoryAllowed = cat != null && accessibleCategories.contains(cat);
+
+                boolean isDirectlyAssigned = (task.getMaker() != null && userId.equals(task.getMaker().getUserId()))
+                        || (task.getChecker() != null && userId.equals(task.getChecker().getUserId()))
+                        || (task.getAssignedMakerIds() != null && task.getAssignedMakerIds().contains(userId))
+                        || (task.getAssignedCheckerIds() != null && task.getAssignedCheckerIds().contains(userId));
+
+                return categoryAllowed || isDirectlyAssigned;
+            })
             .map(this::mapToDto)
             .toList();
     }

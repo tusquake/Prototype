@@ -29,9 +29,11 @@ public class TaskController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<TaskDto>>> getTasks(
-        @RequestParam(name = "entities", required = false) List<EntityCode> entities
+        @RequestParam(name = "entities", required = false) List<EntityCode> entities,
+        @RequestParam(name = "userId", required = false) String userId,
+        @RequestParam(name = "userRole", required = false) String userRole
     ) {
-        return ResponseEntity.ok(ApiResponse.success(taskWorkflowService.getTasks(entities)));
+        return ResponseEntity.ok(ApiResponse.success(taskWorkflowService.getTasksForUser(entities, userId, userRole)));
     }
 
     @GetMapping("/inbox")

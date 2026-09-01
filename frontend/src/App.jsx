@@ -6,6 +6,8 @@ import Tasks from './pages/Tasks';
 import Inbox from './pages/Inbox';
 import Sops from './pages/Sops';
 import AuditLogs from './pages/AuditLogs';
+import AccessControl from './pages/AccessControl';
+import ProcessCategories from './pages/ProcessCategories';
 import { getSession } from './auth/auth';
 import './index.css';
 
@@ -74,6 +76,22 @@ export default function App() {
           element={
             <ProtectedRoute>
               <Sops />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/access-control"
+          element={
+            <ProtectedRoute>
+              <AccessControl />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/process-categories"
+          element={
+            <ProtectedRoute>
+              <ProcessCategories />
             </ProtectedRoute>
           }
         />

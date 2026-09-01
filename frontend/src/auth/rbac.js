@@ -12,6 +12,8 @@ export const PERMISSIONS = {
   '/inbox': [ROLES.ADMIN, ROLES.CHECKER, ROLES.MAKER, ROLES.MAKER_CHECKER],
   '/tasks': [ROLES.ADMIN, ROLES.CHECKER, ROLES.MAKER, ROLES.MAKER_CHECKER, ROLES.VIEWER],
   '/sops': [ROLES.ADMIN, ROLES.CHECKER, ROLES.MAKER, ROLES.MAKER_CHECKER],
+  '/access-control': [ROLES.ADMIN],
+  '/process-categories': [ROLES.ADMIN],
   '/audit': [ROLES.ADMIN],
 };
 
@@ -38,6 +40,5 @@ export function getRoleForEmail(email) {
 export function hasPermission(userRole, route) {
   const allowedRoles = PERMISSIONS[route];
   if (!allowedRoles) return true;
-  if (userRole === ROLES.ADMIN) return true;
   return allowedRoles.includes(userRole);
 }

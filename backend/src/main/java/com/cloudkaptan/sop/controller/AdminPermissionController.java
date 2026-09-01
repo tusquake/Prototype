@@ -31,11 +31,18 @@ public class AdminPermissionController {
         return ResponseEntity.ok(ApiResponse.success(granted));
     }
 
-    @DeleteMapping("/user/{userId}/category/{processCategory}")
-    public ResponseEntity<ApiResponse<Map<String, String>>> revokePermission(
-            @PathVariable("userId") String userId,
-            @PathVariable("processCategory") String processCategory) {
-        categoryPermissionService.revokePermission(userId, processCategory);
-        return ResponseEntity.ok(ApiResponse.success(Map.of("message", "Permission revoked successfully")));
+    @GetMapping("/category/{categoryCode}")
+    public ResponseEntity<ApiResponse<com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto>> getCategoryAssignments(@PathVariable("categoryCode") String categoryCode) {
+        return ResponseEntity.ok(ApiResponse.success(categoryPermissionService.getCategoryAssignments(categoryCode)));
+    }
+
+    @PostMapping("/category/assign")
+    public ResponseEntity<ApiResponse<com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto>> saveCategoryAssignments(@RequestBody com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto dto) {
+        return ResponseEntity.ok(ApiResponse.success(categoryPermissionService.saveCategoryAssignments(dto)));
+    }
+
+    @GetMapping("/user/{userId}/accessible-categories")
+    public ResponseEntity<ApiResponse<List<String>>> getUserAccessibleCategories(@PathVariable("userId") String userId) {
+        return ResponseEntity.ok(ApiResponse.success(categoryPermissionService.getUserAccessibleCategories(userId)));
     }
 }

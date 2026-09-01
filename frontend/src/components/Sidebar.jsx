@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { clearSession, getSession, saveSession, USERS } from '../auth/auth';
 import { hasPermission } from '../auth/rbac';
 import NotificationBell from './NotificationBell';
-import UserCategoryPermissionsModal from './UserCategoryPermissionsModal';
 import styles from './Sidebar.module.css';
 
 const NAV_ITEMS = [
@@ -55,6 +53,27 @@ const NAV_ITEMS = [
     ),
   },
   {
+    to: '/access-control',
+    label: 'Access Control',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </svg>
+    ),
+  },
+  {
+    to: '/process-categories',
+    label: 'Process Categories',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="12 2 2 7 12 12 22 7 12 2" />
+        <polyline points="2 17 12 22 22 17" />
+        <polyline points="2 12 12 17 22 12" />
+      </svg>
+    ),
+  },
+  {
     to: '/audit',
     label: 'Audit Trail',
     icon: (
@@ -68,7 +87,6 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const navigate = useNavigate();
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const session = getSession();
   const currentUser = session?.user ?? USERS[0];
 
@@ -107,18 +125,6 @@ export default function Sidebar() {
             <span>{item.label}</span>
           </NavLink>
         ))}
-
-        {currentUser?.role === 'ADMIN' && (
-          <button
-            type="button"
-            className={styles.navItem}
-            onClick={() => setShowCategoryModal(true)}
-            style={{ background: 'transparent', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
-          >
-            <span className={styles.navIcon}>🛡️</span>
-            <span>Category RBAC</span>
-          </button>
-        )}
       </nav>
 
       <div className={styles.footer}>
@@ -150,11 +156,6 @@ export default function Sidebar() {
           </button>
         </div>
       </div>
-
-      <UserCategoryPermissionsModal
-        isOpen={showCategoryModal}
-        onClose={() => setShowCategoryModal(false)}
-      />
     </aside>
   );
 }

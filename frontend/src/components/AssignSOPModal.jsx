@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import CustomSelect from './CustomSelect';
-import { assignSop } from '../services/api';
+import { assignSop, getProcessCategories } from '../services/api';
 import styles from '../pages/Sops.module.css';
 
 const ENTITY_OPTIONS = [
@@ -10,7 +10,7 @@ const ENTITY_OPTIONS = [
   { value: 'CK_AUSTRALIA', label: 'CK Australia' },
 ];
 
-const PROCESS_OPTIONS = [
+const DEFAULT_PROCESS_OPTIONS = [
   { value: 'Tax Compliance', label: 'Tax Compliance' },
   { value: 'Treasury & Cash Management', label: 'Treasury & Cash Management' },
   { value: 'Financial Reporting', label: 'Financial Reporting' },
@@ -33,6 +33,7 @@ const APPROVER_OPTIONS = [
 ];
 
 export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
+  const [processOptions, setProcessOptions] = useState(DEFAULT_PROCESS_OPTIONS);
   const [assignForm, setAssignForm] = useState({
     sopCode: '',
     entityCode: 'CK_INDIA',
@@ -42,6 +43,23 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
   });
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    getProcessCategories()
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const opts = data.map(c => ({
+            value: c.categoryName || c.categoryCode,
+            label: c.categoryName || c.categoryCode,
+          }));
+          setProcessOptions(opts);
+          if (opts.length > 0) {
+            setAssignForm(prev => ({ ...prev, processCategory: opts[0].value }));
+          }
+        }
+      })
+      .catch(() => null);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -58,17 +76,10 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
       setSaving(true);
       const res = await assignSop(assignForm);
       window.dispatchEvent(new Event('sop-updated'));
-      onSuccess(`SOP Assignment "${assignForm.sopCode}" created successfully! Creator assigned to draft for category "${assignForm.processCategory}".`, res);
+      if (onSuccess) onSuccess('SOP assigned successfully!');
       onClose();
-      setAssignForm({
-        sopCode: '',
-        entityCode: 'CK_INDIA',
-        processCategory: 'Tax Compliance',
-        assignedCreatorId: 'usr-tushar-304',
-        assignedApproverId: 'usr-vivek-108',
-      });
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to create SOP assignment');
+      setErrorMsg(err.message || 'Failed to assign SOP');
     } finally {
       setSaving(false);
     }
@@ -76,81 +87,68 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
 
   return (
     <div className={styles.modalOverlay}>
-      <div className={styles.modal} style={{ maxWidth: 620, overflow: 'visible' }}>
+      <div className={styles.modalContent} style={{ maxWidth: 540 }}>
         <div className={styles.modalHeader}>
-          <div>
-            <h3>Assign SOP Creation & Approval</h3>
-          </div>
-          <button className={styles.closeBtn} onClick={onClose}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <h3>Assign New SOP</h3>
+          <button className={styles.closeBtn} onClick={onClose}>✕</button>
         </div>
 
-        <form onSubmit={handleAssignSubmit}>
-          <div className={styles.modalBody} style={{ overflow: 'visible', maxHeight: 'none' }}>
-            {errorMsg && <div className={styles.errorAlert}>{errorMsg}</div>}
+        {errorMsg && <div style={{ color: '#dc2626', background: '#fee2e2', padding: '8px 12px', borderRadius: 6, fontSize: 13, marginBottom: 12 }}>{errorMsg}</div>}
 
-            <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-              <label>SOP CODE *</label>
+        <form onSubmit={handleAssignSubmit}>
+          <div className={styles.formGrid}>
+            <div className={styles.formGroup}>
+              <label>SOP Code *</label>
               <input
                 type="text"
+                placeholder="e.g. SOP-TAX-2026-005"
                 value={assignForm.sopCode}
                 onChange={e => setAssignForm(prev => ({ ...prev, sopCode: e.target.value }))}
-                placeholder="e.g. SOP-TAX-IN-088"
                 required
               />
             </div>
 
-            <div className={`${styles.formRow} ${styles.fullWidth}`}>
-              <div className={styles.formGroup}>
-                <label>CORPORATE ENTITY *</label>
-                <CustomSelect
-                  value={assignForm.entityCode}
-                  options={ENTITY_OPTIONS}
-                  onChange={e => setAssignForm(prev => ({ ...prev, entityCode: e.target.value }))}
-                />
-              </div>
-
-              <div className={styles.formGroup}>
-                <label>PROCESS CATEGORY *</label>
-                <CustomSelect
-                  value={assignForm.processCategory}
-                  options={PROCESS_OPTIONS}
-                  onChange={e => setAssignForm(prev => ({ ...prev, processCategory: e.target.value }))}
-                />
-              </div>
+            <div className={styles.formGroup}>
+              <label>Entity *</label>
+              <CustomSelect
+                value={assignForm.entityCode}
+                options={ENTITY_OPTIONS}
+                onChange={e => setAssignForm(prev => ({ ...prev, entityCode: e.target.value }))}
+              />
             </div>
 
-            <div className={`${styles.formRow} ${styles.fullWidth}`}>
-              <div className={styles.formGroup}>
-                <label>ASSIGNED CREATOR *</label>
-                <CustomSelect
-                  value={assignForm.assignedCreatorId}
-                  options={CREATOR_OPTIONS}
-                  onChange={e => setAssignForm(prev => ({ ...prev, assignedCreatorId: e.target.value }))}
-                />
-              </div>
+            <div className={styles.formGroup}>
+              <label>Process Category *</label>
+              <CustomSelect
+                value={assignForm.processCategory}
+                options={processOptions}
+                onChange={e => setAssignForm(prev => ({ ...prev, processCategory: e.target.value }))}
+              />
+            </div>
 
-              <div className={styles.formGroup}>
-                <label>ASSIGNED APPROVER *</label>
-                <CustomSelect
-                  value={assignForm.assignedApproverId}
-                  options={APPROVER_OPTIONS}
-                  onChange={e => setAssignForm(prev => ({ ...prev, assignedApproverId: e.target.value }))}
-                />
-              </div>
+            <div className={styles.formGroup}>
+              <label>Assign SOP Creator *</label>
+              <CustomSelect
+                value={assignForm.assignedCreatorId}
+                options={CREATOR_OPTIONS}
+                onChange={e => setAssignForm(prev => ({ ...prev, assignedCreatorId: e.target.value }))}
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Assign SOP Approver *</label>
+              <CustomSelect
+                value={assignForm.assignedApproverId}
+                options={APPROVER_OPTIONS}
+                onChange={e => setAssignForm(prev => ({ ...prev, assignedApproverId: e.target.value }))}
+              />
             </div>
           </div>
 
           <div className={styles.modalFooter}>
-            <button type="button" className={styles.cancelBtn} onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className={styles.submitBtn} disabled={saving} style={{ background: '#0284c7' }}>
-              {saving ? 'Creating Assignment...' : 'Assign SOP Creation'}
+            <button type="button" className={styles.cancelBtn} onClick={onClose}>Cancel</button>
+            <button type="submit" className={styles.submitBtn} disabled={saving}>
+              {saving ? 'Assigning...' : 'Assign SOP'}
             </button>
           </div>
         </form>

@@ -13,6 +13,8 @@ public interface UserCategoryPermissionRepository extends JpaRepository<UserCate
 
     List<UserCategoryPermission> findByUserId(String userId);
 
+    List<UserCategoryPermission> findByProcessCategory(String processCategory);
+
     Optional<UserCategoryPermission> findByUserIdAndProcessCategory(String userId, String processCategory);
 
     void deleteByUserIdAndProcessCategory(String userId, String processCategory);

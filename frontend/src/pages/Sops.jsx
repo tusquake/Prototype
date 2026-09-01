@@ -13,7 +13,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import SopActivityLogModal from '../components/SopActivityLogModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { ENTITIES, getSops, deleteSop, getUsers, actionSop } from '../services/api';
+import { ENTITIES, getSops, deleteSop, getUsers, actionSop, getProcessCategories } from '../services/api';
 import styles from './Sops.module.css';
 
 const FREQ_LABEL = { MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', ANNUAL: 'Annual', DAILY: 'Daily', WEEKLY: 'Weekly' };
@@ -179,6 +179,7 @@ export default function Sops() {
   const [selectedStatus, setSelectedStatus] = useState('ALL');
 
   // Modal States
+  const [dynamicProcessOptions, setDynamicProcessOptions] = useState(PROCESS_FILTER_OPTIONS);
   const [showModal, setShowModal] = useState(false);
   const [editingSop, setEditingSop] = useState(null);
   const [lockedAssignment, setLockedAssignment] = useState(null); // sidebar notification click
@@ -208,7 +209,7 @@ export default function Sops() {
 
   async function loadData() {
     setLoading(true);
-    const data = await getSops(selected);
+    const data = await getSops(selected, currentUser);
     if (data) {
       setSopList(data);
     }
@@ -219,6 +220,14 @@ export default function Sops() {
         map[u.id || u.userId] = u.name || u.fullName;
       });
       setUserMap(prev => ({ ...prev, ...map }));
+    }
+    const categoriesData = await getProcessCategories().catch(() => []);
+    if (Array.isArray(categoriesData) && categoriesData.length > 0) {
+      const opts = [
+        { value: 'ALL', label: 'All Processes' },
+        ...categoriesData.map(c => ({ value: c.categoryName || c.categoryCode, label: c.categoryName || c.categoryCode }))
+      ];
+      setDynamicProcessOptions(opts);
     }
     setLoading(false);
   }
@@ -659,7 +668,7 @@ export default function Sops() {
               <CustomSelect
                 name="selectedProcess"
                 value={selectedProcess}
-                options={PROCESS_FILTER_OPTIONS}
+                options={dynamicProcessOptions}
                 onChange={e => {
                   setSelectedProcess(e.target.value);
                   setCurrentPage(1);

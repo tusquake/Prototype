@@ -40,15 +40,41 @@ public class SopService {
     private final NotificationPublisherService notificationPublisherService;
     private final UserNotificationRepository userNotificationRepository;
     private final com.cloudkaptan.sop.config.security.SopSecurityEvaluator sopSecurityEvaluator;
+    private final UserCategoryPermissionService categoryPermissionService;
 
     @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
     public List<SopDto> getSops(List<EntityCode> entities) {
+        return getSopsForUser(entities, null, "ADMIN");
+    }
+
+    @ApplyRowLevelSecurity
+    @Transactional(readOnly = true)
+    public List<SopDto> getSopsForUser(List<EntityCode> entities, String userId, String userRole) {
         List<Sop> sops = (entities == null || entities.isEmpty())
             ? sopRepository.findAll()
             : sopRepository.findByEntityIn(entities);
 
+        if ("ADMIN".equalsIgnoreCase(userRole) || userId == null || userId.isBlank()) {
+            return sops.stream().map(this::mapToDto).toList();
+        }
+
+        // NON_ADMIN user: Filter strictly by assigned process categories & direct assignments
+        List<String> accessibleCategories = categoryPermissionService.getUserAccessibleCategories(userId);
+
         return sops.stream()
+            .filter(sop -> {
+                String cat = sop.getProcessCategory();
+                boolean categoryAllowed = cat != null && accessibleCategories.contains(cat);
+
+                boolean isDirectlyAssigned = (sop.getAssignedCreatorId() != null && userId.equals(sop.getAssignedCreatorId()))
+                        || (sop.getAssignedApproverId() != null && userId.equals(sop.getAssignedApproverId()))
+                        || (sop.getCreatedBy() != null && userId.equals(sop.getCreatedBy().getUserId()))
+                        || (sop.getDefaultMakerIds() != null && sop.getDefaultMakerIds().contains(userId))
+                        || (sop.getDefaultCheckerIds() != null && sop.getDefaultCheckerIds().contains(userId));
+
+                return categoryAllowed || isDirectlyAssigned;
+            })
             .map(this::mapToDto)
             .toList();
     }

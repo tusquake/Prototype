@@ -309,8 +309,12 @@ export async function getDashboardSummary(selectedEntities = [], currentUser = n
   };
 }
 
-export async function getTasks(selectedEntities = []) {
-  const query = selectedEntities.length > 0 ? `?entities=${selectedEntities.join(',')}` : '';
+export async function getTasks(selectedEntities = [], currentUser = null) {
+  const params = new URLSearchParams();
+  if (selectedEntities.length > 0) params.append('entities', selectedEntities.join(','));
+  if (currentUser?.id) params.append('userId', currentUser.id);
+  if (currentUser?.role) params.append('userRole', currentUser.role);
+  const query = params.toString() ? `?${params.toString()}` : '';
   const list = await fetchJson(`/tasks${query}`).catch(() => null);
   if (Array.isArray(list)) {
     return list.map(mapTask);
@@ -334,8 +338,12 @@ export async function getInboxTasks(selectedEntities = [], status = null, userId
   return [];
 }
 
-export async function getSops(selectedEntities = []) {
-  const query = selectedEntities.length > 0 ? `?entities=${selectedEntities.join(',')}` : '';
+export async function getSops(selectedEntities = [], currentUser = null) {
+  const params = new URLSearchParams();
+  if (selectedEntities.length > 0) params.append('entities', selectedEntities.join(','));
+  if (currentUser?.id) params.append('userId', currentUser.id);
+  if (currentUser?.role) params.append('userRole', currentUser.role);
+  const query = params.toString() ? `?${params.toString()}` : '';
   const list = await fetchJson(`/sops${query}`).catch(() => null);
   if (Array.isArray(list)) {
     return list.map(mapSop);
@@ -705,5 +713,39 @@ export async function revokeCategoryPermission(userId, processCategory) {
   const res = await fetchJson(`/admin/permissions/user/${userId}/category/${encodeURIComponent(processCategory)}`, {
     method: 'DELETE',
   }).catch(() => null);
+  return res?.data || res;
+}
+
+export async function getProcessCategories() {
+  const res = await fetchJson('/process-categories').catch(() => null);
+  return Array.isArray(res) ? res : (res?.data || []);
+}
+
+export async function createProcessCategory(categoryData) {
+  const res = await fetchJson('/process-categories', {
+    method: 'POST',
+    body: JSON.stringify(categoryData),
+  });
+  return res?.data || res;
+}
+
+export async function deleteProcessCategory(categoryCode) {
+  const res = await fetchJson(`/process-categories/${encodeURIComponent(categoryCode)}`, {
+    method: 'DELETE',
+  }).catch(() => null);
+  return res?.data || res;
+}
+
+export async function getCategoryAccessAssignments(categoryCode) {
+  if (!categoryCode) return null;
+  const res = await fetchJson(`/admin/permissions/category/${encodeURIComponent(categoryCode)}`).catch(() => null);
+  return res?.data || res;
+}
+
+export async function saveCategoryAccessAssignments(assignmentData) {
+  const res = await fetchJson('/admin/permissions/category/assign', {
+    method: 'POST',
+    body: JSON.stringify(assignmentData),
+  });
   return res?.data || res;
 }

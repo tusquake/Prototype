@@ -23,9 +23,11 @@ public class SopController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<SopDto>>> getSops(
-        @RequestParam(name = "entities", required = false) List<EntityCode> entities
+        @RequestParam(name = "entities", required = false) List<EntityCode> entities,
+        @RequestParam(name = "userId", required = false) String userId,
+        @RequestParam(name = "userRole", required = false) String userRole
     ) {
-        return ResponseEntity.ok(ApiResponse.success(sopService.getSops(entities)));
+        return ResponseEntity.ok(ApiResponse.success(sopService.getSopsForUser(entities, userId, userRole)));
     }
 
     @GetMapping("/{id}")
