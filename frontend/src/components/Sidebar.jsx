@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { clearSession, getSession, saveSession, USERS } from '../auth/auth';
 import { hasPermission } from '../auth/rbac';
 import NotificationBell from './NotificationBell';
+import UserCategoryPermissionsModal from './UserCategoryPermissionsModal';
 import styles from './Sidebar.module.css';
 
 const NAV_ITEMS = [
@@ -66,6 +68,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const navigate = useNavigate();
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const session = getSession();
   const currentUser = session?.user ?? USERS[0];
 
@@ -104,6 +107,18 @@ export default function Sidebar() {
             <span>{item.label}</span>
           </NavLink>
         ))}
+
+        {currentUser?.role === 'ADMIN' && (
+          <button
+            type="button"
+            className={styles.navItem}
+            onClick={() => setShowCategoryModal(true)}
+            style={{ background: 'transparent', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            <span className={styles.navIcon}>🛡️</span>
+            <span>Category RBAC</span>
+          </button>
+        )}
       </nav>
 
       <div className={styles.footer}>
@@ -135,6 +150,11 @@ export default function Sidebar() {
           </button>
         </div>
       </div>
+
+      <UserCategoryPermissionsModal
+        isOpen={showCategoryModal}
+        onClose={() => setShowCategoryModal(false)}
+      />
     </aside>
   );
 }

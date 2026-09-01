@@ -686,3 +686,24 @@ export async function deleteNotification(notificationId) {
   }).catch(() => null);
   return res?.data || res;
 }
+
+export async function getUserCategoryPermissions(userId) {
+  if (!userId) return [];
+  const res = await fetchJson(`/admin/permissions/user/${userId}`).catch(() => null);
+  return Array.isArray(res) ? res : (res?.data || []);
+}
+
+export async function grantCategoryPermission(requestData) {
+  const res = await fetchJson(`/admin/permissions/grant`, {
+    method: 'POST',
+    body: JSON.stringify(requestData),
+  });
+  return res?.data || res;
+}
+
+export async function revokeCategoryPermission(userId, processCategory) {
+  const res = await fetchJson(`/admin/permissions/user/${userId}/category/${encodeURIComponent(processCategory)}`, {
+    method: 'DELETE',
+  }).catch(() => null);
+  return res?.data || res;
+}

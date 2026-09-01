@@ -36,6 +36,7 @@ public class TaskWorkflowService {
     private final com.cloudkaptan.sop.repository.TaskCommentRepository taskCommentRepository;
     private final NotificationPublisherService notificationPublisherService;
     private final com.cloudkaptan.sop.repository.UserNotificationRepository userNotificationRepository;
+    private final com.cloudkaptan.sop.config.security.SopSecurityEvaluator sopSecurityEvaluator;
 
     @Transactional
     public TaskDto processTaskAction(UUID taskId, com.cloudkaptan.sop.dto.TaskActionRequest request) {
@@ -110,6 +111,10 @@ public class TaskWorkflowService {
         }
 
         User actor = getUserOrThrow(actorId);
+
+        // Enforce Segregation of Duties (SoD): Maker cannot approve their own task
+        sopSecurityEvaluator.validateTaskReviewSoD(actor, task);
+
         task.setChecker(actor);
         TaskStatus fromStatus = task.getStatus();
 
@@ -151,6 +156,9 @@ public class TaskWorkflowService {
         }
 
         User actor = getUserOrThrow(actorId);
+
+        // Enforce Segregation of Duties (SoD): Maker cannot reject/verify their own task
+        sopSecurityEvaluator.validateTaskReviewSoD(actor, task);
         task.setChecker(actor);
         TaskStatus fromStatus = task.getStatus();
 

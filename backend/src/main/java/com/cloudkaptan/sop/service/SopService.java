@@ -39,6 +39,7 @@ public class SopService {
     private final SopEventRepository sopEventRepository;
     private final NotificationPublisherService notificationPublisherService;
     private final UserNotificationRepository userNotificationRepository;
+    private final com.cloudkaptan.sop.config.security.SopSecurityEvaluator sopSecurityEvaluator;
 
     @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
@@ -241,6 +242,8 @@ public class SopService {
         SopContext context = new SopContext(sop, SopStateMachineFactory.getState(sop.getStatus()));
 
         if ("APPROVE".equalsIgnoreCase(request.getAction())) {
+            // Enforce Segregation of Duties (SoD): Prohibit creator self-approval
+            sopSecurityEvaluator.validateSopApprovalSoD(actor, sop);
             context.approve(actor);
             taskSchedulerService.generateScheduledTasks();
         } else if ("REJECT".equalsIgnoreCase(request.getAction())) {

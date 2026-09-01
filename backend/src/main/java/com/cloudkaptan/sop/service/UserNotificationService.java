@@ -25,19 +25,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class UserNotificationService {
 
     private final UserNotificationRepository userNotificationRepository;
-    private final JdbcTemplate jdbcTemplate;
     private final Map<String, List<SseEmitter>> emittersMap = new ConcurrentHashMap<>();
-
-    @PostConstruct
-    public void ensureIsDeletedColumnExists() {
-        try {
-            jdbcTemplate.execute("ALTER TABLE user_notifications ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE;");
-            jdbcTemplate.execute("UPDATE user_notifications SET is_deleted = false WHERE is_deleted IS NULL;");
-            log.info("Successfully verified 'is_deleted' column in 'user_notifications' table.");
-        } catch (Exception e) {
-            log.warn("Auto DDL migration note for user_notifications: {}", e.getMessage());
-        }
-    }
 
     public SseEmitter subscribe(String userId) {
         SseEmitter emitter = new SseEmitter(1800000L); // 30 minutes timeout
