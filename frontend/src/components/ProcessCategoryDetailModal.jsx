@@ -67,7 +67,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(2px)' }}>
-      <div style={{ background: '#ffffff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 620, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)', border: '1px solid #e2e8f0' }}>
+      <div style={{ background: '#ffffff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 640, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)', border: '1px solid #e2e8f0' }}>
         
         {/* Modal Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #f1f5f9', paddingBottom: 12 }}>
@@ -201,7 +201,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
           </form>
         )}
 
-        {/* Tab 2: Activity Log Timeline */}
+        {/* Tab 2: Activity Log Timeline from Dedicated Table */}
         {activeTab === 'ACTIVITY' && (
           <div style={{ minHeight: 220 }}>
             {loadingLogs ? (
@@ -216,27 +216,30 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 0', maxHeight: 320, overflowY: 'auto' }}>
                 {logs.map((logItem, idx) => (
                   <div
-                    key={logItem.auditId || idx}
+                    key={logItem.id || idx}
                     style={{
                       display: 'flex',
-                      alignItems: 'center',
-                      justify: 'space-between',
+                      flexDirection: 'column',
+                      gap: 4,
                       padding: 12,
                       background: '#f8fafc',
                       borderRadius: 8,
                       border: '1px solid #e2e8f0',
                     }}
                   >
-                    <div>
-                      <div style={{ background: '#e0f2fe', color: '#0369a1', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 700, display: 'inline-block', marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ background: '#e0f2fe', color: '#0369a1', borderRadius: 4, padding: '3px 8px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>
                         {logItem.action}
                       </div>
-                      <div style={{ fontSize: 12, color: '#334155' }}>
-                        Actor: <strong style={{ color: '#0f172a' }}>{logItem.actorId}</strong>
+                      <div style={{ fontSize: 11, color: '#64748b' }}>
+                        {logItem.timestamp ? new Date(logItem.timestamp).toLocaleString() : 'Just now'}
                       </div>
                     </div>
-                    <div style={{ fontSize: 11, color: '#64748b', textAlign: 'right' }}>
-                      {logItem.timestamp ? new Date(logItem.timestamp).toLocaleString() : 'Just now'}
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0f172a', marginTop: 4 }}>
+                      {logItem.details || `Performed ${logItem.action}`}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#64748b' }}>
+                      Performed by: <strong style={{ color: '#334155' }}>{logItem.actorName || logItem.actorId}</strong>
                     </div>
                   </div>
                 ))}

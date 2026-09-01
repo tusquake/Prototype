@@ -3,8 +3,10 @@ package com.cloudkaptan.sop.service;
 import com.cloudkaptan.sop.dto.ProcessCategoryDto;
 import com.cloudkaptan.sop.entity.AuditLog;
 import com.cloudkaptan.sop.entity.ProcessCategory;
+import com.cloudkaptan.sop.entity.ProcessCategoryActivityLog;
 import com.cloudkaptan.sop.exception.ResourceNotFoundException;
 import com.cloudkaptan.sop.repository.AuditLogRepository;
+import com.cloudkaptan.sop.repository.ProcessCategoryActivityLogRepository;
 import com.cloudkaptan.sop.repository.ProcessCategoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +22,7 @@ import java.util.UUID;
 public class ProcessCategoryService {
 
     private final ProcessCategoryRepository categoryRepository;
+    private final ProcessCategoryActivityLogRepository activityLogRepository;
     private final AuditLogRepository auditLogRepository;
 
     private static final List<ProcessCategoryDto> DEFAULT_CATEGORIES = List.of(
@@ -67,6 +70,17 @@ public class ProcessCategoryService {
 
         ProcessCategory saved = categoryRepository.save(category);
 
+        // 1. Log to Dedicated Process Category Activity Log Table
+        ProcessCategoryActivityLog catLog = ProcessCategoryActivityLog.builder()
+            .categoryCode(saved.getCategoryCode())
+            .action("CREATE_CATEGORY")
+            .actorId("usr-manoj-042")
+            .actorName("Manoj Agarwal")
+            .details("Created process category '" + saved.getCategoryName() + "' (" + saved.getCategoryCode() + ")")
+            .build();
+        activityLogRepository.save(catLog);
+
+        // 2. Log to Global System Audit Log Table
         AuditLog auditLog = AuditLog.builder()
             .actorId("usr-manoj-042")
             .action("CREATE_PROCESS_CATEGORY")
@@ -94,6 +108,17 @@ public class ProcessCategoryService {
 
         ProcessCategory updated = categoryRepository.save(category);
 
+        // 1. Log to Dedicated Process Category Activity Log Table
+        ProcessCategoryActivityLog catLog = ProcessCategoryActivityLog.builder()
+            .categoryCode(updated.getCategoryCode())
+            .action("UPDATE_CATEGORY")
+            .actorId("usr-manoj-042")
+            .actorName("Manoj Agarwal")
+            .details("Updated process category '" + updated.getCategoryName() + "' (" + updated.getCategoryCode() + ")")
+            .build();
+        activityLogRepository.save(catLog);
+
+        // 2. Log to Global System Audit Log Table
         AuditLog auditLog = AuditLog.builder()
             .actorId("usr-manoj-042")
             .action("UPDATE_PROCESS_CATEGORY")
@@ -113,6 +138,17 @@ public class ProcessCategoryService {
             .orElseThrow(() -> new ResourceNotFoundException("Process Category not found with code: " + categoryCode));
         categoryRepository.delete(category);
 
+        // 1. Log to Dedicated Process Category Activity Log Table
+        ProcessCategoryActivityLog catLog = ProcessCategoryActivityLog.builder()
+            .categoryCode(categoryCode)
+            .action("DELETE_CATEGORY")
+            .actorId("usr-manoj-042")
+            .actorName("Manoj Agarwal")
+            .details("Deleted process category '" + categoryCode + "'")
+            .build();
+        activityLogRepository.save(catLog);
+
+        // 2. Log to Global System Audit Log Table
         AuditLog auditLog = AuditLog.builder()
             .actorId("usr-manoj-042")
             .action("DELETE_PROCESS_CATEGORY")
@@ -126,8 +162,8 @@ public class ProcessCategoryService {
     }
 
     @Transactional(readOnly = true)
-    public List<AuditLog> getActivityLogs(String categoryCode) {
-        return auditLogRepository.findByEntityTypeAndEntityIdOrderByTimestampDesc("PROCESS_CATEGORY", categoryCode);
+    public List<ProcessCategoryActivityLog> getActivityLogs(String categoryCode) {
+        return activityLogRepository.findByCategoryCodeOrderByTimestampDesc(categoryCode);
     }
 
     private ProcessCategoryDto mapToDto(ProcessCategory entity) {

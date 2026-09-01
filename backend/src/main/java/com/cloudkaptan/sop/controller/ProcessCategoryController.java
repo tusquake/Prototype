@@ -2,7 +2,7 @@ package com.cloudkaptan.sop.controller;
 
 import com.cloudkaptan.sop.dto.ApiResponse;
 import com.cloudkaptan.sop.dto.ProcessCategoryDto;
-import com.cloudkaptan.sop.entity.AuditLog;
+import com.cloudkaptan.sop.entity.ProcessCategoryActivityLog;
 import com.cloudkaptan.sop.service.ProcessCategoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +44,7 @@ public class ProcessCategoryController {
     }
 
     @GetMapping("/{categoryCode}/activity-logs")
-    public ResponseEntity<ApiResponse<List<AuditLog>>> getActivityLogs(@PathVariable("categoryCode") String categoryCode) {
+    public ResponseEntity<ApiResponse<List<ProcessCategoryActivityLog>>> getActivityLogs(@PathVariable("categoryCode") String categoryCode) {
         return ResponseEntity.ok(ApiResponse.success(processCategoryService.getActivityLogs(categoryCode)));
     }
 }
