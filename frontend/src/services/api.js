@@ -764,3 +764,10 @@ export async function saveCategoryAccessAssignments(assignmentData) {
   });
   return res?.data || res;
 }
+
+export async function getAccessControlActivityLogs(categoryCode = null) {
+  const query = categoryCode ? `?processCategory=${encodeURIComponent(categoryCode)}` : '';
+  const res = await fetchJson(`/admin/permissions/activity-logs${query}`).catch(() => []);
+  return Array.isArray(res) ? res : (res?.data || []);
+}
+

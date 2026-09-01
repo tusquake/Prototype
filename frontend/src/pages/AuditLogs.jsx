@@ -11,6 +11,7 @@ import styles from './AuditLogs.module.css';
 
 const LOG_TYPE_OPTIONS = [
   { value: 'ALL', label: 'All Log Types' },
+  { value: 'ACCESS_CONTROL_UPDATED', label: 'Access Control Updated' },
   { value: 'SUBMIT_TASK', label: 'Submit Task' },
   { value: 'RESUBMIT_TASK', label: 'Resubmit Task' },
   { value: 'APPROVE_TASK', label: 'Approve Task' },
@@ -28,6 +29,7 @@ const LOG_TYPE_OPTIONS = [
 
 const ENTITY_TYPE_OPTIONS = [
   { value: 'ALL', label: 'All Component Types' },
+  { value: 'ACCESS_CONTROL', label: 'Access Control Rules' },
   { value: 'TASK', label: 'Task Records' },
   { value: 'SOP', label: 'SOP Master Definitions' },
   { value: 'PROCESS_CATEGORY', label: 'Process Categories' },

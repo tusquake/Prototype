@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import UserPickerModal from '../components/UserPickerModal';
-import { getProcessCategories, getCategoryAccessAssignments, saveCategoryAccessAssignments } from '../services/api';
+import {
+  getProcessCategories,
+  getCategoryAccessAssignments,
+  saveCategoryAccessAssignments,
+  getAccessControlActivityLogs,
+} from '../services/api';
 import { getSession } from '../auth/auth';
 import styles from './AuditLogs.module.css';
 import modalStyles from '../components/SopDetailModal.module.css';
@@ -20,7 +25,13 @@ export default function AccessControl() {
   const [categoryAssignments, setCategoryAssignments] = useState({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Active Category Modal State
   const [activeCategory, setActiveCategory] = useState(null);
+  const [activeModalTab, setActiveModalTab] = useState('CONFIGURE'); // 'CONFIGURE' | 'ACTIVITY'
+  const [categoryLogs, setCategoryLogs] = useState([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
@@ -54,6 +65,13 @@ export default function AccessControl() {
     loadAllData();
   }, []);
 
+  useEffect(() => {
+    if (activeCategory && activeModalTab === 'ACTIVITY') {
+      const code = activeCategory.categoryCode || activeCategory.categoryName;
+      fetchCategoryLogs(code);
+    }
+  }, [activeCategory, activeModalTab]);
+
   async function loadAllData() {
     setLoading(true);
     setError(null);
@@ -79,9 +97,22 @@ export default function AccessControl() {
     }
   }
 
-  function handleOpenConfigureModal(cat) {
+  async function fetchCategoryLogs(code) {
+    setLoadingLogs(true);
+    try {
+      const data = await getAccessControlActivityLogs(code);
+      setCategoryLogs(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Failed to load activity logs:', err);
+    } finally {
+      setLoadingLogs(false);
+    }
+  }
+
+  function handleOpenConfigureModal(cat, initialTab = 'CONFIGURE') {
     const code = cat.categoryCode || cat.categoryName;
     setActiveCategory(cat);
+    setActiveModalTab(initialTab);
     const existing = categoryAssignments[code];
     if (existing) {
       setCreators(existing.creatorUserIds || []);
@@ -297,7 +328,7 @@ export default function AccessControl() {
                     <th style={{ padding: '12px 16px' }}>SOP Approvers</th>
                     <th style={{ padding: '12px 16px' }}>Task Submitters</th>
                     <th style={{ padding: '12px 16px' }}>Task Approvers</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'right', width: 140 }}>Actions</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right', width: 170 }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -326,10 +357,10 @@ export default function AccessControl() {
                         <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                           <button
                             type="button"
-                            onClick={() => handleOpenConfigureModal(cat)}
+                            onClick={() => handleOpenConfigureModal(cat, 'CONFIGURE')}
                             style={{ background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0284c7', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
                           >
-                            Configure Access
+                            Configure & Details
                           </button>
                         </td>
                       </tr>
@@ -341,17 +372,16 @@ export default function AccessControl() {
           </div>
         </div>
 
-        {/* Modal for Configuring Access Control per Category */}
+        {/* Modal for Configuring Access Control & Viewing Category Activity Logs */}
         {activeCategory && (
           <div className={modalStyles.backdrop} onClick={() => setActiveCategory(null)}>
-            <div className={modalStyles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 620 }}>
+            <div className={modalStyles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
               
               {/* Header */}
               <div className={modalStyles.header}>
                 <div className={modalStyles.titleArea}>
-                  <h3>Configure Category Access</h3>
+                  <h3>Category Access: {activeCategory.categoryName}</h3>
                   <div className={modalStyles.badges}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{activeCategory.categoryName}</span>
                     <span className={modalStyles.codeBadge}>{activeCategory.categoryCode}</span>
                   </div>
                 </div>
@@ -368,132 +398,243 @@ export default function AccessControl() {
                 </button>
               </div>
 
-              {/* Body Form */}
-              <div className={modalStyles.body}>
-                {hasSoDWarning && (
-                  <div style={{ background: '#fffbe6', border: '1px solid #ffe58f', padding: '10px 14px', borderRadius: 8, fontSize: 12, color: '#873800' }}>
-                    <span style={{ fontWeight: 700 }}>Notice: Segregation of Duties (SoD) Active. </span>
-                    Users assigned both Creator and Approver rights in this category are automatically prohibited by the security engine from self-approving their own drafts.
+              {/* Icon-Tabs Header Bar */}
+              <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', padding: '0 24px' }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveModalTab('CONFIGURE')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '12px 16px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: activeModalTab === 'CONFIGURE' ? '#0284c7' : '#64748b',
+                    borderBottom: activeModalTab === 'CONFIGURE' ? '2.5px solid #0284c7' : '2.5px solid transparent',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="4" y1="21" x2="4" y2="14" />
+                    <line x1="4" y1="10" x2="4" y2="3" />
+                    <line x1="12" y1="21" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12" y2="3" />
+                    <line x1="20" y1="21" x2="20" y2="16" />
+                    <line x1="20" y1="12" x2="20" y2="3" />
+                    <line x1="1" y1="14" x2="7" y2="14" />
+                    <line x1="9" y1="8" x2="15" y2="8" />
+                    <line x1="17" y1="16" x2="23" y2="16" />
+                  </svg>
+                  Access Permissions
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveModalTab('ACTIVITY')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '12px 16px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: activeModalTab === 'ACTIVITY' ? '#0284c7' : '#64748b',
+                    borderBottom: activeModalTab === 'ACTIVITY' ? '2.5px solid #0284c7' : '2.5px solid transparent',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  Access Activity Log
+                </button>
+              </div>
+
+              {/* Body Content based on Active Tab */}
+              <div className={modalStyles.body} style={{ maxHeight: 440, overflowY: 'auto' }}>
+                {activeModalTab === 'CONFIGURE' ? (
+                  <>
+                    {hasSoDWarning && (
+                      <div style={{ background: '#fffbe6', border: '1px solid #ffe58f', padding: '10px 14px', borderRadius: 8, fontSize: 12, color: '#873800', marginBottom: 16 }}>
+                        <span style={{ fontWeight: 700 }}>Notice: Segregation of Duties (SoD) Active. </span>
+                        Users assigned both Creator and Approver rights in this category are automatically prohibited by the security engine from self-approving their own drafts.
+                      </div>
+                    )}
+
+                    <form id="access-control-form" onSubmit={handleSaveAccess} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                      
+                      {/* Read-Only Process Category Field */}
+                      <div className={modalStyles.field}>
+                        <span className={modalStyles.label}>Process Category (Read-Only)</span>
+                        <input
+                          type="text"
+                          value={`${activeCategory.categoryName} (${activeCategory.categoryCode})`}
+                          disabled
+                          style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13, background: '#f1f5f9', color: '#475569', fontWeight: 600, boxSizing: 'border-box' }}
+                        />
+                      </div>
+
+                      {/* 1. SOP Creators Trigger Field */}
+                      <div className={modalStyles.field}>
+                        <span className={modalStyles.label}>SOP Creators</span>
+                        <div
+                          onClick={() => handleOpenUserPicker('creators')}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
+                        >
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: creators.length ? '#0f172a' : '#94a3b8' }}>
+                              {getUserNames(creators)}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                              Allowed to draft new SOP specifications
+                            </div>
+                          </div>
+                          <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                            {creators.length} Selected ✎
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 2. SOP Approvers Trigger Field */}
+                      <div className={modalStyles.field}>
+                        <span className={modalStyles.label}>SOP Approvers</span>
+                        <div
+                          onClick={() => handleOpenUserPicker('approvers')}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
+                        >
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: approvers.length ? '#0f172a' : '#94a3b8' }}>
+                              {getUserNames(approvers)}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                              Allowed to review & approve SOP drafts
+                            </div>
+                          </div>
+                          <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                            {approvers.length} Selected ✎
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 3. Task Submitters (Makers) Trigger Field */}
+                      <div className={modalStyles.field}>
+                        <span className={modalStyles.label}>Task Submitters (Makers)</span>
+                        <div
+                          onClick={() => handleOpenUserPicker('makers')}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
+                        >
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: makers.length ? '#0f172a' : '#94a3b8' }}>
+                              {getUserNames(makers)}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                              Allowed to execute & submit compliance tasks
+                            </div>
+                          </div>
+                          <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                            {makers.length} Selected ✎
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 4. Task Approvers (Checkers) Trigger Field */}
+                      <div className={modalStyles.field}>
+                        <span className={modalStyles.label}>Task Approvers (Checkers)</span>
+                        <div
+                          onClick={() => handleOpenUserPicker('checkers')}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
+                        >
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: checkers.length ? '#0f172a' : '#94a3b8' }}>
+                              {getUserNames(checkers)}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                              Allowed to verify & approve compliance tasks
+                            </div>
+                          </div>
+                          <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                            {checkers.length} Selected ✎
+                          </span>
+                        </div>
+                      </div>
+
+                    </form>
+                  </>
+                ) : (
+                  /* TAB 2: ACCESS CONTROL ACTIVITY LOG TIMELINE */
+                  <div>
+                    {loadingLogs ? (
+                      <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                        Loading category access audit history...
+                      </div>
+                    ) : categoryLogs.length === 0 ? (
+                      <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                        No access control modifications logged for this category yet.
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        {categoryLogs.map(log => (
+                          <div
+                            key={log.id}
+                            style={{
+                              background: '#f8fafc',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: 10,
+                              padding: '12px 16px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 6,
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 6, textTransform: 'uppercase' }}>
+                                {log.action || 'ACCESS_CONTROL_UPDATED'}
+                              </span>
+                              <span style={{ fontSize: 11, color: '#64748b' }}>
+                                {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Just now'}
+                              </span>
+                            </div>
+
+                            <div style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.4 }}>
+                              {log.details}
+                            </div>
+
+                            <div style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                              <span style={{ fontWeight: 600, color: '#475569' }}>Updated by:</span> {log.actorName || log.actorId}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-
-                <form id="access-control-form" onSubmit={handleSaveAccess} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                  
-                  {/* Read-Only Process Category Field */}
-                  <div className={modalStyles.field}>
-                    <span className={modalStyles.label}>Process Category (Read-Only)</span>
-                    <input
-                      type="text"
-                      value={`${activeCategory.categoryName} (${activeCategory.categoryCode})`}
-                      disabled
-                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13, background: '#f1f5f9', color: '#475569', fontWeight: 600, boxSizing: 'border-box' }}
-                    />
-                  </div>
-
-                  {/* 1. SOP Creators Trigger Field */}
-                  <div className={modalStyles.field}>
-                    <span className={modalStyles.label}>SOP Creators</span>
-                    <div
-                      onClick={() => handleOpenUserPicker('creators')}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: creators.length ? '#0f172a' : '#94a3b8' }}>
-                          {getUserNames(creators)}
-                        </div>
-                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                          Allowed to draft new SOP specifications
-                        </div>
-                      </div>
-                      <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
-                        {creators.length} Selected ✎
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 2. SOP Approvers Trigger Field */}
-                  <div className={modalStyles.field}>
-                    <span className={modalStyles.label}>SOP Approvers</span>
-                    <div
-                      onClick={() => handleOpenUserPicker('approvers')}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: approvers.length ? '#0f172a' : '#94a3b8' }}>
-                          {getUserNames(approvers)}
-                        </div>
-                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                          Allowed to review & approve SOP drafts
-                        </div>
-                      </div>
-                      <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
-                        {approvers.length} Selected ✎
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 3. Task Submitters (Makers) Trigger Field */}
-                  <div className={modalStyles.field}>
-                    <span className={modalStyles.label}>Task Submitters (Makers)</span>
-                    <div
-                      onClick={() => handleOpenUserPicker('makers')}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: makers.length ? '#0f172a' : '#94a3b8' }}>
-                          {getUserNames(makers)}
-                        </div>
-                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                          Allowed to execute & submit compliance tasks
-                        </div>
-                      </div>
-                      <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
-                        {makers.length} Selected ✎
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 4. Task Approvers (Checkers) Trigger Field */}
-                  <div className={modalStyles.field}>
-                    <span className={modalStyles.label}>Task Approvers (Checkers)</span>
-                    <div
-                      onClick={() => handleOpenUserPicker('checkers')}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: checkers.length ? '#0f172a' : '#94a3b8' }}>
-                          {getUserNames(checkers)}
-                        </div>
-                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                          Allowed to verify & approve compliance tasks
-                        </div>
-                      </div>
-                      <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
-                        {checkers.length} Selected ✎
-                      </span>
-                    </div>
-                  </div>
-
-                </form>
               </div>
 
               {/* Footer */}
-              <div className={modalStyles.footer}>
+              <div className={modalStyles.footer} style={{ justifyContent: 'flex-end' }}>
                 <button
                   type="button"
                   className={modalStyles.btnSecondary}
                   onClick={() => setActiveCategory(null)}
                 >
-                  Cancel
+                  Close
                 </button>
-                <button
-                  type="submit"
-                  form="access-control-form"
-                  className={modalStyles.btnPrimary}
-                  disabled={saving}
-                >
-                  {saving ? 'Saving Access...' : 'Save Access Control'}
-                </button>
+                {activeModalTab === 'CONFIGURE' && (
+                  <button
+                    type="submit"
+                    form="access-control-form"
+                    className={modalStyles.btnPrimary}
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving Access...' : 'Save Access Control'}
+                  </button>
+                )}
               </div>
 
             </div>

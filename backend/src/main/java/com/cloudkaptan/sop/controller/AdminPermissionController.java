@@ -1,8 +1,10 @@
 package com.cloudkaptan.sop.controller;
 
 import com.cloudkaptan.sop.dto.ApiResponse;
+import com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto;
 import com.cloudkaptan.sop.dto.CategoryPermissionDto;
 import com.cloudkaptan.sop.dto.GrantPermissionRequest;
+import com.cloudkaptan.sop.entity.AccessControlActivityLog;
 import com.cloudkaptan.sop.service.UserCategoryPermissionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping(value = {"/finsop/v1/admin/permissions", "/api/v1/admin/permissions"})
@@ -32,17 +33,23 @@ public class AdminPermissionController {
     }
 
     @GetMapping("/category/{categoryCode}")
-    public ResponseEntity<ApiResponse<com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto>> getCategoryAssignments(@PathVariable("categoryCode") String categoryCode) {
+    public ResponseEntity<ApiResponse<CategoryAccessAssignmentDto>> getCategoryAssignments(@PathVariable("categoryCode") String categoryCode) {
         return ResponseEntity.ok(ApiResponse.success(categoryPermissionService.getCategoryAssignments(categoryCode)));
     }
 
     @PostMapping("/category/assign")
-    public ResponseEntity<ApiResponse<com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto>> saveCategoryAssignments(@RequestBody com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto dto) {
+    public ResponseEntity<ApiResponse<CategoryAccessAssignmentDto>> saveCategoryAssignments(@RequestBody CategoryAccessAssignmentDto dto) {
         return ResponseEntity.ok(ApiResponse.success(categoryPermissionService.saveCategoryAssignments(dto)));
     }
 
     @GetMapping("/user/{userId}/accessible-categories")
     public ResponseEntity<ApiResponse<List<String>>> getUserAccessibleCategories(@PathVariable("userId") String userId) {
         return ResponseEntity.ok(ApiResponse.success(categoryPermissionService.getUserAccessibleCategories(userId)));
+    }
+
+    @GetMapping("/activity-logs")
+    public ResponseEntity<ApiResponse<List<AccessControlActivityLog>>> getAccessControlActivityLogs(
+            @RequestParam(value = "processCategory", required = false) String processCategory) {
+        return ResponseEntity.ok(ApiResponse.success(categoryPermissionService.getAccessControlActivityLogs(processCategory)));
     }
 }
