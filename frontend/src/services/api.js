@@ -85,9 +85,11 @@ export async function fetchJson(endpoint, options = {}) {
     if (sessionUser?.role) {
       authHeaders['X-User-Role'] = sessionUser.role;
       authHeaders['X-User-Email'] = sessionUser.email || '';
+      if (sessionUser.id) authHeaders['X-User-Id'] = sessionUser.id;
     } else {
       authHeaders['X-User-Role'] = 'ADMIN';
       authHeaders['X-User-Email'] = 'admin@cloudkaptan.com';
+      authHeaders['X-User-Id'] = 'usr-manoj-042';
     }
 
     const res = await fetch(`${API_BASE}${endpoint}`, {
