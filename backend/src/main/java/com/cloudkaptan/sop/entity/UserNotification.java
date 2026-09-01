@@ -43,6 +43,10 @@ public class UserNotification {
     @Column(name = "is_read", nullable = false)
     private Boolean isRead = false;
 
+    @Builder.Default
+    @Column(name = "is_deleted", nullable = false)
+    private Boolean isDeleted = false;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;

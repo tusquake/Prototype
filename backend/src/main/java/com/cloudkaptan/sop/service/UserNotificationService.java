@@ -85,14 +85,14 @@ public class UserNotificationService {
 
     @Transactional(readOnly = true)
     public List<UserNotificationDto> getNotificationsForUser(String userId) {
-        return userNotificationRepository.findByRecipientUserIdOrderByCreatedAtDesc(userId).stream()
+        return userNotificationRepository.findByRecipientUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userId).stream()
                 .map(this::mapToDto)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public long getUnreadCountForUser(String userId) {
-        return userNotificationRepository.countByRecipientUserIdAndIsReadFalse(userId);
+        return userNotificationRepository.countByRecipientUserIdAndIsReadFalseAndIsDeletedFalse(userId);
     }
 
     @Transactional
@@ -112,15 +112,15 @@ public class UserNotificationService {
 
     @Transactional
     public void deleteNotification(UUID notificationId) {
-        log.info("Permanently deleting UserNotification with ID [{}]", notificationId);
-        userNotificationRepository.deleteById(notificationId);
+        log.info("Soft-deleting UserNotification record with ID [{}]", notificationId);
+        userNotificationRepository.softDeleteById(notificationId);
     }
 
     @Transactional
     public void deleteByReferenceEntityId(String referenceEntityId) {
         if (referenceEntityId == null || referenceEntityId.isBlank()) return;
-        log.info("Deleting all stale notifications for reference entity ID [{}]", referenceEntityId);
-        userNotificationRepository.deleteByReferenceEntityId(referenceEntityId);
+        log.info("Soft-deleting all obsolete notifications for reference entity ID [{}]", referenceEntityId);
+        userNotificationRepository.softDeleteByReferenceEntityId(referenceEntityId);
     }
 
     public UserNotificationDto mapToDto(UserNotification notification) {

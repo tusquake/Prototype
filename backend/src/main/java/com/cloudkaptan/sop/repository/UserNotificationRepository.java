@@ -14,20 +14,27 @@ import java.util.UUID;
 @Repository
 public interface UserNotificationRepository extends JpaRepository<UserNotification, UUID> {
 
-    List<UserNotification> findByRecipientUserIdOrderByCreatedAtDesc(String recipientUserId);
+    List<UserNotification> findByRecipientUserIdAndIsDeletedFalseOrderByCreatedAtDesc(String recipientUserId);
 
-    long countByRecipientUserIdAndIsReadFalse(String recipientUserId);
+    long countByRecipientUserIdAndIsReadFalseAndIsDeletedFalse(String recipientUserId);
 
     @Modifying
     @Transactional
-    @Query("UPDATE UserNotification u SET u.isRead = true WHERE u.recipientUserId = :recipientUserId AND u.isRead = false")
+    @Query("UPDATE UserNotification u SET u.isRead = true WHERE u.recipientUserId = :recipientUserId AND u.isRead = false AND u.isDeleted = false")
     void markAllAsReadByRecipientUserId(@Param("recipientUserId") String recipientUserId);
 
     @Modifying
     @Transactional
-    void deleteByReferenceEntityId(String referenceEntityId);
+    @Query("UPDATE UserNotification u SET u.isDeleted = true WHERE u.notificationId = :id")
+    void softDeleteById(@Param("id") UUID id);
 
     @Modifying
     @Transactional
-    void deleteByRecipientUserIdAndReferenceEntityId(String recipientUserId, String referenceEntityId);
+    @Query("UPDATE UserNotification u SET u.isDeleted = true WHERE u.referenceEntityId = :referenceEntityId")
+    void softDeleteByReferenceEntityId(@Param("referenceEntityId") String referenceEntityId);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE UserNotification u SET u.isDeleted = true WHERE u.referenceEntityId = :referenceEntityId")
+    void deleteByReferenceEntityId(@Param("referenceEntityId") String referenceEntityId);
 }
