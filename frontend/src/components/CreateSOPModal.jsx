@@ -197,6 +197,7 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
                     value={formData.sopCode}
                     onChange={handleInputChange}
                     disabled={isCreatorDraftMode || !!editingSop}
+                    style={isCreatorDraftMode || !!editingSop ? { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1', cursor: 'not-allowed', fontWeight: 600 } : undefined}
                     required
                   />
                 </div>
@@ -208,6 +209,7 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
                       type="text"
                       value={ENTITY_NAME_MAP[formData.entityCode] || formData.entityCode}
                       disabled
+                      style={{ backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1', cursor: 'not-allowed', fontWeight: 600 }}
                     />
                   </div>
                 )}
@@ -218,6 +220,7 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
                     type="text"
                     value={formData.processCategory}
                     disabled
+                    style={{ backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1', cursor: 'not-allowed', fontWeight: 600 }}
                   />
                 </div>
               </div>
