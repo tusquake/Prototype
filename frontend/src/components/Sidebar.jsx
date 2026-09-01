@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { clearSession, getSession, saveSession, USERS } from '../auth/auth';
 import { hasPermission } from '../auth/rbac';
@@ -71,12 +71,14 @@ export default function Sidebar({ onOpenSopTask }) {
   const currentUser = session?.user ?? USERS[0];
 
   const [pendingTasks, setPendingTasks] = useState([]);
+  const [showNotifMenu, setShowNotifMenu] = useState(false);
+  const notifRef = useRef(null);
 
   if (!session) {
     saveSession(USERS[0], 'demo-token');
   }
 
-  // Load pending SOP creation assignments for this user
+  // Fetch pending SOP creation tasks for creator
   useEffect(() => {
     async function loadPendingTasks() {
       if (!currentUser?.id || currentUser?.role === 'ADMIN') return;
@@ -92,9 +94,20 @@ export default function Sidebar({ onOpenSopTask }) {
       }
     }
     loadPendingTasks();
-    const interval = setInterval(loadPendingTasks, 30000);
+    const interval = setInterval(loadPendingTasks, 15000);
     return () => clearInterval(interval);
   }, [currentUser?.id]);
+
+  // Click outside listener for notification menu
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setShowNotifMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   function handleLogout() {
     clearSession();
@@ -115,54 +128,105 @@ export default function Sidebar({ onOpenSopTask }) {
       </div>
 
       <nav className={styles.nav}>
-        {visibleNavItems.map((item) => {
-          const isSopNav = item.to === '/sops';
-          const hasBadge = isSopNav && pendingTasks.length > 0;
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `${styles.navItem} ${isActive ? styles.active : ''}`
-              }
-              style={{ position: 'relative' }}
-            >
-              <span className={styles.navIcon}>{item.icon}</span>
-              <span>{item.label}</span>
-              {hasBadge && (
-                <span className={styles.navBadge}>{pendingTasks.length}</span>
-              )}
-            </NavLink>
-          );
-        })}
-
-        {/* SOP Task Notification Cards */}
-        {pendingTasks.length > 0 && (
-          <div className={styles.sopTaskSection}>
-            <div className={styles.sopTaskHeader}>
-              <span className={styles.sopTaskPulse} />
-              <span className={styles.sopTaskTitle}>SOP Task Assigned</span>
-            </div>
-            {pendingTasks.map(task => (
-              <button
-                key={task.id}
-                className={styles.sopTaskCard}
-                onClick={() => onOpenSopTask && onOpenSopTask(task)}
-                title="Click to draft this SOP"
-              >
-                <div className={styles.sopTaskCode}>{task.code}</div>
-                <div className={styles.sopTaskMeta}>
-                  <span>{task.process || task.processCategory}</span>
-                  <span className={styles.sopTaskEntity}>{task.entity || task.entityCode}</span>
-                </div>
-                <div className={styles.sopTaskCta}>Draft SOP Now →</div>
-              </button>
-            ))}
-          </div>
-        )}
+        {visibleNavItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              `${styles.navItem} ${isActive ? styles.active : ''}`
+            }
+          >
+            <span className={styles.navIcon}>{item.icon}</span>
+            <span>{item.label}</span>
+          </NavLink>
+        ))}
       </nav>
 
       <div className={styles.footer}>
+        {/* Notification Bell Bar directly above Logged In User */}
+        <div className={styles.notifContainer} ref={notifRef}>
+          <button
+            type="button"
+            className={`${styles.notifBellBtn} ${showNotifMenu ? styles.notifBellBtnActive : ''}`}
+            onClick={() => setShowNotifMenu(!showNotifMenu)}
+            title="Notifications"
+          >
+            <div className={styles.notifBellIconWrap}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+              {pendingTasks.length > 0 && (
+                <span className={styles.notifBadgeDot}>{pendingTasks.length}</span>
+              )}
+            </div>
+            <span className={styles.notifBellLabel}>Notifications</span>
+            {pendingTasks.length > 0 && (
+              <span className={styles.notifCountPill}>{pendingTasks.length} pending</span>
+            )}
+          </button>
+
+          {/* Clean Notification List Popover */}
+          {showNotifMenu && (
+            <div className={styles.notifPopover}>
+              <div className={styles.notifHeader}>
+                <span className={styles.notifTitle}>Notifications</span>
+                {pendingTasks.length > 0 && (
+                  <span className={styles.notifHeaderBadge}>{pendingTasks.length} New</span>
+                )}
+              </div>
+
+              <div className={styles.notifList}>
+                {pendingTasks.length === 0 ? (
+                  <div className={styles.notifEmpty}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                      <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                    <span>No pending notifications</span>
+                  </div>
+                ) : (
+                  pendingTasks.map(task => (
+                    <div
+                      key={task.id || task.code}
+                      className={styles.notifItem}
+                      onClick={() => {
+                        setShowNotifMenu(false);
+                        if (onOpenSopTask) onOpenSopTask(task);
+                      }}
+                    >
+                      <div className={styles.notifItemIcon}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                          <line x1="12" y1="18" x2="12" y2="12" />
+                          <line x1="9" y1="15" x2="15" y2="15" />
+                        </svg>
+                      </div>
+                      <div className={styles.notifItemContent}>
+                        <div className={styles.notifItemTitle}>
+                          SOP Creation Task: <strong>{task.code}</strong>
+                        </div>
+                        <div className={styles.notifItemMeta}>
+                          {task.process || task.processCategory} • {task.entity || task.entityCode}
+                        </div>
+                        <div className={styles.notifItemAction}>
+                          <span>Draft SOP Now</span>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                            <polyline points="12 5 19 12 12 19" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Logged in User Card */}
         <div className={styles.userCard}>
           <div className={styles.userInfo}>
             {currentUser.picture ? (

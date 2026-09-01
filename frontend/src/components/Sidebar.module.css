@@ -81,10 +81,198 @@
 }
 
 .footer {
-  padding: 16px 12px;
+  padding: 14px 12px 16px 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
 }
 
+/* Notification Container directly above User Card */
+.notifContainer {
+  position: relative;
+  width: 100%;
+}
+
+.notifBellBtn {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #94a3b8;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.notifBellBtn:hover, .notifBellBtnActive {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.notifBellIconWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notifBadgeDot {
+  position: absolute;
+  top: -4px;
+  right: -5px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 9.5px;
+  font-weight: 700;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #091124;
+}
+
+.notifBellLabel {
+  flex: 1;
+  text-align: left;
+}
+
+.notifCountPill {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+/* Notification List Popover */
+.notifPopover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 260px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  overflow: hidden;
+  animation: fadeInNotif 0.15s ease-out;
+}
+
+@keyframes fadeInNotif {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.notifHeader {
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notifTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: 0.3px;
+}
+
+.notifHeaderBadge {
+  font-size: 10px;
+  font-weight: 700;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.notifList {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.notifEmpty {
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 12px;
+  text-align: center;
+}
+
+.notifItem {
+  padding: 10px;
+  border-radius: 6px;
+  display: flex;
+  gap: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.notifItem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.notifItemIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notifItemContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.notifItemTitle {
+  font-size: 12px;
+  color: #e2e8f0;
+  margin-bottom: 2px;
+}
+
+.notifItemMeta {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-bottom: 6px;
+}
+
+.notifItemAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #38bdf8;
+  transition: color 0.15s ease;
+}
+
+.notifItem:hover .notifItemAction {
+  color: #60a5fa;
+}
+
+/* Logged in User Card */
 .userCard {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -165,104 +353,4 @@
 .logoutBtn:hover {
   color: #f87171;
   background: rgba(220, 38, 38, 0.15);
-}
-
-/* SOP Task Notification Badge */
-.navBadge {
-  margin-left: auto;
-  background: #f97316;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 700;
-  border-radius: 10px;
-  padding: 1px 6px;
-  min-width: 18px;
-  text-align: center;
-  animation: pulseBadge 1.5s ease-in-out infinite;
-}
-
-@keyframes pulseBadge {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.75; transform: scale(1.1); }
-}
-
-/* SOP Task Card Section */
-.sopTaskSection {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.sopTaskHeader {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0 6px;
-  margin-bottom: 2px;
-}
-
-.sopTaskPulse {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #f97316;
-  flex-shrink: 0;
-  animation: pulseBadge 1.5s ease-in-out infinite;
-}
-
-.sopTaskTitle {
-  font-size: 10px;
-  font-weight: 700;
-  color: #f97316;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-}
-
-.sopTaskCard {
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(249, 115, 22, 0.08));
-  border: 1px solid rgba(249, 115, 22, 0.35);
-  border-radius: 8px;
-  padding: 10px 12px;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  transition: all 0.18s ease;
-  color: inherit;
-}
-
-.sopTaskCard:hover {
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.25), rgba(249, 115, 22, 0.15));
-  border-color: rgba(249, 115, 22, 0.6);
-  transform: translateX(2px);
-}
-
-.sopTaskCode {
-  font-size: 12px;
-  font-weight: 700;
-  color: #ffffff;
-  font-family: 'Courier New', monospace;
-  letter-spacing: 0.5px;
-  margin-bottom: 3px;
-}
-
-.sopTaskMeta {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  font-size: 10.5px;
-  color: #94a3b8;
-  margin-bottom: 5px;
-}
-
-.sopTaskEntity {
-  color: #38bdf8;
-  font-weight: 600;
-}
-
-.sopTaskCta {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: #f97316;
-  letter-spacing: 0.3px;
 }
