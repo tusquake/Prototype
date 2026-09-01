@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import ProcessCategoryDetailModal from '../components/ProcessCategoryDetailModal';
+import ConfirmationModal from '../components/ConfirmationModal';
 import Toast from '../components/Toast';
 import { getProcessCategories, createProcessCategory, deleteProcessCategory } from '../services/api';
 import { getSession } from '../auth/auth';
@@ -12,6 +13,7 @@ export default function ProcessCategories() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null); // Selected category for detail/activity modal
+  const [deleteCategoryTarget, setDeleteCategoryTarget] = useState(null); // Selected category code for deletion
   const [creating, setCreating] = useState(false);
   const [deletingCode, setDeletingCode] = useState(null);
   const [error, setError] = useState(null);
@@ -73,17 +75,16 @@ export default function ProcessCategories() {
     }
   }
 
-  async function handleDelete(categoryCode) {
-    if (!window.confirm(`Are you sure you want to delete process category '${categoryCode}'?`)) {
-      return;
-    }
-
+  async function handleConfirmDelete() {
+    if (!deleteCategoryTarget) return;
+    const categoryCode = deleteCategoryTarget;
     setDeletingCode(categoryCode);
     setError(null);
 
     try {
       await deleteProcessCategory(categoryCode);
       setSuccessMsg(`Process Category '${categoryCode}' deleted successfully.`);
+      setDeleteCategoryTarget(null);
       await fetchCategories();
     } catch (err) {
       console.error('Failed to delete process category:', err);
@@ -183,11 +184,10 @@ export default function ProcessCategories() {
                         </button>
                         <button
                           type="button"
-                          disabled={deletingCode === cat.categoryCode}
-                          onClick={() => handleDelete(cat.categoryCode)}
+                          onClick={() => setDeleteCategoryTarget(cat.categoryCode)}
                           style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#b91c1c', borderRadius: 4, padding: '5px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
                         >
-                          {deletingCode === cat.categoryCode ? 'Deleting...' : 'Delete'}
+                          Delete
                         </button>
                       </td>
                     </tr>
@@ -274,7 +274,22 @@ export default function ProcessCategories() {
           isOpen={!!editingCategory}
           category={editingCategory}
           onClose={() => setEditingCategory(null)}
-          onUpdated={fetchCategories}
+          onUpdated={(msg) => {
+            fetchCategories();
+            setSuccessMsg(msg || 'Process Category updated successfully.');
+          }}
+        />
+
+        {/* Custom Confirmation Modal for Deleting Category */}
+        <ConfirmationModal
+          isOpen={!!deleteCategoryTarget}
+          title="Delete Process Category"
+          message={`Are you sure you want to delete process category '${deleteCategoryTarget}'? This action cannot be undone.`}
+          confirmText={deletingCode ? 'Deleting...' : 'Delete Category'}
+          confirmVariant="danger"
+          submitting={!!deletingCode}
+          onConfirm={handleConfirmDelete}
+          onClose={() => setDeleteCategoryTarget(null)}
         />
 
         {/* Floating Toast Notifications */}

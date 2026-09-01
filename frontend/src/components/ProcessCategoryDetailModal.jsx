@@ -11,14 +11,12 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
   const [logs, setLogs] = useState([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
     if (category) {
       setName(category.categoryName || '');
       setDescription(category.description || '');
       setErrorMsg('');
-      setSuccessMsg('');
       if (activeTab === 'ACTIVITY') {
         fetchLogs(category.categoryCode);
       }
@@ -48,7 +46,6 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
 
     setSaving(true);
     setErrorMsg('');
-    setSuccessMsg('');
 
     try {
       await updateProcessCategory(category.categoryCode, {
@@ -56,8 +53,8 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
         categoryName: name.trim(),
         description: description.trim(),
       });
-      setSuccessMsg('Process Category updated successfully.');
-      if (onUpdated) onUpdated();
+      if (onUpdated) onUpdated(`Process Category '${category.categoryCode}' updated successfully.`);
+      onClose();
     } catch (err) {
       console.error('Failed to update process category:', err);
       setErrorMsg(err.message || 'Failed to update process category');
@@ -68,12 +65,12 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={e => e.stopPropagation()}>
+      <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 580 }}>
         
         {/* Header matching SopDetailModal */}
         <div className={styles.header}>
           <div className={styles.titleArea}>
-            <h3>Category: {category.categoryName}</h3>
+            <h3>Process Category: {category.categoryName}</h3>
             <div className={styles.badges}>
               <span className={styles.codeBadge}>{category.categoryCode}</span>
             </div>
@@ -100,8 +97,8 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
               padding: '12px 16px',
               background: 'transparent',
               border: 'none',
-              borderBottom: activeTab === 'DETAILS' ? '2px solid #2563eb' : '2px solid transparent',
-              color: activeTab === 'DETAILS' ? '#2563eb' : '#64748b',
+              borderBottom: activeTab === 'DETAILS' ? '2.5px solid #0284c7' : '2.5px solid transparent',
+              color: activeTab === 'DETAILS' ? '#0284c7' : '#64748b',
               fontWeight: activeTab === 'DETAILS' ? 700 : 600,
               fontSize: 13,
               cursor: 'pointer',
@@ -125,8 +122,8 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
               padding: '12px 16px',
               background: 'transparent',
               border: 'none',
-              borderBottom: activeTab === 'ACTIVITY' ? '2px solid #2563eb' : '2px solid transparent',
-              color: activeTab === 'ACTIVITY' ? '#2563eb' : '#64748b',
+              borderBottom: activeTab === 'ACTIVITY' ? '2.5px solid #0284c7' : '2.5px solid transparent',
+              color: activeTab === 'ACTIVITY' ? '#0284c7' : '#64748b',
               fontWeight: activeTab === 'ACTIVITY' ? 700 : 600,
               fontSize: 13,
               cursor: 'pointer',
@@ -148,10 +145,26 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
         <div className={styles.body}>
           {/* Tab 1: Category Details Form */}
           {activeTab === 'DETAILS' && (
-            <form id="category-edit-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <form id="category-edit-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               <div className={styles.field}>
                 <span className={styles.label}>Category Code (Read-Only)</span>
-                <span className={styles.codeBadge} style={{ width: 'fit-content', marginTop: 4 }}>{category.categoryCode}</span>
+                <input
+                  type="text"
+                  value={category.categoryCode}
+                  disabled
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    background: '#f1f5f9',
+                    color: '#0284c7',
+                    fontWeight: 600,
+                    fontFamily: 'monospace',
+                    boxSizing: 'border-box',
+                  }}
+                />
               </div>
 
               <div className={styles.field}>
@@ -162,6 +175,18 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
                   onChange={e => setName(e.target.value)}
                   placeholder="Enter Category Name"
                   required
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: 8,
+                    fontSize: 13.5,
+                    background: '#ffffff',
+                    color: '#0f172a',
+                    fontFamily: 'inherit',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                  }}
                 />
               </div>
 
@@ -172,6 +197,19 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   placeholder="Enter category scope and description"
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: 8,
+                    fontSize: 13.5,
+                    background: '#ffffff',
+                    color: '#0f172a',
+                    fontFamily: 'inherit',
+                    boxSizing: 'border-box',
+                    outline: 'none',
+                    resize: 'vertical',
+                  }}
                 />
               </div>
             </form>
@@ -196,15 +234,15 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
                       style={{
                         background: '#f8fafc',
                         border: '1px solid #e2e8f0',
-                        borderRadius: 8,
+                        borderRadius: 10,
                         padding: '12px 16px',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: 4,
+                        gap: 6,
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 4, textTransform: 'uppercase' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 6, textTransform: 'uppercase' }}>
                           {log.action}
                         </span>
                         <span style={{ fontSize: 11, color: '#64748b' }}>
@@ -212,7 +250,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
                         </span>
                       </div>
 
-                      <div style={{ fontSize: 13, color: '#1e293b', marginTop: 4 }}>
+                      <div style={{ fontSize: 13, color: '#1e293b', marginTop: 2, lineHeight: 1.4 }}>
                         {log.details}
                       </div>
 
@@ -228,7 +266,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
         </div>
 
         {/* Footer matching SopDetailModal */}
-        <div className={styles.footer}>
+        <div className={styles.footer} style={{ justifyContent: 'flex-end' }}>
           <button type="button" className={styles.btnSecondary} onClick={onClose}>
             {activeTab === 'DETAILS' ? 'Cancel' : 'Close'}
           </button>
@@ -244,12 +282,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
           )}
         </div>
 
-        {/* Floating Toast Notifications */}
-        <Toast
-          message={successMsg}
-          type="success"
-          onClose={() => setSuccessMsg('')}
-        />
+        {/* Floating Toast Notifications for Errors */}
         <Toast
           message={errorMsg}
           type="error"
