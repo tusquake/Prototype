@@ -50,7 +50,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
     setSuccessMsg('');
 
     try {
-      await updateProcessCategory(category.id, {
+      await updateProcessCategory(category.categoryCode, {
         categoryCode: category.categoryCode,
         categoryName: name.trim(),
         description: description.trim(),

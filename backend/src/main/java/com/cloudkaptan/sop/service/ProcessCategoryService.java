@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -26,13 +27,13 @@ public class ProcessCategoryService {
     private final AuditLogRepository auditLogRepository;
 
     private static final List<ProcessCategoryDto> DEFAULT_CATEGORIES = List.of(
-        new ProcessCategoryDto(null, "Tax Compliance", "Tax Compliance", "Direct and Indirect Tax Reporting & Compliance"),
-        new ProcessCategoryDto(null, "Treasury & Cash Management", "Treasury & Cash Management", "Bank Reconciliations, Cash Flow Forecasting & Liquidity"),
-        new ProcessCategoryDto(null, "Financial Reporting", "Financial Reporting", "GL Close, Balance Sheet & Financial Statements"),
-        new ProcessCategoryDto(null, "Fixed Assets Management", "Fixed Assets Management", "Capital Expenditure, Asset Depreciation & Verification"),
-        new ProcessCategoryDto(null, "Payroll & Statutory Compliance", "Payroll & Statutory Compliance", "Payroll Processing, Provident Fund & Statutory Deductions"),
-        new ProcessCategoryDto(null, "Procure to Pay (P2P)", "Procure to Pay (P2P)", "Vendor Invoicing, PO Matching & Disbursements"),
-        new ProcessCategoryDto(null, "Order to Cash (O2C)", "Order to Cash (O2C)", "Customer Invoicing, Receivables & Credit Management")
+        new ProcessCategoryDto(null, "TAX_COMPLIANCE", "Tax Compliance", "Direct and Indirect Tax Reporting & Compliance"),
+        new ProcessCategoryDto(null, "TREASURY_CASH", "Treasury & Cash Management", "Bank Reconciliations, Cash Flow Forecasting & Liquidity"),
+        new ProcessCategoryDto(null, "FINANCIAL_REPORTING", "Financial Reporting", "GL Close, Balance Sheet & Financial Statements"),
+        new ProcessCategoryDto(null, "FIXED_ASSETS", "Fixed Assets Management", "Capital Expenditure, Asset Depreciation & Verification"),
+        new ProcessCategoryDto(null, "PAYROLL_STATUTORY", "Payroll & Statutory Compliance", "Payroll Processing, Provident Fund & Statutory Deductions"),
+        new ProcessCategoryDto(null, "P2P", "Procure to Pay (P2P)", "Vendor Invoicing, PO Matching & Disbursements"),
+        new ProcessCategoryDto(null, "O2C", "Order to Cash (O2C)", "Customer Invoicing, Receivables & Credit Management")
     );
 
     @Transactional
@@ -95,9 +96,9 @@ public class ProcessCategoryService {
     }
 
     @Transactional
-    public ProcessCategoryDto updateCategory(UUID id, ProcessCategoryDto dto) {
-        ProcessCategory category = categoryRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Process Category not found with ID: " + id));
+    public ProcessCategoryDto updateCategoryFlexible(String identifier, ProcessCategoryDto dto) {
+        ProcessCategory category = findCategoryByIdentifier(identifier)
+            .orElseThrow(() -> new ResourceNotFoundException("Process Category not found with identifier: " + identifier));
 
         if (dto.getCategoryName() != null && !dto.getCategoryName().isBlank()) {
             category.setCategoryName(dto.getCategoryName().trim());
@@ -133,18 +134,20 @@ public class ProcessCategoryService {
     }
 
     @Transactional
-    public void deleteCategory(String categoryCode) {
-        ProcessCategory category = categoryRepository.findByCategoryCode(categoryCode)
-            .orElseThrow(() -> new ResourceNotFoundException("Process Category not found with code: " + categoryCode));
+    public void deleteCategory(String identifier) {
+        ProcessCategory category = findCategoryByIdentifier(identifier)
+            .orElseThrow(() -> new ResourceNotFoundException("Process Category not found with identifier: " + identifier));
+
+        String code = category.getCategoryCode();
         categoryRepository.delete(category);
 
         // 1. Log to Dedicated Process Category Activity Log Table
         ProcessCategoryActivityLog catLog = ProcessCategoryActivityLog.builder()
-            .categoryCode(categoryCode)
+            .categoryCode(code)
             .action("DELETE_CATEGORY")
             .actorId("usr-manoj-042")
             .actorName("Manoj Agarwal")
-            .details("Deleted process category '" + categoryCode + "'")
+            .details("Deleted process category '" + code + "'")
             .build();
         activityLogRepository.save(catLog);
 
@@ -153,17 +156,40 @@ public class ProcessCategoryService {
             .actorId("usr-manoj-042")
             .action("DELETE_PROCESS_CATEGORY")
             .entityType("PROCESS_CATEGORY")
-            .entityId(categoryCode)
+            .entityId(code)
             .correlationId(UUID.randomUUID().toString())
             .build();
         auditLogRepository.save(auditLog);
 
-        log.info("Deleted Process Category [{}]", categoryCode);
+        log.info("Deleted Process Category [{}]", code);
     }
 
     @Transactional(readOnly = true)
-    public List<ProcessCategoryActivityLog> getActivityLogs(String categoryCode) {
-        return activityLogRepository.findByCategoryCodeOrderByTimestampDesc(categoryCode);
+    public List<ProcessCategoryActivityLog> getActivityLogs(String identifier) {
+        Optional<ProcessCategory> cat = findCategoryByIdentifier(identifier);
+        String code = cat.map(ProcessCategory::getCategoryCode).orElse(identifier);
+        return activityLogRepository.findByCategoryCodeOrderByTimestampDesc(code);
+    }
+
+    private Optional<ProcessCategory> findCategoryByIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) return Optional.empty();
+        String trimmed = identifier.trim();
+
+        // 1. Try by UUID
+        try {
+            UUID uuid = UUID.fromString(trimmed);
+            Optional<ProcessCategory> byId = categoryRepository.findById(uuid);
+            if (byId.isPresent()) return byId;
+        } catch (IllegalArgumentException ignored) {}
+
+        // 2. Try by exact categoryCode
+        Optional<ProcessCategory> byCode = categoryRepository.findByCategoryCode(trimmed);
+        if (byCode.isPresent()) return byCode;
+
+        // 3. Try case-insensitive matching on categoryCode or categoryName
+        return categoryRepository.findAll().stream()
+            .filter(c -> c.getCategoryCode().equalsIgnoreCase(trimmed) || c.getCategoryName().equalsIgnoreCase(trimmed))
+            .findFirst();
     }
 
     private ProcessCategoryDto mapToDto(ProcessCategory entity) {

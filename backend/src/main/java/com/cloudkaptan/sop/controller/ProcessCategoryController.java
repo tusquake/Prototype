@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping(value = {"/finsop/v1/process-categories", "/api/v1/process-categories"})
@@ -30,21 +29,21 @@ public class ProcessCategoryController {
         return ResponseEntity.ok(ApiResponse.success(processCategoryService.createCategory(dto)));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{identifier}")
     public ResponseEntity<ApiResponse<ProcessCategoryDto>> updateCategory(
-            @PathVariable("id") UUID id,
+            @PathVariable("identifier") String identifier,
             @RequestBody ProcessCategoryDto dto) {
-        return ResponseEntity.ok(ApiResponse.success(processCategoryService.updateCategory(id, dto)));
+        return ResponseEntity.ok(ApiResponse.success(processCategoryService.updateCategoryFlexible(identifier, dto)));
     }
 
-    @DeleteMapping("/{categoryCode}")
-    public ResponseEntity<ApiResponse<Map<String, String>>> deleteCategory(@PathVariable("categoryCode") String categoryCode) {
-        processCategoryService.deleteCategory(categoryCode);
+    @DeleteMapping("/{identifier}")
+    public ResponseEntity<ApiResponse<Map<String, String>>> deleteCategory(@PathVariable("identifier") String identifier) {
+        processCategoryService.deleteCategory(identifier);
         return ResponseEntity.ok(ApiResponse.success(Map.of("message", "Process Category deleted successfully")));
     }
 
-    @GetMapping("/{categoryCode}/activity-logs")
-    public ResponseEntity<ApiResponse<List<ProcessCategoryActivityLog>>> getActivityLogs(@PathVariable("categoryCode") String categoryCode) {
-        return ResponseEntity.ok(ApiResponse.success(processCategoryService.getActivityLogs(categoryCode)));
+    @GetMapping("/{identifier}/activity-logs")
+    public ResponseEntity<ApiResponse<List<ProcessCategoryActivityLog>>> getActivityLogs(@PathVariable("identifier") String identifier) {
+        return ResponseEntity.ok(ApiResponse.success(processCategoryService.getActivityLogs(identifier)));
     }
 }
