@@ -839,10 +839,10 @@ export default function Sops() {
                         <td>{sop.process || sop.processCategory}</td>
                         <td>{sop.entity || sop.entityName}</td>
                         <td style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
-                          {sop.assignedCreatorName || sop.assignedCreatorId || 'N/A'}
+                          {(Array.isArray(sop.assignedCreatorNames) && sop.assignedCreatorNames.length > 0) ? sop.assignedCreatorNames.join(', ') : (sop.assignedCreatorName || sop.assignedCreatorId || 'N/A')}
                         </td>
                         <td style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
-                          {sop.assignedApproverName || sop.assignedApproverId || 'N/A'}
+                          {(Array.isArray(sop.assignedApproverNames) && sop.assignedApproverNames.length > 0) ? sop.assignedApproverNames.join(', ') : (sop.assignedApproverName || sop.assignedApproverId || 'N/A')}
                         </td>
                         <td>
                           {sop.status === 'PENDING_CREATION' && (

@@ -123,16 +123,16 @@ export default function AssignedSopDetailsModal({ isOpen, sop, onClose, onDelete
               </div>
 
               <div className={styles.field}>
-                <span className={styles.label}>Assigned Creator (Drafting)</span>
+                <span className={styles.label}>Assigned Creator(s) (Drafting)</span>
                 <span className={styles.value} style={{ fontWeight: 600, color: '#0f172a' }}>
-                  {sop.assignedCreatorName || sop.assignedCreatorId || 'N/A'}
+                  {(Array.isArray(sop.assignedCreatorNames) && sop.assignedCreatorNames.length > 0) ? sop.assignedCreatorNames.join(', ') : (sop.assignedCreatorName || sop.assignedCreatorId || 'N/A')}
                 </span>
               </div>
 
               <div className={styles.field}>
-                <span className={styles.label}>Assigned Approver (Reviewing)</span>
+                <span className={styles.label}>Assigned Approver(s) (Reviewing)</span>
                 <span className={styles.value} style={{ fontWeight: 600, color: '#0f172a' }}>
-                  {sop.assignedApproverName || sop.assignedApproverId || 'N/A'}
+                  {(Array.isArray(sop.assignedApproverNames) && sop.assignedApproverNames.length > 0) ? sop.assignedApproverNames.join(', ') : (sop.assignedApproverName || sop.assignedApproverId || 'N/A')}
                 </span>
               </div>
             </div>

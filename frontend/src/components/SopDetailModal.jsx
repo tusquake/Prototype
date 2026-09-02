@@ -31,8 +31,12 @@ export default function SopDetailModal({
   const dbLength = sop.history?.length || 0;
   const historyLength = Math.max(dbLength, milestoneCount);
 
-  const creatorName = sop.assignedCreatorName || sop.assignedCreatorId || 'Creator';
-  const approverName = sop.assignedApproverName || sop.assignedApproverId || 'Approver';
+  const creatorName = (Array.isArray(sop.assignedCreatorNames) && sop.assignedCreatorNames.length > 0)
+    ? sop.assignedCreatorNames.join(', ')
+    : (sop.assignedCreatorName || sop.assignedCreatorId || 'Creator');
+  const approverName = (Array.isArray(sop.assignedApproverNames) && sop.assignedApproverNames.length > 0)
+    ? sop.assignedApproverNames.join(', ')
+    : (sop.assignedApproverName || sop.assignedApproverId || 'Approver');
   const adminName = sop.createdByName || 'Manoj Agarwal';
 
   return (
