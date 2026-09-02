@@ -140,25 +140,41 @@ export default function SopDetailModal({
 
               <div className={styles.field}>
                 <span className={styles.label}>Frequency</span>
-                <span className={styles.value}>{sop.isRecurring ? (FREQ_LABEL[sop.frequency] || sop.frequency) : 'N/A (One-Time Task)'}</span>
+                <span className={styles.value}>
+                  {isPendingCreation ? (
+                    <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Pending Creation</span>
+                  ) : (
+                    sop.isRecurring ? (FREQ_LABEL[sop.frequency] || sop.frequency) : 'N/A (One-Time Task)'
+                  )}
+                </span>
               </div>
 
               <div className={styles.field}>
                 <span className={styles.label}>Due Day Offset</span>
-                <span className={styles.value}>Day {sop.dueDay || sop.dueDayOffset}</span>
+                <span className={styles.value}>
+                  {isPendingCreation ? (
+                    <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Pending Creation</span>
+                  ) : (
+                    `Day ${sop.dueDay || sop.dueDayOffset}`
+                  )}
+                </span>
               </div>
 
               <div className={styles.field}>
                 <span className={styles.label}>Scheduling Mode</span>
                 <span className={styles.value}>
-                  {sop.isRecurring ? (
-                    <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 4, fontWeight: 600, fontSize: 12 }}>
-                      Recurring Schedule
-                    </span>
+                  {isPendingCreation ? (
+                    <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Pending Creation</span>
                   ) : (
-                    <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 4, fontWeight: 600, fontSize: 12 }}>
-                      One-Time Task
-                    </span>
+                    sop.isRecurring ? (
+                      <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 4, fontWeight: 600, fontSize: 12 }}>
+                        Recurring Schedule
+                      </span>
+                    ) : (
+                      <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 4, fontWeight: 600, fontSize: 12 }}>
+                        One-Time Task
+                      </span>
+                    )
                   )}
                 </span>
               </div>
@@ -202,18 +218,26 @@ export default function SopDetailModal({
             <div className={styles.field}>
               <span className={styles.label}>Assigned Maker Pool</span>
               <div className={styles.poolBox}>
-                {makersList.map((m, idx) => (
-                  <span key={idx} className={styles.poolBadge}>{m}</span>
-                ))}
+                {makersList.length === 0 ? (
+                  <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: 13 }}>Not configured yet (Pending Creation)</span>
+                ) : (
+                  makersList.map((m, idx) => (
+                    <span key={idx} className={styles.poolBadge}>{m}</span>
+                  ))
+                )}
               </div>
             </div>
 
             <div className={styles.field}>
               <span className={styles.label}>Assigned Checker Pool</span>
               <div className={styles.poolBox}>
-                {checkersList.map((c, idx) => (
-                  <span key={idx} className={styles.poolBadge}>{c}</span>
-                ))}
+                {checkersList.length === 0 ? (
+                  <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: 13 }}>Not configured yet (Pending Creation)</span>
+                ) : (
+                  checkersList.map((c, idx) => (
+                    <span key={idx} className={styles.poolBadge}>{c}</span>
+                  ))
+                )}
               </div>
             </div>
           </div>

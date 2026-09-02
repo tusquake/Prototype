@@ -215,16 +215,14 @@ export function mapTask(dto) {
 
 export function mapSop(dto) {
   if (!dto) return null;
-  const defaultMakers = ['Tushar Seth', 'Vivek Raj'];
-  const defaultCheckers = ['Mainak Gupta', 'Vivek Raj'];
 
   const makers = (dto.defaultMakerNames && dto.defaultMakerNames.length > 0)
     ? dto.defaultMakerNames
-    : (dto.defaultMakerName ? [dto.defaultMakerName] : defaultMakers);
+    : (dto.defaultMakerName ? [dto.defaultMakerName] : []);
 
   const checkers = (dto.defaultCheckerNames && dto.defaultCheckerNames.length > 0)
     ? dto.defaultCheckerNames
-    : (dto.defaultCheckerName ? [dto.defaultCheckerName] : defaultCheckers);
+    : (dto.defaultCheckerName ? [dto.defaultCheckerName] : []);
 
   const rawHistory = (dto.history && dto.history.length > 0)
     ? dto.history.map(h => ({
