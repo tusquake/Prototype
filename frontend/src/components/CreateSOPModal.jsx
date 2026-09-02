@@ -21,8 +21,8 @@ const INITIAL_FORM = {
   frequency: 'MONTHLY',
   dueDayOffset: 15,
   isRecurring: false,
-  defaultMakerIds: ['usr-tushar-304', 'usr-prayasa-410'],
-  defaultCheckerIds: ['usr-vivek-108', 'usr-mainak-215'],
+  defaultMakerIds: [],
+  defaultCheckerIds: [],
 };
 
 const USER_ID_MAP = {
@@ -76,8 +76,8 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
         description: '',
       });
     } else if (editingSop) {
-      let rawMakers = editingSop.defaultMakerIds || (editingSop.defaultMakerNames ? editingSop.defaultMakerNames.map(n => USER_ID_MAP[n] || n) : (editingSop.defaultMakerId ? [editingSop.defaultMakerId] : ['usr-tushar-304']));
-      let rawCheckers = editingSop.defaultCheckerIds || (editingSop.defaultCheckerNames ? editingSop.defaultCheckerNames.map(n => USER_ID_MAP[n] || n) : (editingSop.defaultCheckerId ? [editingSop.defaultCheckerId] : ['usr-mainak-215']));
+      let rawMakers = editingSop.defaultMakerIds || (editingSop.defaultMakerNames ? editingSop.defaultMakerNames.map(n => USER_ID_MAP[n] || n) : (editingSop.defaultMakerId ? [editingSop.defaultMakerId] : []));
+      let rawCheckers = editingSop.defaultCheckerIds || (editingSop.defaultCheckerNames ? editingSop.defaultCheckerNames.map(n => USER_ID_MAP[n] || n) : (editingSop.defaultCheckerId ? [editingSop.defaultCheckerId] : []));
 
       const makers = Array.from(new Set(rawMakers.map(id => USER_ID_MAP[id] || id)));
       const checkers = Array.from(new Set(rawCheckers.map(id => USER_ID_MAP[id] || id)));
@@ -111,17 +111,17 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
   }
 
   function removeMakerUser(userId) {
-    setFormData(prev => {
-      if (prev.defaultMakerIds.length <= 1) return prev;
-      return { ...prev, defaultMakerIds: prev.defaultMakerIds.filter(id => id !== userId) };
-    });
+    setFormData(prev => ({
+      ...prev,
+      defaultMakerIds: prev.defaultMakerIds.filter(id => id !== userId),
+    }));
   }
 
   function removeCheckerUser(userId) {
-    setFormData(prev => {
-      if (prev.defaultCheckerIds.length <= 1) return prev;
-      return { ...prev, defaultCheckerIds: prev.defaultCheckerIds.filter(id => id !== userId) };
-    });
+    setFormData(prev => ({
+      ...prev,
+      defaultCheckerIds: prev.defaultCheckerIds.filter(id => id !== userId),
+    }));
   }
 
   async function handleFormSubmit(e) {
@@ -133,10 +133,20 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
       return;
     }
 
+    if (formData.defaultMakerIds.length === 0) {
+      setErrorMsg('Please select at least one Maker for the Assigned Maker Pool.');
+      return;
+    }
+
+    if (formData.defaultCheckerIds.length === 0) {
+      setErrorMsg('Please select at least one Checker for the Assigned Checker Pool.');
+      return;
+    }
+
     try {
       setSaving(true);
-      const makerId = USER_ID_MAP[formData.defaultMakerIds[0]] || formData.defaultMakerIds[0] || 'usr-tushar-304';
-      const checkerId = USER_ID_MAP[formData.defaultCheckerIds[0]] || formData.defaultCheckerIds[0] || 'usr-mainak-215';
+      const makerId = USER_ID_MAP[formData.defaultMakerIds[0]] || formData.defaultMakerIds[0];
+      const checkerId = USER_ID_MAP[formData.defaultCheckerIds[0]] || formData.defaultCheckerIds[0];
 
       const payload = {
         ...formData,
@@ -388,10 +398,12 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
                     </div>
 
                     <div className={styles.poolBadgeList}>
-                      {formData.defaultMakerIds.map(id => (
-                        <div key={id} className={styles.userBadge}>
-                          <span>{userMap[id] || id}</span>
-                          {formData.defaultMakerIds.length > 1 && (
+                      {formData.defaultMakerIds.length === 0 ? (
+                        <span style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>No Makers selected — click "Select Makers" to assign</span>
+                      ) : (
+                        formData.defaultMakerIds.map(id => (
+                          <div key={id} className={styles.userBadge}>
+                            <span>{userMap[id] || id}</span>
                             <button
                               type="button"
                               className={styles.removeUserBtn}
@@ -399,9 +411,9 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
                             >
                               &times;
                             </button>
-                          )}
-                        </div>
-                      ))}
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -418,10 +430,12 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
                     </div>
 
                     <div className={styles.poolBadgeList}>
-                      {formData.defaultCheckerIds.map(id => (
-                        <div key={id} className={styles.userBadge}>
-                          <span>{userMap[id] || id}</span>
-                          {formData.defaultCheckerIds.length > 1 && (
+                      {formData.defaultCheckerIds.length === 0 ? (
+                        <span style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>No Checkers selected — click "Select Checkers" to assign</span>
+                      ) : (
+                        formData.defaultCheckerIds.map(id => (
+                          <div key={id} className={styles.userBadge}>
+                            <span>{userMap[id] || id}</span>
                             <button
                               type="button"
                               className={styles.removeUserBtn}
@@ -429,9 +443,9 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
                             >
                               &times;
                             </button>
-                          )}
-                        </div>
-                      ))}
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>

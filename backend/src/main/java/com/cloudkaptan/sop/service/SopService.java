@@ -89,9 +89,9 @@ public class SopService {
         User createdBy = resolveUser(request.getCreatedById(), UserRole.ADMIN, entity);
 
         List<String> mPool = (request.getDefaultMakerIds() != null && !request.getDefaultMakerIds().isEmpty())
-            ? request.getDefaultMakerIds() : List.of(request.getDefaultMakerId() != null ? request.getDefaultMakerId() : "usr-tushar-304");
+            ? request.getDefaultMakerIds() : (request.getDefaultMakerId() != null ? List.of(request.getDefaultMakerId()) : java.util.Collections.emptyList());
         List<String> cPool = (request.getDefaultCheckerIds() != null && !request.getDefaultCheckerIds().isEmpty())
-            ? request.getDefaultCheckerIds() : List.of(request.getDefaultCheckerId() != null ? request.getDefaultCheckerId() : "usr-vivek-108");
+            ? request.getDefaultCheckerIds() : (request.getDefaultCheckerId() != null ? List.of(request.getDefaultCheckerId()) : java.util.Collections.emptyList());
 
         Boolean isRec = Boolean.TRUE.equals(request.getIsRecurring());
 
@@ -240,8 +240,12 @@ public class SopService {
         if (request.getFrequency() != null) sop.setFrequency(request.getFrequency());
         if (request.getDueDayOffset() != null) sop.setDueDayOffset(request.getDueDayOffset());
         if (request.getIsRecurring() != null) sop.setIsRecurring(request.getIsRecurring());
-        if (request.getDefaultMakerIds() != null && !request.getDefaultMakerIds().isEmpty()) sop.setDefaultMakerIds(request.getDefaultMakerIds());
-        if (request.getDefaultCheckerIds() != null && !request.getDefaultCheckerIds().isEmpty()) sop.setDefaultCheckerIds(request.getDefaultCheckerIds());
+        if (request.getDefaultMakerIds() != null && !request.getDefaultMakerIds().isEmpty()) {
+            sop.setDefaultMakerIds(new java.util.ArrayList<>(request.getDefaultMakerIds()));
+        }
+        if (request.getDefaultCheckerIds() != null && !request.getDefaultCheckerIds().isEmpty()) {
+            sop.setDefaultCheckerIds(new java.util.ArrayList<>(request.getDefaultCheckerIds()));
+        }
 
         Sop saved = sopRepository.save(sop);
 
