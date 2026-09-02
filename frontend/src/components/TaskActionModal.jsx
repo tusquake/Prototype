@@ -35,20 +35,29 @@ export default function TaskActionModal({
 
   if (!isOpen || !task) return null;
 
+  const currentUserId = currentUser?.id || currentUser?.userId || '';
   const rawName = currentUser?.name || '';
   const cleanName = rawName.split(' (')[0].trim().toLowerCase();
   const userRole = currentUser?.role || 'ADMIN';
-  const isViewer = userRole === 'VIEWER';
   const isAdmin = userRole === 'ADMIN';
 
-  function isUserMatch(personName) {
+  function isUserMatch(personName, personIdList) {
+    if (currentUserId && Array.isArray(personIdList) && personIdList.includes(currentUserId)) return true;
     if (!personName) return false;
+    if (!cleanName) return false;
     const cleanPerson = personName.toLowerCase().trim();
     return cleanPerson.includes(cleanName) || cleanName.includes(cleanPerson);
   }
 
-  const isAssignedMaker = isUserMatch(task.maker) || isUserMatch(task.assignedMakers?.join(', ')) || isAdmin;
-  const isAssignedChecker = isUserMatch(task.checker) || isUserMatch(task.assignedCheckers?.join(', ')) || isAdmin;
+  const isAssignedMaker = isUserMatch(task.maker, task.assignedMakerIds) ||
+    isUserMatch(task.assignedMakers?.join(', '), task.assignedMakerIds) ||
+    (Array.isArray(task.assignedMakerIds) && task.assignedMakerIds.includes(currentUserId)) ||
+    isAdmin;
+
+  const isAssignedChecker = isUserMatch(task.checker, task.assignedCheckerIds) ||
+    isUserMatch(task.assignedCheckers?.join(', '), task.assignedCheckerIds) ||
+    (Array.isArray(task.assignedCheckerIds) && task.assignedCheckerIds.includes(currentUserId)) ||
+    isAdmin;
 
   const isLockedByOtherMaker = task.lockedMaker && !isUserMatch(task.lockedMaker) && !isAdmin;
   const isActionedByOtherChecker = task.lockedChecker && !isUserMatch(task.lockedChecker) && !isAdmin;
@@ -56,8 +65,9 @@ export default function TaskActionModal({
   // Separation of duties rule: If current non-admin user is the Maker who submitted this task, they cannot approve/reject it.
   const isSelfMakerSubmission = task.lockedMaker && isUserMatch(task.lockedMaker) && !isAdmin;
 
-  const canSubmit = (task.status === 'OPEN' || task.status === 'REJECTED') && isAssignedMaker && !isLockedByOtherMaker && !isViewer;
-  const canApproveOrReject = task.status === 'PENDING_REVIEW' && isAssignedChecker && !isActionedByOtherChecker && !isSelfMakerSubmission && !isViewer;
+  const canSubmit = (task.status === 'OPEN' || task.status === 'REJECTED') && isAssignedMaker && !isLockedByOtherMaker;
+  const canApproveOrReject = task.status === 'PENDING_REVIEW' && isAssignedChecker && !isActionedByOtherChecker && !isSelfMakerSubmission;
+  const isReadOnly = !canSubmit && !canApproveOrReject;
 
   const isSubmittedOrDone = task.status === 'PENDING_REVIEW' || task.status === 'APPROVED' || task.status === 'REJECTED' || task.status === 'PERMANENTLY_REJECTED';
 
@@ -293,17 +303,17 @@ export default function TaskActionModal({
                 className={styles.commentTextarea}
                 rows="3"
                 placeholder={
-                  isViewer
-                    ? 'Read-only viewer mode...'
+                  isReadOnly
+                    ? (isSelfMakerSubmission
+                        ? 'Read-only: You submitted this task as Maker (Segregation of Duties)'
+                        : 'Read-only viewer mode...')
                     : canApproveOrReject
                       ? 'Enter approval notes or mandatory rejection reason...'
-                      : isSelfMakerSubmission
-                        ? 'Read-only: You submitted this task as Maker (Segregation of Duties)'
-                        : 'Enter task execution summary, tax deposit reference, or upload comments...'
+                      : 'Enter task execution summary, tax deposit reference, or upload comments...'
                 }
                 value={comment}
                 onChange={e => setComment(e.target.value)}
-                disabled={isViewer || (!canSubmit && !canApproveOrReject)}
+                disabled={isReadOnly}
               />
             </div>
           </div>
