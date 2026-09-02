@@ -66,6 +66,12 @@ public class Sop {
     @Column(name = "assigned_creator_id", length = 64)
     private String assignedCreatorId;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "sop_assigned_creators", joinColumns = @JoinColumn(name = "sop_id"))
+    @Column(name = "creator_id", length = 64)
+    @Builder.Default
+    private java.util.List<String> assignedCreatorIds = new java.util.ArrayList<>();
+
     @Column(name = "assigned_approver_id", length = 64)
     private String assignedApproverId;
 

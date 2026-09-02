@@ -8,8 +8,13 @@ import {
   loginAsDemoChecker,
   loginAsDemoMaker,
   loginAsDemoViewer,
+  saveSession,
+  USERS,
 } from '../auth/auth';
 import styles from './Login.module.css';
+
+// All VIEWER-role users (for team member sign-in section)
+const VIEWER_USERS = USERS.filter(u => u.role === 'VIEWER' && u.id !== 'usr-avisek-499');
 
 function VectorDashField({ position = 'left' }) {
   const rows = 14;
@@ -28,26 +33,17 @@ function VectorDashField({ position = 'left' }) {
         : (distFromCenter * 20 - r * 14 + c * 8) % 180 - 30;
 
       const opacity = Math.max(0.12, 0.75 - distFromCenter * 0.07);
-
       dashes.push({ x, y, angle, opacity });
     }
   }
 
   return (
     <div className={position === 'left' ? styles.dashWrapperLeft : styles.dashWrapperRight}>
-      <svg
-        className={styles.dashSvg}
-        viewBox="0 0 340 380"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
+      <svg className={styles.dashSvg} viewBox="0 0 340 380" fill="none" xmlns="http://www.w3.org/2000/svg">
         {dashes.map((d, i) => (
           <line
             key={i}
-            x1={d.x - 7}
-            y1={d.y}
-            x2={d.x + 7}
-            y2={d.y}
+            x1={d.x - 7} y1={d.y} x2={d.x + 7} y2={d.y}
             stroke={position === 'left' ? '#38bdf8' : '#60a5fa'}
             strokeWidth="1.8"
             strokeLinecap="round"
@@ -63,6 +59,7 @@ function VectorDashField({ position = 'left' }) {
 export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(null);
+  const [selectedViewer, setSelectedViewer] = useState('');
 
   function handleGoogle() {
     setLoading('google');
@@ -79,17 +76,22 @@ export default function Login() {
     navigate('/dashboard');
   }
 
+  function handleViewerLogin() {
+    if (!selectedViewer) return;
+    const user = VIEWER_USERS.find(u => u.id === selectedViewer);
+    if (user) {
+      saveSession(user, `demo-viewer-token-${user.id}`);
+      navigate('/dashboard');
+    }
+  }
+
   return (
     <div className={styles.page}>
-      {/* Background Vector Dash Fields (Left & Right) */}
       <VectorDashField position="left" />
       <VectorDashField position="right" />
-
-      {/* Ambient Glow Orbs */}
       <div className={styles.glowOrbLeft} />
       <div className={styles.glowOrbRight} />
 
-      {/* White Clean Login Card Floating over Dark Tech Background */}
       <div className={styles.card}>
         <div className={styles.brand}>
           <img src="/CLoudKaptan-logo.png" alt="CloudKaptan" className={styles.logo} />
@@ -102,7 +104,7 @@ export default function Login() {
               <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z" />
               <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.27v3.13C3.25 21.3 7.31 24 12 24z" />
               <path fill="#FBBC05" d="M5.28 14.25c-.25-.72-.38-1.49-.38-2.25s.13-1.53.38-2.25V6.62H1.27C.46 8.23 0 10.06 0 12s.46 3.77 1.27 5.38l4.01-3.13z" />
-              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.7 1.27 6.62l4.01 3.13c.95-2.83 3.6-4.93 6.72-4.93z" />
+              <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.25 2.7 1.27 6.62l4.01 3.13z" />
             </svg>
             {loading === 'google' ? 'Redirecting...' : 'Sign in with Google'}
           </button>
@@ -134,6 +136,39 @@ export default function Login() {
             </button>
             <button className={styles.btnDemo} onClick={() => handleDemo(loginAsDemoViewer)}>
               Sign in as Viewer (Avisek Shaw)
+            </button>
+          </div>
+
+          {/* Team Member Sign-in — 13 new VIEWER users */}
+          <div className={styles.divider}><span>sign in as team member</span></div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+            <select
+              value={selectedViewer}
+              onChange={e => setSelectedViewer(e.target.value)}
+              style={{
+                flex: 1,
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: '1.5px solid #cbd5e1',
+                fontSize: 13,
+                background: '#f8fafc',
+                color: '#0f172a',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="">— Select team member —</option>
+              {VIEWER_USERS.map(u => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+            <button
+              className={styles.btnDemo}
+              onClick={handleViewerLogin}
+              disabled={!selectedViewer}
+              style={{ flexShrink: 0, whiteSpace: 'nowrap', opacity: selectedViewer ? 1 : 0.5 }}
+            >
+              Sign In
             </button>
           </div>
         </div>

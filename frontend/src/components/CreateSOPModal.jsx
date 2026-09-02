@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import CustomSelect from './CustomSelect';
 import UserPickerModal from './UserPickerModal';
-import { submitSopDraft, updateSop, createSop } from '../services/api';
+import { submitSopDraft, updateSop, createSop, getUsersByPermission } from '../services/api';
 import styles from '../pages/Sops.module.css';
 
 const FREQ_OPTIONS = [
@@ -49,6 +49,21 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
   const [errorMsg, setErrorMsg] = useState('');
 
   const isCreatorDraftMode = !!lockedAssignment && !editingSop;
+
+  const [permittedMakers, setPermittedMakers] = useState(null);
+  const [permittedCheckers, setPermittedCheckers] = useState(null);
+
+  useEffect(() => {
+    if (isOpen && formData.processCategory) {
+      getUsersByPermission(formData.processCategory, 'MAKER')
+        .then(res => setPermittedMakers(Array.isArray(res) ? res : []))
+        .catch(() => setPermittedMakers([]));
+
+      getUsersByPermission(formData.processCategory, 'CHECKER')
+        .then(res => setPermittedCheckers(Array.isArray(res) ? res : []))
+        .catch(() => setPermittedCheckers([]));
+    }
+  }, [isOpen, formData.processCategory]);
 
   useEffect(() => {
     if (lockedAssignment) {
@@ -441,6 +456,7 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
         entityCode={formData.entityCode}
         targetRole="MAKER"
         selectedUserIds={formData.defaultMakerIds}
+        permittedUsers={permittedMakers}
         onClose={() => setShowMakerPicker(false)}
         onConfirm={selectedIds => {
           setFormData(prev => ({ ...prev, defaultMakerIds: selectedIds }));
@@ -458,6 +474,7 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
         entityCode={formData.entityCode}
         targetRole="CHECKER"
         selectedUserIds={formData.defaultCheckerIds}
+        permittedUsers={permittedCheckers}
         onClose={() => setShowCheckerPicker(false)}
         onConfirm={selectedIds => {
           setFormData(prev => ({ ...prev, defaultCheckerIds: selectedIds }));

@@ -212,6 +212,22 @@ public class UserCategoryPermissionService {
     }
 
     @Transactional(readOnly = true)
+    public List<String> getUsersByPermission(String processCategory, String permissionType) {
+        List<UserCategoryPermission> list = permissionRepository.findByProcessCategory(processCategory);
+        return list.stream()
+                .filter(p -> switch (permissionType.toUpperCase()) {
+                    case "CAN_CREATE_SOP", "CREATOR"  -> Boolean.TRUE.equals(p.getCanCreateSop());
+                    case "CAN_APPROVE_SOP", "APPROVER" -> Boolean.TRUE.equals(p.getCanApproveSop());
+                    case "CAN_MAKE_TASK", "MAKER"      -> Boolean.TRUE.equals(p.getCanMakeTask());
+                    case "CAN_CHECK_TASK", "CHECKER"   -> Boolean.TRUE.equals(p.getCanCheckTask());
+                    default -> false;
+                })
+                .map(UserCategoryPermission::getUserId)
+                .distinct()
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<String> getUserAccessibleCategories(String userId) {
         List<UserCategoryPermission> list = permissionRepository.findByUserId(userId);
         return list.stream()

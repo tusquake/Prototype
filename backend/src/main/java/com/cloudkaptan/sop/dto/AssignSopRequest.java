@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,8 +25,11 @@ public class AssignSopRequest {
     @NotBlank(message = "Process category is required and must be fixed by Admin")
     private String processCategory;
 
-    @NotBlank(message = "Assigned Creator ID is required")
+    // Legacy single creator — kept for backward compat; assignedCreatorIds takes precedence if provided
     private String assignedCreatorId;
+
+    // Multi-creator support
+    private List<String> assignedCreatorIds;
 
     @NotBlank(message = "Assigned Approver ID is required")
     private String assignedApproverId;

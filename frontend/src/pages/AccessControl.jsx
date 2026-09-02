@@ -7,21 +7,15 @@ import {
   getCategoryAccessAssignments,
   saveCategoryAccessAssignments,
   getAccessControlActivityLogs,
+  getUsers,
+  MOCK_ORGANIZATION_USERS,
 } from '../services/api';
 import { getSession } from '../auth/auth';
 import styles from './AuditLogs.module.css';
 import modalStyles from '../components/SopDetailModal.module.css';
 
-const DEMO_USERS = [
-  { id: 'usr-tushar-304', name: 'Tushar Seth', email: 'tushar@cloudkaptan.com', role: 'ADMIN' },
-  { id: 'usr-vivek-108', name: 'Vivek Raj', email: 'vivek@cloudkaptan.com', role: 'NON_ADMIN' },
-  { id: 'usr-mainak-215', name: 'Mainak Gupta', email: 'mainak@cloudkaptan.com', role: 'NON_ADMIN' },
-  { id: 'usr-prayas-412', name: 'Prayasa Sharma', email: 'prayas@cloudkaptan.com', role: 'NON_ADMIN' },
-  { id: 'usr-manoj-042', name: 'Manoj Kumar', email: 'manoj@cloudkaptan.com', role: 'NON_ADMIN' },
-  { id: 'usr-avisek-499', name: 'Avisek Paul', email: 'avisek@cloudkaptan.com', role: 'NON_ADMIN' },
-];
-
 export default function AccessControl() {
+  const [allUsers, setAllUsers] = useState(MOCK_ORGANIZATION_USERS);
   const [categories, setCategories] = useState([]);
   const [categoryAssignments, setCategoryAssignments] = useState({});
   const [loading, setLoading] = useState(true);
@@ -77,9 +71,15 @@ export default function AccessControl() {
     setLoading(true);
     setError(null);
     try {
-      const catList = await getProcessCategories();
+      const [catList, userList] = await Promise.all([
+        getProcessCategories().catch(() => []),
+        getUsers().catch(() => MOCK_ORGANIZATION_USERS),
+      ]);
       const list = Array.isArray(catList) ? catList : [];
       setCategories(list);
+      if (Array.isArray(userList) && userList.length > 0) {
+        setAllUsers(userList);
+      }
 
       const assignmentsMap = {};
       for (const cat of list) {
@@ -195,7 +195,7 @@ export default function AccessControl() {
 
   function getUserNames(userIds = []) {
     if (!userIds || userIds.length === 0) return 'None assigned';
-    const names = userIds.map(id => DEMO_USERS.find(u => u.id === id)?.name || id);
+    const names = userIds.map(id => allUsers.find(u => u.id === id || u.userId === id)?.name || allUsers.find(u => u.id === id || u.userId === id)?.fullName || id);
     return names.join(', ');
   }
 
@@ -204,8 +204,8 @@ export default function AccessControl() {
       return <span style={{ color: '#94a3b8', fontSize: 12, fontStyle: 'italic' }}>None assigned</span>;
     }
 
-    const userObjects = userIds.map(id => DEMO_USERS.find(u => u.id === id) || { id, name: id, role: 'USER' });
-    const formattedNames = userObjects.map(u => u.name).join(', ');
+    const userObjects = userIds.map(id => allUsers.find(u => u.id === id || u.userId === id) || { id, name: id, fullName: id, role: 'USER' });
+    const formattedNames = userObjects.map(u => u.name || u.fullName || u.id).join(', ');
 
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', minWidth: 0 }}>
@@ -265,7 +265,7 @@ export default function AccessControl() {
   const dualTaskUsers = makers.filter(id => checkers.includes(id));
   const hasSoDWarning = dualSopUsers.length > 0 || dualTaskUsers.length > 0;
 
-  const viewUsersList = viewUsersModal.userIds.map(id => DEMO_USERS.find(u => u.id === id) || { id, name: id, email: '—', role: 'USER' });
+  const viewUsersList = viewUsersModal.userIds.map(id => allUsers.find(u => u.id === id || u.userId === id) || { id, name: id, fullName: id, email: '—', role: 'USER' });
 
   return (
     <div className={styles.layout}>

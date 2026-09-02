@@ -150,16 +150,27 @@ public class SopService {
         CorporateEntity entity = resolveEntity(request.getEntityCode());
         User adminCreator = resolveUser("usr-manoj-042", UserRole.ADMIN, entity);
 
+        // Resolve creator IDs — multi-creator list takes precedence over single ID
+        java.util.List<String> creatorIds = new java.util.ArrayList<>();
+        if (request.getAssignedCreatorIds() != null && !request.getAssignedCreatorIds().isEmpty()) {
+            creatorIds.addAll(request.getAssignedCreatorIds());
+        } else if (request.getAssignedCreatorId() != null && !request.getAssignedCreatorId().isBlank()) {
+            creatorIds.add(request.getAssignedCreatorId());
+        }
+        // Primary creator for legacy single-id column
+        String primaryCreatorId = creatorIds.isEmpty() ? null : creatorIds.get(0);
+
         Sop sop = Sop.builder()
             .sopCode(request.getSopCode())
             .title(request.getTitle() != null && !request.getTitle().isBlank() ? request.getTitle() : "Pending SOP Draft - " + request.getSopCode())
             .description("SOP assigned by Admin. Pending drafting by assigned creator.")
-            .processCategory(request.getProcessCategory()) // Fixed process category set by Admin!
+            .processCategory(request.getProcessCategory())
             .entity(entity)
             .frequency(com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY)
             .dueDayOffset(15)
             .isRecurring(false)
-            .assignedCreatorId(request.getAssignedCreatorId())
+            .assignedCreatorId(primaryCreatorId)
+            .assignedCreatorIds(new java.util.ArrayList<>(creatorIds))
             .assignedApproverId(request.getAssignedApproverId())
             .status(SopStatus.PENDING_CREATION)
             .createdBy(adminCreator)
@@ -183,19 +194,23 @@ public class SopService {
             .action("ASSIGN_SOP")
             .fromStatus(null)
             .toStatus(SopStatus.PENDING_CREATION)
-            .comment("SOP creation task assigned to creator")
+            .comment("SOP creation task assigned to " + creatorIds.size() + " creator(s)")
             .build());
 
-        // Publish In-App Notification
-        if (saved.getAssignedCreatorId() != null) {
-            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
-                .recipientUserId(saved.getAssignedCreatorId())
-                .eventType("SOP_ASSIGNED")
-                .title("SOP Creation Task Assigned")
-                .message("You have been assigned to draft SOP " + saved.getSopCode() + " (" + saved.getProcessCategory() + ")")
-                .referenceEntityType("SOP")
-                .referenceEntityId(saved.getSopId().toString())
-                .build());
+        // Notify ALL assigned creators
+        for (String creatorId : creatorIds) {
+            try {
+                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                    .recipientUserId(creatorId)
+                    .eventType("SOP_ASSIGNED")
+                    .title("SOP Creation Task Assigned")
+                    .message("You have been assigned to draft SOP " + saved.getSopCode() + " (" + saved.getProcessCategory() + ")")
+                    .referenceEntityType("SOP")
+                    .referenceEntityId(saved.getSopId().toString())
+                    .build());
+            } catch (Exception e) {
+                // Non-fatal — continue notifying remaining creators
+            }
         }
 
         return mapToDto(saved);
@@ -475,6 +490,10 @@ public class SopService {
             .defaultCheckerNames(cNames)
             .assignedCreatorId(sop.getAssignedCreatorId())
             .assignedCreatorName(sop.getAssignedCreatorId() != null ? userRepository.findById(sop.getAssignedCreatorId()).map(User::getFullName).orElse(sop.getAssignedCreatorId()) : null)
+            .assignedCreatorIds(sop.getAssignedCreatorIds() != null ? sop.getAssignedCreatorIds() : new java.util.ArrayList<>())
+            .assignedCreatorNames(sop.getAssignedCreatorIds() != null ? sop.getAssignedCreatorIds().stream()
+                    .map(cId -> userRepository.findById(cId).map(User::getFullName).orElse(cId))
+                    .toList() : new java.util.ArrayList<>())
             .assignedApproverId(sop.getAssignedApproverId())
             .assignedApproverName(sop.getAssignedApproverId() != null ? userRepository.findById(sop.getAssignedApproverId()).map(User::getFullName).orElse(sop.getAssignedApproverId()) : null)
             .rejectionReason(sop.getRejectionReason())

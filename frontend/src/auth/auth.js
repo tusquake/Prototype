@@ -3,11 +3,26 @@ import { getRoleForEmail, ROLES } from './rbac';
 const GOOGLE_CLIENT_ID = '134019064582-5j9c1gvcl73k2bpp6p927u3d9q7uruoq.apps.googleusercontent.com';
 
 export const USERS = [
-  { id: 'usr-manoj-042', name: 'Manoj Agarwal', email: 'manoj.agarwal@cloudkaptan.com', role: 'ADMIN', picture: '' },
-  { id: 'usr-vivek-108', name: 'Vivek Raj', email: 'vivek.raj@cloudkaptan.com', role: 'MAKER_CHECKER', picture: '' },
-  { id: 'usr-mainak-215', name: 'Mainak Gupta', email: 'mainak.gupta@cloudkaptan.com', role: 'CHECKER', picture: '' },
-  { id: 'usr-tushar-304', name: 'Tushar Seth', email: 'tushar.seth@cloudkaptan.com', role: 'MAKER', picture: '' },
-  { id: 'usr-avisek-499', name: 'Avisek Shaw', email: 'avisek.shaw@cloudkaptan.com', role: 'VIEWER', picture: '' },
+  // Admins & existing core users
+  { id: 'usr-manoj-042',  name: 'Manoj Agarwal',   email: 'manoj.agarwal@cloudkaptan.com',          role: 'ADMIN',        picture: '' },
+  { id: 'usr-vivek-108',  name: 'Vivek Raj',        email: 'vivek.raj@cloudkaptan.com',              role: 'MAKER_CHECKER', picture: '' },
+  { id: 'usr-mainak-215', name: 'Mainak Gupta',     email: 'mainak.gupta@cloudkaptan.com',           role: 'CHECKER',      picture: '' },
+  { id: 'usr-tushar-304', name: 'Tushar Seth',      email: 'tushar.seth@cloudkaptan.com',            role: 'MAKER',        picture: '' },
+  { id: 'usr-avisek-499', name: 'Avisek Shaw',      email: 'avisek.shaw@cloudkaptan.com',            role: 'VIEWER',       picture: '' },
+  // 13 new VIEWER users (no access until admin grants permissions)
+  { id: 'usr-anirban-001',  name: 'Anirban Paul',          email: 'anirban.paul@cloudkaptan.com',          role: 'VIEWER', picture: '' },
+  { id: 'usr-annu-002',     name: 'Annu Shaw',             email: 'annu.shaw@cloudkaptan.com',             role: 'VIEWER', picture: '' },
+  { id: 'usr-avisek2-003',  name: 'Avisek Shaw',           email: 'avisek.shaw@cloudkaptan.com',           role: 'VIEWER', picture: '' },
+  { id: 'usr-ayush-004',    name: 'Ayush Pandey',          email: 'ayush.pandey@cloudkaptan.com',          role: 'VIEWER', picture: '' },
+  { id: 'usr-debajyo-005',  name: 'Debajyoti Dattagupta',  email: 'debajyoti.dattagupta@cloudkaptan.com',  role: 'VIEWER', picture: '' },
+  { id: 'usr-isha-006',     name: 'Isha Prasad',           email: 'isha.prasad@cloudkaptan.com',           role: 'VIEWER', picture: '' },
+  { id: 'usr-king-007',     name: 'Kingshuk Roy',          email: 'kingshuk.roy@cloudkaptan.com',          role: 'VIEWER', picture: '' },
+  { id: 'usr-moit-008',     name: 'Moitrayee Dutta',       email: 'moitrayee.dutta@cloudkaptan.com',       role: 'VIEWER', picture: '' },
+  { id: 'usr-nishan-009',   name: 'Nishan Mandal',         email: 'nishan.mandal@cloudkaptan.com',         role: 'VIEWER', picture: '' },
+  { id: 'usr-rounok-010',   name: 'Rounok Das',            email: 'rounok.das@cloudkaptan.com',            role: 'VIEWER', picture: '' },
+  { id: 'usr-sanjeev-011',  name: 'Sanjeev Kumar',         email: 'sanjeev.kumar@cloudkaptan.com',         role: 'VIEWER', picture: '' },
+  { id: 'usr-sayant-012',   name: 'Sayantan Ghosh',        email: 'sayantan.ghosh@cloudkaptan.com',        role: 'VIEWER', picture: '' },
+  { id: 'usr-shreya-013',   name: 'Shreya Singh',          email: 'shreya.singh@cloudkaptan.com',          role: 'VIEWER', picture: '' },
 ];
 
 function getRedirectUri() {

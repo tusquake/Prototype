@@ -8,6 +8,7 @@ export default function UserPickerModal({
   entityCode = null,
   targetRole = null,
   selectedUserIds = [],
+  permittedUsers = null, // when set, only show these users (permission-filtered)
   onClose,
   onConfirm,
   onSelect,
@@ -37,11 +38,16 @@ export default function UserPickerModal({
       setTempSelected(normalized);
       loadApiUsers();
     }
-  }, [isOpen, selectedUserIds, entityCode, targetRole]);
+  }, [isOpen, selectedUserIds, entityCode, targetRole, permittedUsers]);
 
   async function loadApiUsers() {
     setLoading(true);
     try {
+      // If permittedUsers is provided, skip the API call and use them directly
+      if (permittedUsers !== null) {
+        setUsers(permittedUsers);
+        return;
+      }
       const eligibleUsers = await getUsers(entityCode, targetRole);
       setUsers(eligibleUsers);
     } catch {

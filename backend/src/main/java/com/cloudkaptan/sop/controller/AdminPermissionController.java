@@ -47,6 +47,14 @@ public class AdminPermissionController {
         return ResponseEntity.ok(ApiResponse.success(categoryPermissionService.getUserAccessibleCategories(userId)));
     }
 
+    @GetMapping("/category/{categoryCode}/users")
+    public ResponseEntity<ApiResponse<List<String>>> getUsersByPermission(
+            @PathVariable("categoryCode") String categoryCode,
+            @RequestParam(value = "permission", defaultValue = "CREATOR") String permission) {
+        List<String> userIds = categoryPermissionService.getUsersByPermission(categoryCode, permission);
+        return ResponseEntity.ok(ApiResponse.success(userIds));
+    }
+
     @GetMapping("/activity-logs")
     public ResponseEntity<ApiResponse<List<AccessControlActivityLog>>> getAccessControlActivityLogs(
             @RequestParam(value = "processCategory", required = false) String processCategory) {

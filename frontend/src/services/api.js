@@ -68,7 +68,22 @@ export const MOCK_ORGANIZATION_USERS = [
     name: 'Avisek Shaw',
     email: 'avisek.shaw@cloudkaptan.com',
     groups: ['fin_sop_viewer'],
+    role: 'VIEWER',
   },
+  // 13 new VIEWER users — no access until admin grants permissions
+  { id: 'usr-anirban-001',  name: 'Anirban Paul',          email: 'anirban.paul@cloudkaptan.com',          groups: [], role: 'VIEWER' },
+  { id: 'usr-annu-002',     name: 'Annu Shaw',             email: 'annu.shaw@cloudkaptan.com',             groups: [], role: 'VIEWER' },
+  { id: 'usr-avisek2-003',  name: 'Avisek Shaw',           email: 'avisek.shaw@cloudkaptan.com',           groups: [], role: 'VIEWER' },
+  { id: 'usr-ayush-004',    name: 'Ayush Pandey',          email: 'ayush.pandey@cloudkaptan.com',          groups: [], role: 'VIEWER' },
+  { id: 'usr-debajyo-005',  name: 'Debajyoti Dattagupta',  email: 'debajyoti.dattagupta@cloudkaptan.com',  groups: [], role: 'VIEWER' },
+  { id: 'usr-isha-006',     name: 'Isha Prasad',           email: 'isha.prasad@cloudkaptan.com',           groups: [], role: 'VIEWER' },
+  { id: 'usr-king-007',     name: 'Kingshuk Roy',          email: 'kingshuk.roy@cloudkaptan.com',          groups: [], role: 'VIEWER' },
+  { id: 'usr-moit-008',     name: 'Moitrayee Dutta',       email: 'moitrayee.dutta@cloudkaptan.com',       groups: [], role: 'VIEWER' },
+  { id: 'usr-nishan-009',   name: 'Nishan Mandal',         email: 'nishan.mandal@cloudkaptan.com',         groups: [], role: 'VIEWER' },
+  { id: 'usr-rounok-010',   name: 'Rounok Das',            email: 'rounok.das@cloudkaptan.com',            groups: [], role: 'VIEWER' },
+  { id: 'usr-sanjeev-011',  name: 'Sanjeev Kumar',         email: 'sanjeev.kumar@cloudkaptan.com',         groups: [], role: 'VIEWER' },
+  { id: 'usr-sayant-012',   name: 'Sayantan Ghosh',        email: 'sayantan.ghosh@cloudkaptan.com',        groups: [], role: 'VIEWER' },
+  { id: 'usr-shreya-013',   name: 'Shreya Singh',          email: 'shreya.singh@cloudkaptan.com',          groups: [], role: 'VIEWER' },
 ];
 
 export const MOCK_AUDIT_LOGS = [];
@@ -856,3 +871,25 @@ export async function getAccessControlActivityLogs(categoryCode = null) {
   return Array.isArray(res) ? res : (res?.data || []);
 }
 
+/**
+ * Returns users who have a specific permission for a given process category.
+ * permissionType: 'CREATOR' | 'APPROVER' | 'MAKER' | 'CHECKER'
+ * Falls back to empty list if backend unavailable (admin must assign first).
+ */
+export async function getUsersByPermission(categoryCode, permissionType) {
+  if (!categoryCode || !permissionType) return [];
+  try {
+    const res = await fetchJson(
+      `/admin/permissions/category/${encodeURIComponent(categoryCode)}/users?permission=${permissionType}`
+    );
+    // Response is a plain List<String> of userIds
+    if (Array.isArray(res)) {
+      // Resolve full user objects from our mock user list
+      return res.map(uid => MOCK_ORGANIZATION_USERS.find(u => u.id === uid) || { id: uid, name: uid, email: '' });
+    }
+    return [];
+  } catch {
+    // Return empty — no access until admin grants permissions
+    return [];
+  }
+}
