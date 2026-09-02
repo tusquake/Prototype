@@ -5,10 +5,12 @@ import com.cloudkaptan.sop.dto.CategoryPermissionDto;
 import com.cloudkaptan.sop.dto.GrantPermissionRequest;
 import com.cloudkaptan.sop.entity.AccessControlActivityLog;
 import com.cloudkaptan.sop.entity.AuditLog;
+import com.cloudkaptan.sop.entity.User;
 import com.cloudkaptan.sop.entity.UserCategoryPermission;
 import com.cloudkaptan.sop.repository.AccessControlActivityLogRepository;
 import com.cloudkaptan.sop.repository.AuditLogRepository;
 import com.cloudkaptan.sop.repository.UserCategoryPermissionRepository;
+import com.cloudkaptan.sop.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,7 @@ public class UserCategoryPermissionService {
     private final UserCategoryPermissionRepository permissionRepository;
     private final AccessControlActivityLogRepository accessControlActivityLogRepository;
     private final AuditLogRepository auditLogRepository;
+    private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
     public List<CategoryPermissionDto> getUserPermissions(String userId) {
@@ -86,6 +89,11 @@ public class UserCategoryPermissionService {
 
     @Transactional
     public CategoryAccessAssignmentDto saveCategoryAssignments(CategoryAccessAssignmentDto dto) {
+        return saveCategoryAssignments(dto, null);
+    }
+
+    @Transactional
+    public CategoryAccessAssignmentDto saveCategoryAssignments(CategoryAccessAssignmentDto dto, String actorId) {
         String category = dto.getProcessCategory();
 
         // Fetch previous assignments for diff calculation
@@ -135,13 +143,13 @@ public class UserCategoryPermissionService {
         CategoryAccessAssignmentDto updated = getCategoryAssignments(category);
 
         // 3. Compute Detailed Diff & Log Activity
-        recordAccessControlAudit(category, prev, updated);
+        recordAccessControlAudit(category, prev, updated, actorId);
 
         log.info("Successfully updated category-centric assignments for category [{}]", category);
         return updated;
     }
 
-    private void recordAccessControlAudit(String category, CategoryAccessAssignmentDto prev, CategoryAccessAssignmentDto updated) {
+    private void recordAccessControlAudit(String category, CategoryAccessAssignmentDto prev, CategoryAccessAssignmentDto updated, String actorId) {
         List<String> prevCreators = prev.getCreatorUserIds() != null ? prev.getCreatorUserIds() : Collections.emptyList();
         List<String> newCreators = updated.getCreatorUserIds() != null ? updated.getCreatorUserIds() : Collections.emptyList();
 
@@ -183,19 +191,28 @@ public class UserCategoryPermissionService {
                 ? "Re-saved access control permissions with no user changes."
                 : "Updated access permissions: " + String.join("; ", diffs);
 
+        // Resolve actor user dynamically
+        String targetActorId = (actorId != null && !actorId.isBlank()) ? actorId : "usr-manoj-042";
+        User actorUser = userRepository.findById(targetActorId)
+                .or(() -> userRepository.findByEmail(targetActorId))
+                .orElse(null);
+
+        String resolvedActorId = (actorUser != null) ? actorUser.getUserId() : targetActorId;
+        String resolvedActorName = (actorUser != null) ? actorUser.getFullName() : (targetActorId.contains("@") ? targetActorId.split("@")[0] : targetActorId);
+
         // a. Save to Dedicated Access Control Activity Log Table
         AccessControlActivityLog activityLog = AccessControlActivityLog.builder()
                 .processCategory(category)
                 .action("ACCESS_CONTROL_UPDATED")
-                .actorId("usr-tushar-304")
-                .actorName("Tushar Seth")
+                .actorId(resolvedActorId)
+                .actorName(resolvedActorName)
                 .details(detailsString)
                 .build();
         accessControlActivityLogRepository.save(activityLog);
 
         // b. Save to Global Audit Logs Table
         AuditLog globalAudit = AuditLog.builder()
-                .actorId("usr-tushar-304")
+                .actorId(resolvedActorId)
                 .action("ACCESS_CONTROL_UPDATED")
                 .entityType("ACCESS_CONTROL")
                 .entityId(category)

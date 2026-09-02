@@ -38,8 +38,10 @@ public class AdminPermissionController {
     }
 
     @PostMapping("/category/assign")
-    public ResponseEntity<ApiResponse<CategoryAccessAssignmentDto>> saveCategoryAssignments(@RequestBody CategoryAccessAssignmentDto dto) {
-        return ResponseEntity.ok(ApiResponse.success(categoryPermissionService.saveCategoryAssignments(dto)));
+    public ResponseEntity<ApiResponse<CategoryAccessAssignmentDto>> saveCategoryAssignments(
+            @RequestBody CategoryAccessAssignmentDto dto,
+            @RequestHeader(value = "X-User-Id", required = false) String actorHeaderId) {
+        return ResponseEntity.ok(ApiResponse.success(categoryPermissionService.saveCategoryAssignments(dto, actorHeaderId)));
     }
 
     @GetMapping("/user/{userId}/accessible-categories")

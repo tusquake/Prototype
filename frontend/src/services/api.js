@@ -92,18 +92,21 @@ export async function fetchJson(endpoint, options = {}) {
   try {
     let sessionUser = null;
     try {
-      const sessionStr = localStorage.getItem('finsop_session');
-      if (sessionStr) sessionUser = JSON.parse(sessionStr)?.user;
+      const rawUser = localStorage.getItem('cloudkaptan_user') || localStorage.getItem('finsop_session');
+      if (rawUser) {
+        const parsed = JSON.parse(rawUser);
+        sessionUser = parsed?.user ? parsed.user : parsed;
+      }
     } catch {}
 
     const authHeaders = {};
-    if (sessionUser?.role) {
-      authHeaders['X-User-Role'] = sessionUser.role;
-      authHeaders['X-User-Email'] = sessionUser.email || '';
-      if (sessionUser.id) authHeaders['X-User-Id'] = sessionUser.id;
+    if (sessionUser) {
+      if (sessionUser.role) authHeaders['X-User-Role'] = sessionUser.role;
+      if (sessionUser.email) authHeaders['X-User-Email'] = sessionUser.email;
+      if (sessionUser.id || sessionUser.userId) authHeaders['X-User-Id'] = sessionUser.id || sessionUser.userId;
     } else {
       authHeaders['X-User-Role'] = 'ADMIN';
-      authHeaders['X-User-Email'] = 'admin@cloudkaptan.com';
+      authHeaders['X-User-Email'] = 'manoj.agarwal@cloudkaptan.com';
       authHeaders['X-User-Id'] = 'usr-manoj-042';
     }
 
