@@ -19,13 +19,13 @@ export default function SopDetailModal({
 
   if (!isOpen || !sop) return null;
 
-  const makersList = sop.makers?.length ? sop.makers : (sop.maker ? [sop.maker] : ['Tushar Seth', 'Prayasa Sharma']);
-  const checkersList = sop.checkers?.length ? sop.checkers : (sop.checker ? [sop.checker] : ['Vivek Raj', 'Mainak Gupta']);
-
   const isPendingCreation = sop.status === 'PENDING_CREATION';
   const isPendingApproval = sop.status === 'PENDING_APPROVAL';
   const isActive = sop.status === 'ACTIVE' || sop.status === 'APPROVED';
   const isRejected = sop.status === 'REJECTED';
+
+  const makersList = isPendingCreation ? [] : (sop.makers?.length ? sop.makers : (sop.maker ? [sop.maker] : []));
+  const checkersList = isPendingCreation ? [] : (sop.checkers?.length ? sop.checkers : (sop.checker ? [sop.checker] : []));
 
   const milestoneCount = 1 + (isPendingCreation ? 0 : 1) + (isActive || isRejected ? 1 : 0);
   const dbLength = sop.history?.length || 0;
