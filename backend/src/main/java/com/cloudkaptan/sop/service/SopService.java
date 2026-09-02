@@ -160,6 +160,16 @@ public class SopService {
         // Primary creator for legacy single-id column
         String primaryCreatorId = creatorIds.isEmpty() ? null : creatorIds.get(0);
 
+        // Resolve approver IDs — multi-approver list takes precedence over single ID
+        java.util.List<String> approverIds = new java.util.ArrayList<>();
+        if (request.getAssignedApproverIds() != null && !request.getAssignedApproverIds().isEmpty()) {
+            approverIds.addAll(request.getAssignedApproverIds());
+        } else if (request.getAssignedApproverId() != null && !request.getAssignedApproverId().isBlank()) {
+            approverIds.add(request.getAssignedApproverId());
+        }
+        // Primary approver for legacy single-id column
+        String primaryApproverId = approverIds.isEmpty() ? null : approverIds.get(0);
+
         Sop sop = Sop.builder()
             .sopCode(request.getSopCode())
             .title(request.getTitle() != null && !request.getTitle().isBlank() ? request.getTitle() : "Pending SOP Draft - " + request.getSopCode())
@@ -171,7 +181,8 @@ public class SopService {
             .isRecurring(false)
             .assignedCreatorId(primaryCreatorId)
             .assignedCreatorIds(new java.util.ArrayList<>(creatorIds))
-            .assignedApproverId(request.getAssignedApproverId())
+            .assignedApproverId(primaryApproverId)
+            .assignedApproverIds(new java.util.ArrayList<>(approverIds))
             .status(SopStatus.PENDING_CREATION)
             .createdBy(adminCreator)
             .version(1)
@@ -260,16 +271,27 @@ public class SopService {
             // Non-fatal cleanup
         }
 
-        // Publish In-App Notification to Approver
-        if (saved.getAssignedApproverId() != null) {
-            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
-                .recipientUserId(saved.getAssignedApproverId())
-                .eventType("SOP_SUBMITTED")
-                .title("SOP Approval Required")
-                .message("SOP draft " + saved.getSopCode() + " (" + saved.getTitle() + ") requires your approval.")
-                .referenceEntityType("SOP")
-                .referenceEntityId(saved.getSopId().toString())
-                .build());
+        // Publish In-App Notification to ALL assigned Approvers
+        java.util.List<String> approversToNotify = new java.util.ArrayList<>();
+        if (saved.getAssignedApproverIds() != null && !saved.getAssignedApproverIds().isEmpty()) {
+            approversToNotify.addAll(saved.getAssignedApproverIds());
+        } else if (saved.getAssignedApproverId() != null) {
+            approversToNotify.add(saved.getAssignedApproverId());
+        }
+
+        for (String approverId : approversToNotify) {
+            try {
+                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                    .recipientUserId(approverId)
+                    .eventType("SOP_SUBMITTED")
+                    .title("SOP Approval Required")
+                    .message("SOP draft " + saved.getSopCode() + " (" + saved.getTitle() + ") requires your approval.")
+                    .referenceEntityType("SOP")
+                    .referenceEntityId(saved.getSopId().toString())
+                    .build());
+            } catch (Exception e) {
+                // Non-fatal
+            }
         }
 
         return mapToDto(saved);
@@ -323,16 +345,27 @@ public class SopService {
             .comment(isApproved ? "SOP approved and activated" : (request.getComment() != null ? request.getComment() : "SOP draft rejected back to creator"))
             .build());
 
-        // Publish In-App Notification to Creator
-        if (saved.getAssignedCreatorId() != null) {
-            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
-                .recipientUserId(saved.getAssignedCreatorId())
-                .eventType(isApproved ? "SOP_APPROVED" : "SOP_REJECTED")
-                .title(isApproved ? "SOP Approved & Activated" : "SOP Draft Rejected")
-                .message(isApproved ? "Your SOP draft " + saved.getSopCode() + " was approved and activated." : "Your SOP draft " + saved.getSopCode() + " was rejected. Reason: " + (request.getComment() != null ? request.getComment() : "Needs revision."))
-                .referenceEntityType("SOP")
-                .referenceEntityId(saved.getSopId().toString())
-                .build());
+        // Publish In-App Notification to ALL assigned Creators
+        java.util.List<String> creatorsToNotify = new java.util.ArrayList<>();
+        if (saved.getAssignedCreatorIds() != null && !saved.getAssignedCreatorIds().isEmpty()) {
+            creatorsToNotify.addAll(saved.getAssignedCreatorIds());
+        } else if (saved.getAssignedCreatorId() != null) {
+            creatorsToNotify.add(saved.getAssignedCreatorId());
+        }
+
+        for (String creatorId : creatorsToNotify) {
+            try {
+                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                    .recipientUserId(creatorId)
+                    .eventType(isApproved ? "SOP_APPROVED" : "SOP_REJECTED")
+                    .title(isApproved ? "SOP Approved & Activated" : "SOP Draft Rejected")
+                    .message(isApproved ? "Your SOP draft " + saved.getSopCode() + " was approved and activated." : "Your SOP draft " + saved.getSopCode() + " was rejected. Reason: " + (request.getComment() != null ? request.getComment() : "Needs revision."))
+                    .referenceEntityType("SOP")
+                    .referenceEntityId(saved.getSopId().toString())
+                    .build());
+            } catch (Exception e) {
+                // Non-fatal
+            }
         }
 
         return mapToDto(saved);
@@ -496,6 +529,10 @@ public class SopService {
                     .toList() : new java.util.ArrayList<>())
             .assignedApproverId(sop.getAssignedApproverId())
             .assignedApproverName(sop.getAssignedApproverId() != null ? userRepository.findById(sop.getAssignedApproverId()).map(User::getFullName).orElse(sop.getAssignedApproverId()) : null)
+            .assignedApproverIds(sop.getAssignedApproverIds() != null ? sop.getAssignedApproverIds() : new java.util.ArrayList<>())
+            .assignedApproverNames(sop.getAssignedApproverIds() != null ? sop.getAssignedApproverIds().stream()
+                    .map(aId -> userRepository.findById(aId).map(User::getFullName).orElse(aId))
+                    .toList() : new java.util.ArrayList<>())
             .rejectionReason(sop.getRejectionReason())
             .status(sop.getStatus())
             .version(sop.getVersion() != null ? sop.getVersion() : 1)

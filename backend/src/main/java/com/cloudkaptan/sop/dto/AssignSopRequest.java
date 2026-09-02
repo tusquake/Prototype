@@ -31,8 +31,11 @@ public class AssignSopRequest {
     // Multi-creator support
     private List<String> assignedCreatorIds;
 
-    @NotBlank(message = "Assigned Approver ID is required")
+    // Legacy single approver — kept for backward compat; assignedApproverIds takes precedence if provided
     private String assignedApproverId;
+
+    // Multi-approver support
+    private List<String> assignedApproverIds;
 
     private String title;
 }

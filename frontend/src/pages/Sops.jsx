@@ -324,7 +324,7 @@ export default function Sops() {
   }
 
   function openEditModal(sop) {
-    const isAllowed = isAdmin || currentUser?.role === 'ADMIN' || sop.assignedCreatorId === currentUser?.id;
+    const isAllowed = isAdmin || currentUser?.role === 'ADMIN' || sop.assignedCreatorId === currentUser?.id || (Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.includes(currentUser?.id));
     if (!isAllowed) {
       setSuccessMsg('');
       setErrorMsg('Access Denied: Only assigned creators or Admin users have permission to edit this SOP.');

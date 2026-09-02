@@ -75,6 +75,12 @@ public class Sop {
     @Column(name = "assigned_approver_id", length = 64)
     private String assignedApproverId;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "sop_assigned_approvers", joinColumns = @JoinColumn(name = "sop_id"))
+    @Column(name = "approver_id", length = 64)
+    @Builder.Default
+    private java.util.List<String> assignedApproverIds = new java.util.ArrayList<>();
+
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
 

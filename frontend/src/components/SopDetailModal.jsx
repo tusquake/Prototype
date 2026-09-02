@@ -220,7 +220,7 @@ export default function SopDetailModal({
             </button>
 
             {sop.status === 'PENDING_APPROVAL' && (
-              (sop.assignedApproverId === currentUser?.id || (currentUser?.role === 'ADMIN' && sop.assignedCreatorId !== currentUser?.id)) && (
+              (sop.assignedApproverId === currentUser?.id || (Array.isArray(sop.assignedApproverIds) && sop.assignedApproverIds.includes(currentUser?.id)) || (currentUser?.role === 'ADMIN' && sop.assignedCreatorId !== currentUser?.id && !(Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.includes(currentUser?.id)))) && (
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     type="button"
@@ -248,7 +248,7 @@ export default function SopDetailModal({
               )
             )}
 
-            {(isAdmin || sop.assignedCreatorId === currentUser?.id || currentUser?.role === 'ADMIN') && (
+            {(isAdmin || currentUser?.role === 'ADMIN' || sop.assignedCreatorId === currentUser?.id || (Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.includes(currentUser?.id))) && (
               <div className={styles.adminActions}>
                 {isAdmin && (
                   <button

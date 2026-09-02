@@ -17,7 +17,7 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
     entityCode: 'CK_INDIA',
     processCategory: '',
     assignedCreatorIds: [],
-    assignedApproverId: '',
+    assignedApproverIds: [],
   });
   const [showCreatorPicker, setShowCreatorPicker] = useState(false);
   const [showApproverPicker, setShowApproverPicker] = useState(false);
@@ -51,7 +51,7 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
     setLoadingUsers(true);
     setPermittedCreators([]);
     setPermittedApprovers([]);
-    setAssignForm(prev => ({ ...prev, assignedCreatorIds: [], assignedApproverId: '' }));
+    setAssignForm(prev => ({ ...prev, assignedCreatorIds: [], assignedApproverIds: [] }));
     try {
       const [creators, approvers] = await Promise.all([
         getUsersByPermission(category, 'CREATOR'),
@@ -82,10 +82,10 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
     }));
   }
 
-  function removeApprover() {
+  function removeApprover(userId) {
     setAssignForm(prev => ({
       ...prev,
-      assignedApproverId: '',
+      assignedApproverIds: prev.assignedApproverIds.filter(id => id !== userId),
     }));
   }
 
@@ -101,8 +101,8 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
       setErrorMsg('Please select at least one SOP Creator.');
       return;
     }
-    if (!assignForm.assignedApproverId) {
-      setErrorMsg('Please select a SOP Approver.');
+    if (assignForm.assignedApproverIds.length === 0) {
+      setErrorMsg('Please select at least one SOP Approver.');
       return;
     }
 
@@ -114,7 +114,8 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
         processCategory: assignForm.processCategory,
         assignedCreatorIds: assignForm.assignedCreatorIds,
         assignedCreatorId: assignForm.assignedCreatorIds[0], // primary (backward compat)
-        assignedApproverId: assignForm.assignedApproverId,
+        assignedApproverIds: assignForm.assignedApproverIds,
+        assignedApproverId: assignForm.assignedApproverIds[0], // primary (backward compat)
       });
       window.dispatchEvent(new Event('sop-updated'));
       if (onSuccess) onSuccess('SOP assigned successfully!');
@@ -137,10 +138,6 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
     : permittedApprovers.length === 0
       ? 'No users have SOP Approver access for this category. Go to Access Control to grant access.'
       : null;
-
-  const selectedApproverObj = assignForm.assignedApproverId
-    ? permittedApprovers.find(x => x.id === assignForm.assignedApproverId) || { id: assignForm.assignedApproverId, name: assignForm.assignedApproverId }
-    : null;
 
   return (
     <>
@@ -307,11 +304,11 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
                 )}
               </div>
 
-              {/* SOP Approver — UserPicker Modal Trigger + Badge */}
+              {/* SOP Approvers — UserPicker Modal Trigger + Badges */}
               <div className={styles.field}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                   <span className={styles.label} style={{ margin: 0 }}>
-                    Assign SOP Approver *
+                    Assign SOP Approvers *
                   </span>
                   <button
                     type="button"
@@ -332,7 +329,7 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
                       opacity: (loadingUsers || permittedApprovers.length === 0) ? 0.6 : 1,
                     }}
                   >
-                    Select Approver ({assignForm.assignedApproverId ? 1 : 0})
+                    Select Approvers ({assignForm.assignedApproverIds.length})
                   </button>
                 </div>
 
@@ -353,47 +350,53 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
                     alignItems: 'center',
                     boxSizing: 'border-box',
                   }}>
-                    {!selectedApproverObj ? (
-                      <span style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>No approver selected — click "Select Approver" above</span>
+                    {assignForm.assignedApproverIds.length === 0 ? (
+                      <span style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>No approvers selected — click "Select Approvers" above</span>
                     ) : (
-                      <div
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '4px 10px',
-                          borderRadius: 16,
-                          background: '#f1f5f9',
-                          border: '1px solid #cbd5e1',
-                          color: '#334155',
-                          fontSize: 12,
-                          fontWeight: 600,
-                        }}
-                      >
-                        <span>{selectedApproverObj.name || selectedApproverObj.id}</span>
-                        <button
-                          type="button"
-                          onClick={removeApprover}
-                          title="Remove approver"
-                          style={{
-                            border: 'none',
-                            background: 'rgba(100, 116, 139, 0.18)',
-                            color: '#475569',
-                            borderRadius: '50%',
-                            width: 16,
-                            height: 16,
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 12,
-                            padding: 0,
-                            lineHeight: 1,
-                          }}
-                        >
-                          &times;
-                        </button>
-                      </div>
+                      assignForm.assignedApproverIds.map(id => {
+                        const u = permittedApprovers.find(x => x.id === id) || { id, name: id };
+                        return (
+                          <div
+                            key={id}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '4px 10px',
+                              borderRadius: 16,
+                              background: '#f1f5f9',
+                              border: '1px solid #cbd5e1',
+                              color: '#334155',
+                              fontSize: 12,
+                              fontWeight: 600,
+                            }}
+                          >
+                            <span>{u.name || id}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeApprover(id)}
+                              title="Remove approver"
+                              style={{
+                                border: 'none',
+                                background: 'rgba(100, 116, 139, 0.18)',
+                                color: '#475569',
+                                borderRadius: '50%',
+                                width: 16,
+                                height: 16,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 12,
+                                padding: 0,
+                                lineHeight: 1,
+                              }}
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 )}
@@ -428,19 +431,19 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
         }}
       />
 
-      {/* UserPickerModal for SOP Approver */}
+      {/* UserPickerModal for SOP Approvers */}
       <UserPickerModal
         isOpen={showApproverPicker}
-        title="Select Assigned SOP Approver"
-        selectedUserIds={assignForm.assignedApproverId ? [assignForm.assignedApproverId] : []}
+        title="Select Assigned SOP Approvers"
+        selectedUserIds={assignForm.assignedApproverIds}
         permittedUsers={permittedApprovers}
         onClose={() => setShowApproverPicker(false)}
         onConfirm={selectedIds => {
-          setAssignForm(prev => ({ ...prev, assignedApproverId: selectedIds[0] || '' }));
+          setAssignForm(prev => ({ ...prev, assignedApproverIds: selectedIds }));
           setShowApproverPicker(false);
         }}
         onSelect={selectedIds => {
-          setAssignForm(prev => ({ ...prev, assignedApproverId: selectedIds[0] || '' }));
+          setAssignForm(prev => ({ ...prev, assignedApproverIds: selectedIds }));
           setShowApproverPicker(false);
         }}
       />

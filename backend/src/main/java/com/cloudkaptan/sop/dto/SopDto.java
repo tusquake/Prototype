@@ -40,6 +40,8 @@ public class SopDto {
     private List<String> assignedCreatorNames;
     private String assignedApproverId;
     private String assignedApproverName;
+    private List<String> assignedApproverIds;
+    private List<String> assignedApproverNames;
     private String rejectionReason;
     private SopStatus status;
     private Integer version;
