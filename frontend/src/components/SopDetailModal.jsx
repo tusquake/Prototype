@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import SopActivityLogModal from './SopActivityLogModal';
-import styles from './SopDetailModal.module.css';
 
 const FREQ_LABEL = { MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', ANNUAL: 'Annual', DAILY: 'Daily', WEEKLY: 'Weekly' };
 
@@ -41,21 +40,29 @@ export default function SopDetailModal({
 
   return (
     <>
-      <div className={styles.backdrop} onClick={onClose}>
-        <div className={styles.modal} onClick={e => e.stopPropagation()}>
-          <div className={styles.header}>
-            <div className={styles.titleArea}>
-              <h3>{sop.name || sop.title}</h3>
-              <div className={styles.badges}>
-                <span className={styles.codeBadge}>{sop.code || sop.sopCode}</span>
-                <span className={styles.versionBadge}>v{sop.version || 1}</span>
+      <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-900/60 p-5 backdrop-blur-sm" onClick={onClose}>
+        <div
+          className="w-full max-w-[620px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl animate-[modalFade_0.2s_ease-out]"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between border-b border-slate-100 bg-slate-50 px-7 pb-[18px] pt-6">
+            <div className="flex flex-col">
+              <h3 className="mb-1.5 text-lg font-bold text-slate-900">{sop.name || sop.title}</h3>
+              <div className="flex items-center gap-2">
+                <span className="rounded-md bg-[#1a2b6b]/[0.08] px-2.5 py-0.5 font-mono text-xs font-semibold text-[#1a2b6b]">
+                  {sop.code || sop.sopCode}
+                </span>
+                <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-600">
+                  v{sop.version || 1}
+                </span>
               </div>
             </div>
 
-            <div className={styles.headerRightGroup}>
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
-                className={styles.historyHeaderBtn}
+                className="flex items-center gap-1.5 rounded-lg border border-blue-600/25 bg-blue-600/[0.08] px-3 py-1.5 text-xs font-semibold text-blue-600 transition-all hover:bg-blue-600/[0.15]"
                 onClick={() => setShowActivityLogModal(true)}
                 title="Open SOP Activity Log & Audit Trail"
               >
@@ -64,10 +71,15 @@ export default function SopDetailModal({
                   <polyline points="12 6 12 12 16 14" />
                 </svg>
                 <span>Activity Log</span>
-                <span className={styles.historyBadgeCount}>{historyLength}</span>
+                <span className="rounded-full bg-blue-600 px-1.75 py-0.5 text-[11px] font-bold text-white">
+                  {historyLength}
+                </span>
               </button>
 
-              <button className={styles.closeBtn} onClick={onClose}>
+              <button
+                className="rounded-md p-1 text-slate-500 transition-all hover:bg-slate-200 hover:text-slate-900"
+                onClick={onClose}
+              >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -76,50 +88,59 @@ export default function SopDetailModal({
             </div>
           </div>
 
-          <div className={styles.body}>
+          {/* Body */}
+          <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto px-7 py-6">
             {/* Visual SOP Governance Lifecycle Progress Flow */}
-            <div className={styles.lifecycleTracker}>
-              <div className={styles.lifecycleTitle}>SOP Governance Lifecycle Flow</div>
-              <div className={styles.flowSteps}>
+            <div className="flex flex-col gap-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3.5 px-4.5">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                SOP Governance Lifecycle Flow
+              </div>
+              <div className="flex items-center justify-between gap-1.5">
                 {/* Step 1: Admin Assignment */}
-                <div className={`${styles.flowStep} ${styles.completedStep}`}>
-                  <div className={styles.stepBadge}>1</div>
-                  <div className={styles.stepInfo}>
-                    <span className={styles.stepName}>Admin Assignment</span>
-                    <span className={styles.stepDetail}>Assigned by {adminName}</span>
+                <div className="flex flex-1 items-center gap-2">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                    1
+                  </div>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-xs font-semibold text-slate-800">Admin Assignment</span>
+                    <span className="text-[11px] text-slate-500">Assigned by {adminName}</span>
                   </div>
                 </div>
 
-                <div className={`${styles.flowConnector} ${!isPendingCreation ? styles.activeConnector : ''}`} />
+                <div className={`h-[2px] flex-[0.4] mx-0.5 ${!isPendingCreation ? 'bg-blue-600' : 'bg-slate-200'}`} />
 
                 {/* Step 2: Creator Submission */}
-                <div className={`${styles.flowStep} ${isPendingCreation ? styles.currentStep : styles.completedStep}`}>
-                  <div className={styles.stepBadge}>2</div>
-                  <div className={styles.stepInfo}>
-                    <span className={styles.stepName}>Creator Draft</span>
-                    <span className={styles.stepDetail}>
+                <div className="flex flex-1 items-center gap-2">
+                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${isPendingCreation
+                      ? 'bg-amber-600 text-white ring-4 ring-amber-600/20'
+                      : 'bg-blue-600 text-white'
+                    }`}>
+                    2
+                  </div>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-xs font-semibold text-slate-800">Creator Draft</span>
+                    <span className="text-[11px] text-slate-500">
                       {isPendingCreation ? `Pending ${creatorName} Draft` : `Submitted by ${creatorName}`}
                     </span>
                   </div>
                 </div>
 
-                <div className={`${styles.flowConnector} ${isActive || isRejected ? styles.activeConnector : ''}`} />
+                <div className={`h-[2px] flex-[0.4] mx-0.5 ${isActive || isRejected ? 'bg-blue-600' : 'bg-slate-200'}`} />
 
                 {/* Step 3: Approver Outcome */}
-                <div className={`${styles.flowStep} ${
-                  isActive ? styles.approvedStep :
-                  isRejected ? styles.rejectedStep :
-                  isPendingApproval ? styles.currentStep :
-                  styles.pendingStep
-                }`}>
-                  <div className={styles.stepBadge}>
+                <div className="flex flex-1 items-center gap-2">
+                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${isActive ? 'bg-green-600 text-white' :
+                      isRejected ? 'bg-red-600 text-white' :
+                        isPendingApproval ? 'bg-amber-600 text-white ring-4 ring-amber-600/20' :
+                          'bg-slate-300 text-slate-600'
+                    }`}>
                     {isActive ? '✓' : isRejected ? '↺' : '3'}
                   </div>
-                  <div className={styles.stepInfo}>
-                    <span className={styles.stepName}>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-xs font-semibold text-slate-800">
                       {isActive ? 'Active & Scheduled' : isRejected ? 'Rejected & Returned' : 'Approver Outcome'}
                     </span>
-                    <span className={styles.stepDetail}>
+                    <span className="text-[11px] text-slate-500">
                       {isActive ? `Approved by ${approverName}` : isRejected ? `Rejected by ${approverName}` : `Pending ${approverName} Review`}
                     </span>
                   </div>
@@ -127,149 +148,158 @@ export default function SopDetailModal({
               </div>
             </div>
 
-            <div className={styles.grid}>
-              <div className={styles.field}>
-                <span className={styles.label}>Corporate Entity</span>
-                <span className={styles.value}>{sop.entity || sop.entityName || sop.entityCode}</span>
+            {/* Details Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Corporate Entity</span>
+                <span className="text-[13.5px] font-semibold text-slate-800">{sop.entity || sop.entityName || sop.entityCode}</span>
               </div>
 
-              <div className={styles.field}>
-                <span className={styles.label}>Process Category</span>
-                <span className={styles.value}>{sop.process || sop.processCategory}</span>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Process Category</span>
+                <span className="text-[13.5px] font-semibold text-slate-800">{sop.process || sop.processCategory}</span>
               </div>
 
-              <div className={styles.field}>
-                <span className={styles.label}>Frequency</span>
-                <span className={styles.value}>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Frequency</span>
+                <span className="text-[13.5px] font-semibold text-slate-800">
                   {isPendingCreation ? (
-                    <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Pending Creation</span>
+                    <span className="italic text-slate-400">Pending Creation</span>
                   ) : (
                     sop.isRecurring ? (FREQ_LABEL[sop.frequency] || sop.frequency) : 'N/A (One-Time Task)'
                   )}
                 </span>
               </div>
 
-              <div className={styles.field}>
-                <span className={styles.label}>Due Day Offset</span>
-                <span className={styles.value}>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Due Day Offset</span>
+                <span className="text-[13.5px] font-semibold text-slate-800">
                   {isPendingCreation ? (
-                    <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Pending Creation</span>
+                    <span className="italic text-slate-400">Pending Creation</span>
                   ) : (
                     `Day ${sop.dueDay || sop.dueDayOffset}`
                   )}
                 </span>
               </div>
 
-              <div className={styles.field}>
-                <span className={styles.label}>Scheduling Mode</span>
-                <span className={styles.value}>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Scheduling Mode</span>
+                <span className="text-[13.5px] font-semibold text-slate-800">
                   {isPendingCreation ? (
-                    <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>Pending Creation</span>
+                    <span className="italic text-slate-400">Pending Creation</span>
+                  ) : sop.isRecurring ? (
+                    <span className="rounded px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700">
+                      Recurring Schedule
+                    </span>
                   ) : (
-                    sop.isRecurring ? (
-                      <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 4, fontWeight: 600, fontSize: 12 }}>
-                        Recurring Schedule
-                      </span>
-                    ) : (
-                      <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 4, fontWeight: 600, fontSize: 12 }}>
-                        One-Time Task
-                      </span>
-                    )
+                    <span className="rounded px-2 py-0.5 text-xs font-semibold bg-sky-100 text-sky-700">
+                      One-Time Task
+                    </span>
                   )}
                 </span>
               </div>
-              <div className={styles.field}>
-                <span className={styles.label}>Governance Status</span>
-                <span className={styles.value}>
-                  {sop.status === 'PENDING_CREATION' && <span style={{ background: '#ffedd5', color: '#c2410c', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>PENDING CREATION</span>}
-                  {sop.status === 'PENDING_APPROVAL' && <span style={{ background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>PENDING APPROVAL</span>}
-                  {(sop.status === 'ACTIVE' || sop.status === 'APPROVED') && <span style={{ background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>ACTIVE (APPROVED)</span>}
-                  {sop.status === 'REJECTED' && <span style={{ background: '#fee2e2', color: '#b91c1c', padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>REJECTED</span>}
+
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Governance Status</span>
+                <span className="text-[13.5px] font-semibold text-slate-800">
+                  {sop.status === 'PENDING_CREATION' && <span className="rounded px-2 py-0.5 text-[11px] font-bold bg-orange-100 text-orange-700">PENDING CREATION</span>}
+                  {sop.status === 'PENDING_APPROVAL' && <span className="rounded px-2 py-0.5 text-[11px] font-bold bg-amber-100 text-amber-700">PENDING APPROVAL</span>}
+                  {(sop.status === 'ACTIVE' || sop.status === 'APPROVED') && <span className="rounded px-2 py-0.5 text-[11px] font-bold bg-green-100 text-green-700">ACTIVE (APPROVED)</span>}
+                  {sop.status === 'REJECTED' && <span className="rounded px-2 py-0.5 text-[11px] font-bold bg-red-100 text-red-700">REJECTED</span>}
                 </span>
               </div>
 
-              <div className={styles.field}>
-                <span className={styles.label}>Assigned Creator</span>
-                <span className={styles.value} style={{ fontWeight: 600, color: '#1e293b' }}>{creatorName}</span>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Assigned Creator</span>
+                <span className="text-[13.5px] font-semibold text-slate-800">{creatorName}</span>
               </div>
 
-              <div className={styles.field}>
-                <span className={styles.label}>Assigned Approver</span>
-                <span className={styles.value} style={{ fontWeight: 600, color: '#1e293b' }}>{approverName}</span>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Assigned Approver</span>
+                <span className="text-[13.5px] font-semibold text-slate-800">{approverName}</span>
               </div>
             </div>
 
             {sop.rejectionReason && (
-              <div className={styles.field} style={{ marginBottom: 12 }}>
-                <span className={styles.label} style={{ color: '#b91c1c' }}>Rejection Comments</span>
-                <div className={styles.descBox} style={{ background: '#fff1f2', border: '1px solid #fecdd3', color: '#9f1239' }}>
+              <div className="mb-3 flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-red-700">Rejection Comments</span>
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-sm text-rose-800 leading-relaxed">
                   {sop.rejectionReason}
                 </div>
               </div>
             )}
 
-            <div className={styles.field}>
-              <span className={styles.label}>Description</span>
-              <div className={styles.descBox}>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Description</span>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 px-4 text-sm text-slate-700 leading-relaxed">
                 {sop.description && sop.description.trim() ? sop.description : 'No description provided.'}
               </div>
             </div>
 
-            <div className={styles.field}>
-              <span className={styles.label}>Assigned Maker Pool</span>
-              <div className={styles.poolBox}>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Assigned Maker Pool</span>
+              <div className="mt-1 flex flex-wrap gap-1.5">
                 {makersList.length === 0 ? (
-                  <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: 13 }}>Not configured yet (Pending Creation)</span>
+                  <span className="text-xs italic text-slate-400">Not configured yet (Pending Creation)</span>
                 ) : (
                   makersList.map((m, idx) => (
-                    <span key={idx} className={styles.poolBadge}>{m}</span>
+                    <span key={idx} className="rounded-md border border-slate-300 bg-white px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                      {m}
+                    </span>
                   ))
                 )}
               </div>
             </div>
 
-            <div className={styles.field}>
-              <span className={styles.label}>Assigned Checker Pool</span>
-              <div className={styles.poolBox}>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Assigned Checker Pool</span>
+              <div className="mt-1 flex flex-wrap gap-1.5">
                 {checkersList.length === 0 ? (
-                  <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: 13 }}>Not configured yet (Pending Creation)</span>
+                  <span className="text-xs italic text-slate-400">Not configured yet (Pending Creation)</span>
                 ) : (
                   checkersList.map((c, idx) => (
-                    <span key={idx} className={styles.poolBadge}>{c}</span>
+                    <span key={idx} className="rounded-md border border-slate-300 bg-white px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                      {c}
+                    </span>
                   ))
                 )}
               </div>
             </div>
           </div>
 
-          <div className={styles.footer}>
-            <button type="button" className={styles.btnSecondary} onClick={onClose}>
+          {/* Footer */}
+          <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-7 py-4">
+            <button
+              type="button"
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900"
+              onClick={onClose}
+            >
               Close
             </button>
 
             {sop.status === 'PENDING_APPROVAL' && (
               (sop.assignedApproverId === currentUser?.id || (Array.isArray(sop.assignedApproverIds) && sop.assignedApproverIds.includes(currentUser?.id)) || (currentUser?.role === 'ADMIN' && sop.assignedCreatorId !== currentUser?.id && !(Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.includes(currentUser?.id)))) && (
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div className="flex gap-2">
                   <button
                     type="button"
-                    style={{ background: '#16a34a', color: '#ffffff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                    className="flex items-center gap-1.5 rounded-md bg-green-600 px-4 py-2 text-xs font-bold text-white transition-all hover:bg-green-700"
                     onClick={() => {
                       onClose();
                       if (onApprove) onApprove(sop);
                     }}
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
                     Approve &amp; Activate SOP
                   </button>
                   <button
                     type="button"
-                    style={{ background: '#be123c', color: '#ffffff', border: 'none', borderRadius: 6, padding: '8px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                    className="flex items-center gap-1.5 rounded-md bg-rose-700 px-4 py-2 text-xs font-bold text-white transition-all hover:bg-rose-800"
                     onClick={() => {
                       onClose();
                       if (onReject) onReject(sop);
                     }}
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                     Reject SOP
                   </button>
                 </div>
@@ -277,11 +307,11 @@ export default function SopDetailModal({
             )}
 
             {(isAdmin || currentUser?.role === 'ADMIN' || sop.assignedCreatorId === currentUser?.id || (Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.includes(currentUser?.id))) && (
-              <div className={styles.adminActions}>
+              <div className="flex items-center gap-2.5">
                 {isAdmin && (
                   <button
                     type="button"
-                    className={styles.btnDanger}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-red-500 bg-red-500 px-4 py-2 text-xs font-semibold text-white transition-all hover:border-red-600 hover:bg-red-600"
                     onClick={() => {
                       onClose();
                       onDelete(sop);
@@ -297,7 +327,7 @@ export default function SopDetailModal({
 
                 <button
                   type="button"
-                  className={styles.btnPrimary}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-blue-600 bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-all hover:border-blue-700 hover:bg-blue-700"
                   onClick={() => {
                     onClose();
                     onEdit(sop);

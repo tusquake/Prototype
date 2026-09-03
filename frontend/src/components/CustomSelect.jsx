@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import styles from './CustomSelect.module.css';
+
 
 export default function CustomSelect({ value, options, onChange, name, dropUp: explicitDropUp }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -33,20 +33,21 @@ export default function CustomSelect({ value, options, onChange, name, dropUp: e
   }
 
   return (
-    <div className={styles.selectContainer} ref={containerRef}>
+    <div className="relative w-full" ref={containerRef}>
       <button
         type="button"
-        className={`${styles.selectTrigger} ${isOpen ? styles.active : ''}`}
+        className={`flex w-full items-center justify-between rounded-lg border px-3.5 py-2.5 text-[13.5px] font-normal text-slate-900 outline-none transition-all ${isOpen
+            ? 'border-blue-600 bg-white ring-4 ring-blue-600/15'
+            : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
+          }`}
         onClick={handleToggle}
       >
-        <span className={styles.selectedText}>{selectedOption?.label || value}</span>
+        <span className="truncate font-medium">{selectedOption?.label || value}</span>
         <svg
-          className={`${styles.chevron} ${isOpen ? styles.rotated : ''}`}
-          width="16"
-          height="16"
+          className={`ml-2 h-4 w-4 shrink-0 text-slate-600 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#475569"
+          stroke="currentColor"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -56,21 +57,40 @@ export default function CustomSelect({ value, options, onChange, name, dropUp: e
       </button>
 
       {isOpen && (
-        <div className={isUp ? styles.dropdownMenuUp : styles.dropdownMenu}>
-          {options.map(opt => (
-            <div
-              key={opt.value}
-              className={`${styles.optionItem} ${opt.value === value ? styles.selectedOption : ''}`}
-              onClick={() => handleSelect(opt.value)}
-            >
-              <span>{opt.label}</span>
-              {opt.value === value && (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              )}
-            </div>
-          ))}
+        <div
+          className={`absolute left-0 right-0 z-[1000] max-h-[220px] overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl ${isUp
+              ? 'bottom-[calc(100%+6px)] animate-[menuFadeInUp_0.15s_ease-out]'
+              : 'top-[calc(100%+6px)] animate-[menuFadeIn_0.15s_ease-out]'
+            }`}
+        >
+          {options.map(opt => {
+            const isSelected = opt.value === value;
+            return (
+              <div
+                key={opt.value}
+                className={`flex items-center justify-between rounded-md px-3 py-2 text.5 font-normal transition-all cursor-pointer ${isSelected
+                    ? 'bg-blue-600/[0.08] text-blue-600 font-semibold hover:bg-blue-600/[0.12] hover:text-blue-700'
+                    : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                  }`}
+                onClick={() => handleSelect(opt.value)}
+              >
+                <span>{opt.label}</span>
+                {isSelected && (
+                  <svg
+                    className="h-3.5 w-3.5 text-blue-600"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

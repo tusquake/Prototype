@@ -4,17 +4,16 @@ export const ROLES = {
   MAKER: 'MAKER',
   MAKER_CHECKER: 'MAKER_CHECKER',
   VIEWER: 'VIEWER',
-
 };
 
 export const PERMISSIONS = {
   '/dashboard': [ROLES.ADMIN, ROLES.CHECKER, ROLES.MAKER, ROLES.MAKER_CHECKER, ROLES.VIEWER],
-  '/inbox': [ROLES.ADMIN, ROLES.CHECKER, ROLES.MAKER, ROLES.MAKER_CHECKER, ROLES.VIEWER],
+  '/inbox': [ROLES.ADMIN, ROLES.CHECKER, ROLES.MAKER, ROLES.MAKER_CHECKER],
   '/tasks': [ROLES.ADMIN, ROLES.CHECKER, ROLES.MAKER, ROLES.MAKER_CHECKER, ROLES.VIEWER],
-  '/sops': [ROLES.ADMIN, ROLES.CHECKER, ROLES.MAKER, ROLES.MAKER_CHECKER, ROLES.VIEWER],
-  '/access-control': [ROLES.ADMIN],
-  '/process-categories': [ROLES.ADMIN],
+  '/sops': [ROLES.ADMIN,ROLES.CHECKER, ROLES.MAKER, ROLES.MAKER_CHECKER, ROLES.VIEWER],
   '/audit': [ROLES.ADMIN],
+  '/access-control': [ROLES.ADMIN],
+  '/categories': [ROLES.ADMIN],
 };
 
 const EMAIL_ROLE_MAP = {
@@ -40,5 +39,6 @@ export function getRoleForEmail(email) {
 export function hasPermission(userRole, route) {
   const allowedRoles = PERMISSIONS[route];
   if (!allowedRoles) return true;
+  if (userRole === ROLES.ADMIN) return true;
   return allowedRoles.includes(userRole);
 }

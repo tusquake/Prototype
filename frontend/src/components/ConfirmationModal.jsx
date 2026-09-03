@@ -1,5 +1,3 @@
-import styles from './ConfirmationModal.module.css';
-
 export default function ConfirmationModal({
   isOpen,
   title,
@@ -13,10 +11,32 @@ export default function ConfirmationModal({
 }) {
   if (!isOpen) return null;
 
+  const iconVariantClasses = {
+    danger: 'bg-red-100 text-red-600',
+    success: 'bg-emerald-100 text-emerald-600',
+    warning: 'bg-amber-100 text-amber-600',
+  };
+
+  const btnVariantClasses = {
+    danger: 'bg-red-600 border-red-600 text-white hover:bg-red-700 hover:border-red-700',
+    success: 'bg-emerald-600 border-emerald-600 text-white hover:bg-emerald-700 hover:border-emerald-700',
+    warning: 'bg-amber-600 border-amber-600 text-white hover:bg-amber-700 hover:border-amber-700',
+  };
+
+  const currentIconClasses = iconVariantClasses[confirmVariant] || iconVariantClasses.warning;
+  const currentBtnClasses = btnVariantClasses[confirmVariant] || btnVariantClasses.warning;
+
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.card} onClick={e => e.stopPropagation()}>
-        <div className={`${styles.iconWrap} ${styles[confirmVariant]}`}>
+    <div 
+      className="fixed inset-0 z-[1200] flex items-center justify-center bg-[#091124]/60 p-5 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]" 
+      onClick={onClose}
+    >
+      <div 
+        className="flex w-full max-w-[420px] flex-col items-center rounded-2xl bg-white p-6 text-center shadow-2xl" 
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Icon Wrapper */}
+        <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-full ${currentIconClasses}`}>
           {confirmVariant === 'danger' ? (
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" />
@@ -37,18 +57,25 @@ export default function ConfirmationModal({
           )}
         </div>
 
-        <h3 className={styles.title}>{title}</h3>
-        <p className={styles.message}>{message}</p>
+        {/* Title & Message */}
+        <h3 className="mb-1.5 text-lg font-bold text-slate-900">{title}</h3>
+        <p className="mb-5 text-xs text-slate-500 leading-relaxed">{message}</p>
 
         {children}
 
-        <div className={styles.actions}>
-          <button type="button" className={styles.btnCancel} onClick={onClose} disabled={submitting}>
+        {/* Actions */}
+        <div className="mt-2 flex w-full items-center justify-end gap-3">
+          <button 
+            type="button" 
+            className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60" 
+            onClick={onClose} 
+            disabled={submitting}
+          >
             Cancel
           </button>
           <button
             type="button"
-            className={`${styles.btnConfirm} ${styles[`btn_${confirmVariant}`]}`}
+            className={`w-full rounded-lg border px-4 py-2 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-60 ${currentBtnClasses}`}
             onClick={onConfirm}
             disabled={submitting}
           >

@@ -45,30 +45,9 @@ export default function Callback() {
   }, [navigate]);
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 16,
-        color: 'var(--text-muted, #666)',
-        fontSize: 13,
-      }}
-    >
-      <div
-        style={{
-          width: 24,
-          height: 24,
-          border: '2px solid var(--border, #ccc)',
-          borderTopColor: 'var(--accent, #1a2b6b)',
-          borderRadius: '50%',
-          animation: 'spin 0.7s linear infinite',
-        }}
-      />
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-[13px] text-text-muted">
+      <div className="w-6 h-6 border-2 border-[#cbd5e1] border-t-[#2563eb] rounded-full animate-spin" />
       Verifying Google SSO identity with Node backend...
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

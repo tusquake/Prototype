@@ -7,7 +7,7 @@ import TableSkeleton from '../components/TableSkeleton';
 import AuditDetailModal from '../components/AuditDetailModal';
 import Pagination from '../components/Pagination';
 import { getAuditLogs, ENTITIES } from '../services/api';
-import styles from './AuditLogs.module.css';
+
 
 const LOG_TYPE_OPTIONS = [
   { value: 'ALL', label: 'All Log Types' },
@@ -219,7 +219,7 @@ export default function AuditLogs() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    
+
     // Auto-generate timestamped filename (e.g., Audit_Logs_2026-08-31.csv)
     const dateStr = new Date().toISOString().split('T')[0];
     link.setAttribute('href', url);
@@ -231,64 +231,69 @@ export default function AuditLogs() {
   }
 
   function renderActionBadge(action) {
-    const act = (action || '').toUpperCase();
-    const label = formatActionLabel(action);
+  const act = (action || '').toUpperCase();
+  const label = formatActionLabel(action);
 
-    if (act.includes('RESUBMIT')) {
-      return (
-        <span className={`${styles.actionBadge} ${styles.actionSubmit}`} style={{ background: '#eff6ff', color: '#1d4ed8', borderColor: '#93c5fd' }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-          </svg>
-          {label}
-        </span>
-      );
-    }
+  const baseBadgeStyles = "inline-flex items-center gap-[5px] px-[10px] py-[4px] rounded-[6px] text-[11.5px] font-semibold uppercase tracking-[0.03em]";
 
-    if (act.includes('SUBMIT')) {
-      return (
-        <span className={`${styles.actionBadge} ${styles.actionSubmit}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
-          {label}
-        </span>
-      );
-    }
-    if (act.includes('APPROVE')) {
-      return (
-        <span className={`${styles.actionBadge} ${styles.actionApprove}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-          {label}
-        </span>
-      );
-    }
-    if (act.includes('REJECT')) {
-      return (
-        <span className={`${styles.actionBadge} ${styles.actionReject}`}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-          {label}
-        </span>
-      );
-    }
+  if (act.includes('RESUBMIT')) {
     return (
-      <span className={`${styles.actionBadge} ${styles.actionCreate}`}>
+      <span className={`${baseBadgeStyles} bg-[#eff6ff] text-[#1d4ed8] border border-[#93c5fd]`}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="16" y2="12" />
-          <line x1="8" y1="12" x2="16" y2="12" />
+          <polyline points="23 4 23 10 17 10" />
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
         </svg>
         {label}
       </span>
     );
   }
+
+  if (act.includes('SUBMIT')) {
+    return (
+      <span className={`${baseBadgeStyles} bg-[rgba(37,99,235,0.08)] text-[#2563eb]`}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13" />
+          <polygon points="22 2 15 22 11 13 2 9 22 2" />
+        </svg>
+        {label}
+      </span>
+    );
+  }
+
+  if (act.includes('APPROVE')) {
+    return (
+      <span className={`${baseBadgeStyles} bg-[rgba(16,185,129,0.08)] text-[#059669]`}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        {label}
+      </span>
+    );
+  }
+
+  if (act.includes('REJECT')) {
+    return (
+      <span className={`${baseBadgeStyles} bg-[rgba(220,38,38,0.08)] text-[#dc2626]`}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <span className={`${baseBadgeStyles} bg-[rgba(124,58,237,0.08)] text-[#7c3aed]`}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="16" y2="12" />
+        <line x1="8" y1="12" x2="16" y2="12" />
+      </svg>
+      {label}
+    </span>
+  );
+}
 
   function formatTimestamp(ts) {
     if (!ts) return 'N/A';
@@ -305,26 +310,27 @@ export default function AuditLogs() {
   const paginatedLogs = filteredLogs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
-    <div className={styles.layout}>
-      <Sidebar />
-      <main className={styles.main}>
-        <div className={styles.pageHeader}>
-          <div className={styles.pageHeaderInner}>
+    <div className="flex min-h-screen bg-[#f8fafc] text-text-primary">
+      <main className="flex-1 ml-[240px] min-w-0 flex flex-col">
+        <div className="w-full bg-[#f8fafc] border-b border-[#cbd5e1] px-8 py-[18px] shadow-sm box-border">
+          <div className="flex items-center justify-between gap-4 w-full max-w-full box-border">
             <div>
-              <h2>Audit Trail</h2>
-              <p>Immutable event log of all Maker/Checker actions for compliance & security verification.</p>
+              <h2 className="text-[24px] font-bold text-[#091124] m-0 mb-1.5 tracking-[-0.02em]">Audit Trail</h2>
+              <p className="text-[14px] text-text-muted m-0">
+                Immutable event log of all Maker/Checker actions for compliance &amp; security verification.
+              </p>
             </div>
             <EntityPills selectedEntities={selectedEntities} onChange={setSelectedEntities} />
           </div>
         </div>
 
-        <div className={styles.page}>
+        <div className="p-6 md:px-8 w-full max-w-full box-border">
 
           {/* Structured Filter Toolbar */}
-          <div className={styles.filterRow}>
+          <div className="flex flex-wrap items-end gap-4 mb-6 bg-bg-surface p-[18px_20px] rounded-[12px] border border-[#e2e8f0] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {/* Unified Date Range Picker */}
-            <div className={styles.filterGroup} style={{ flex: 1.5, minWidth: 220 }}>
-              <span className={styles.filterLabel}>Time Range</span>
+            <div className="flex flex-col gap-1.5 flex-[1.5] min-w-[220px]">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Time Range</span>
               <AuditDateRangePicker
                 rangeType={dateRangeState.rangeType}
                 startDate={dateRangeState.startDate}
@@ -334,8 +340,8 @@ export default function AuditLogs() {
             </div>
 
             {/* Action Filter */}
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>Action</span>
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Action</span>
               <CustomSelect
                 name="actionType"
                 value={actionType}
@@ -348,8 +354,8 @@ export default function AuditLogs() {
             </div>
 
             {/* Entity Type Filter */}
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>Entity Type</span>
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Entity Type</span>
               <CustomSelect
                 name="entityType"
                 value={entityType}
@@ -362,8 +368,8 @@ export default function AuditLogs() {
             </div>
 
             {/* User / Actor Filter */}
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>User</span>
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">User</span>
               <CustomSelect
                 name="actorFilter"
                 value={actorFilter}
@@ -376,10 +382,11 @@ export default function AuditLogs() {
             </div>
 
             {/* Export to Excel Button */}
-            <div className={styles.filterGroup} style={{ flex: 'none' }}>
-              <span className={styles.filterLabel}>Export</span>
+            <div className="flex flex-col gap-1.5 flex-none">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Export</span>
               <button
-                className={styles.exportBtn}
+                type="button"
+                className="bg-bg-surface border border-[#cbd5e1] text-text-primary text-[12.5px] font-semibold px-4 h-[40px] rounded-[8px] cursor-pointer transition-all duration-150 whitespace-nowrap inline-flex items-center gap-2 shadow-sm hover:enabled:bg-[#10b981] hover:enabled:border-[#10b981] hover:enabled:text-white hover:enabled:shadow-[0_2px_4px_rgba(16,185,129,0.2)] disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[#94a3b8]"
                 onClick={handleExportExcel}
                 disabled={filteredLogs.length === 0 || loading}
                 title="Export current logs to Excel/CSV"
@@ -395,7 +402,11 @@ export default function AuditLogs() {
 
             {/* Reset Filters */}
             {isFiltered && (
-              <button className={styles.resetBtn} onClick={resetFilters}>
+              <button
+                type="button"
+                className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#475569] text-[12.5px] font-semibold px-4 h-[40px] rounded-[8px] cursor-pointer transition-all duration-150 whitespace-nowrap inline-flex items-center gap-1.5 hover:bg-[#e2e8f0] hover:text-text-primary"
+                onClick={resetFilters}
+              >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                   <path d="M3 3v5h5" />
@@ -405,16 +416,16 @@ export default function AuditLogs() {
             )}
           </div>
 
-          <div className={styles.section}>
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
+          <div className="bg-bg-surface rounded-[12px] border border-[#e2e8f0] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full border-collapse text-left text-[13px]">
                 <thead>
-                  <tr>
-                    <th>TIMESTAMP</th>
-                    <th>USER / ACTOR</th>
-                    <th>ACTION</th>
-                    <th>ENTITY TYPE</th>
-                    <th>RECORD / ENTITY ID</th>
+                  <tr className="bg-[#f8fafc] border-b border-[#e2e8f0]">
+                    <th className="px-[18px] py-[14px] text-[11px] font-semibold text-[#475569] uppercase tracking-[0.05em]">TIMESTAMP</th>
+                    <th className="px-[18px] py-[14px] text-[11px] font-semibold text-[#475569] uppercase tracking-[0.05em]">USER / ACTOR</th>
+                    <th className="px-[18px] py-[14px] text-[11px] font-semibold text-[#475569] uppercase tracking-[0.05em]">ACTION</th>
+                    <th className="px-[18px] py-[14px] text-[11px] font-semibold text-[#475569] uppercase tracking-[0.05em]">ENTITY TYPE</th>
+                    <th className="px-[18px] py-[14px] text-[11px] font-semibold text-[#475569] uppercase tracking-[0.05em]">RECORD / ENTITY ID</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -422,27 +433,33 @@ export default function AuditLogs() {
                     <TableSkeleton rows={5} columns={5} />
                   ) : paginatedLogs.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className={styles.empty}>
+                      <td colSpan={5} className="text-center text-text-muted p-[40px] text-[14px]">
                         No audit records match your selected filter criteria.
                       </td>
                     </tr>
                   ) : (
                     paginatedLogs.map(log => (
-                      <tr key={log.auditId} style={{ cursor: 'pointer' }} onClick={() => setActiveLog(log)}>
-                        <td style={{ fontSize: 12, fontWeight: 500, color: '#475569' }}>
+                      <tr
+                        key={log.auditId}
+                        className="cursor-pointer border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]"
+                        onClick={() => setActiveLog(log)}
+                      >
+                        <td className="px-[18px] py-[14px] text-[12px] font-medium text-[#475569] align-middle">
                           {formatTimestamp(log.timestamp)}
                         </td>
-                        <td>
-                          <div className={styles.actorCell}>
-                            <span className={styles.actorName}>{log.actorName || log.actorId}</span>
-                            <span className={styles.actorEmail}>{log.actorEmail || log.actorId}</span>
+                        <td className="px-[18px] py-[14px] align-middle">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-semibold text-text-primary">{log.actorName || log.actorId}</span>
+                            <span className="text-[11.5px] text-text-muted">{log.actorEmail || log.actorId}</span>
                           </div>
                         </td>
-                        <td>{renderActionBadge(log.action)}</td>
-                        <td>
-                          <span className={styles.entityBadge}>{log.entityType}</span>
+                        <td className="px-[18px] py-[14px] align-middle">{renderActionBadge(log.action)}</td>
+                        <td className="px-[18px] py-[14px] align-middle">
+                          <span className="bg-[#f1f5f9] text-[#475569] font-semibold text-[11px] px-2 py-[3px] rounded-[4px]">
+                            {log.entityType}
+                          </span>
                         </td>
-                        <td style={{ fontWeight: 600, color: '#091124' }}>
+                        <td className="px-[18px] py-[14px] font-semibold text-[#091124] align-middle">
                           {log.entityId}
                         </td>
                       </tr>

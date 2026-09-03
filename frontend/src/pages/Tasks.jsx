@@ -11,7 +11,6 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
 import { ENTITIES, getTasks, submitTask, approveTask, rejectTask, deleteTask } from '../services/api';
-import styles from './Tasks.module.css';
 
 const STATUS_OPTIONS = [
   { value: 'ALL', label: 'All Statuses' },
@@ -235,27 +234,25 @@ export default function Tasks() {
   const isFiltered = dateRangeState.rangeType !== 'ALL' || selectedStatus !== 'ALL' || selectedSopType !== 'ALL' || selectedMaker !== 'ALL' || selectedChecker !== 'ALL';
 
   return (
-    <div className={styles.layout}>
-      <Sidebar />
-      <main className={styles.main}>
-        <div className={styles.pageHeader}>
-          <div className={styles.pageHeaderInner}>
+    <>
+      <main className="ml-[248px] flex-1 min-w-0 bg-bg-base">
+        <div className="w-full bg-[#f8fafc] border-b border-[#cbd5e1] px-8 py-[18px] shadow-sm box-border">
+          <div className="flex items-center justify-between gap-4 w-full max-w-full box-border">
             <div>
-              <h2>Task List</h2>
-              <p>Compliance tasks assigned to your Maker/Checker pool.</p>
+              <h2 className="text-[22px] font-bold text-[#1e293b]">Task List</h2>
+              <p className="text-[13.5px] text-text-muted mt-1">Compliance tasks assigned to your Maker/Checker pool.</p>
             </div>
             <EntityPills selectedEntities={selected} onChange={setSelected} />
           </div>
         </div>
 
-        <div className={styles.page}>
-
+        <div className="p-6 md:px-8 w-full max-w-full box-border">
           <Toast message={toastMsg} type="success" onClose={() => setToastMsg('')} />
 
           {/* Structured Filter Toolbar */}
-          <div className={styles.filterRow}>
-            <div className={styles.filterGroup} style={{ flex: 1.5, minWidth: 220 }}>
-              <span className={styles.filterLabel}>Due Date Range</span>
+          <div className="flex flex-wrap items-end gap-4 mb-6 bg-bg-surface p-[18px_20px] rounded-[12px] border border-[#e2e8f0] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div className="flex flex-col gap-1.5 flex-[1.5] min-w-[220px]">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Due Date Range</span>
               <AuditDateRangePicker
                 rangeType={dateRangeState.rangeType}
                 startDate={dateRangeState.startDate}
@@ -264,8 +261,8 @@ export default function Tasks() {
               />
             </div>
 
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>SOP Type</span>
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">SOP Type</span>
               <CustomSelect
                 name="selectedSopType"
                 value={selectedSopType}
@@ -277,8 +274,8 @@ export default function Tasks() {
               />
             </div>
 
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>Status</span>
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Status</span>
               <CustomSelect
                 name="selectedStatus"
                 value={selectedStatus}
@@ -290,8 +287,8 @@ export default function Tasks() {
               />
             </div>
 
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>Maker</span>
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Maker</span>
               <CustomSelect
                 name="selectedMaker"
                 value={selectedMaker}
@@ -303,8 +300,8 @@ export default function Tasks() {
               />
             </div>
 
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>Checker</span>
+            <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Checker</span>
               <CustomSelect
                 name="selectedChecker"
                 value={selectedChecker}
@@ -317,7 +314,11 @@ export default function Tasks() {
             </div>
 
             {isFiltered && (
-              <button className={styles.resetBtn} onClick={resetFilters}>
+              <button
+                type="button"
+                className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#475569] text-[12.5px] font-semibold px-4 h-[40px] rounded-[8px] cursor-pointer transition-all duration-150 ease-in-out whitespace-nowrap inline-flex items-center gap-1.5 hover:bg-[#e2e8f0] hover:text-[#0f172a]"
+                onClick={resetFilters}
+              >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                   <path d="M3 3v5h5" />
@@ -327,20 +328,20 @@ export default function Tasks() {
             )}
           </div>
 
-          <div className={styles.section}>
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
+          <div className="bg-bg-surface border border-[#e2e8f0] rounded-[12px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full border-collapse">
                 <thead>
-                  <tr>
-                    <th>RECORD</th>
-                    <th>SOP</th>
-                    <th>ENTITY</th>
-                    <th>PERIOD</th>
-                    <th>MAKER(S)</th>
-                    <th>CHECKER(S)</th>
-                    <th>DUE DATE</th>
-                    <th>STATUS</th>
-                    <th style={{ textAlign: 'right' }}>ACTIONS</th>
+                  <tr className="border-b border-[#f1f5f9]">
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">RECORD</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">SOP</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ENTITY</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">PERIOD</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">MAKER(S)</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">CHECKER(S)</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">DUE DATE</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">STATUS</th>
+                    <th className="px-6 py-3 text-right text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -348,39 +349,43 @@ export default function Tasks() {
                     <TableSkeleton rows={5} columns={9} />
                   ) : paginatedTasks.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className={styles.empty}>
+                      <td colSpan={9} className="text-center p-12 text-[#94a3b8] text-[13.5px]">
                         No assigned tasks match your selected filter criteria.
                       </td>
                     </tr>
                   ) : (
                     paginatedTasks.map(task => (
-                      <tr key={task.taskId || task.id || task.recordNo} style={{ cursor: 'pointer' }} onClick={() => setActiveTask(task)}>
-                        <td className={styles.tdCode}>{task.recordNo || task.record}</td>
-                        <td className={styles.tdName}>{task.sopTitle || task.sop}</td>
-                        <td>{task.entityName || task.entity}</td>
-                        <td>{task.periodKey || task.period}</td>
-                        <td>
-                          <span style={{ fontWeight: 500, color: '#1e293b' }}>
+                      <tr
+                        key={task.taskId || task.id || task.recordNo}
+                        className="cursor-pointer group border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]"
+                        onClick={() => setActiveTask(task)}
+                      >
+                        <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{task.recordNo || task.record}</td>
+                        <td className="px-6 py-3.5 text-[13.5px] font-semibold text-text-primary align-middle">{task.sopTitle || task.sop}</td>
+                        <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.entityName || task.entity}</td>
+                        <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.periodKey || task.period}</td>
+                        <td className="px-6 py-3.5 text-[13.5px] align-middle">
+                          <span className="font-medium text-[#1e293b]">
                             {task.assignedMakers && task.assignedMakers.length > 0
                               ? task.assignedMakers.join(', ')
                               : (task.makerName || task.maker)}
                           </span>
                         </td>
-                        <td>
-                          <span style={{ fontWeight: 500, color: '#1e293b' }}>
+                        <td className="px-6 py-3.5 text-[13.5px] align-middle">
+                          <span className="font-medium text-[#1e293b]">
                             {task.assignedCheckers && task.assignedCheckers.length > 0
                               ? task.assignedCheckers.join(', ')
                               : (task.checkerName || task.checker)}
                           </span>
                         </td>
-                        <td>{task.dueDate}</td>
-                        <td><StatusBadge status={task.status} /></td>
-                        <td onClick={e => e.stopPropagation()}>
-                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.dueDate}</td>
+                        <td className="px-6 py-3.5 text-[13.5px] align-middle"><StatusBadge status={task.status} /></td>
+                        <td className="px-6 py-3.5 text-[13.5px] align-middle" onClick={e => e.stopPropagation()}>
+                          <div className="flex gap-1.5 justify-end">
                             <button
                               type="button"
                               title="View & Review Task"
-                              style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#334155', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#334155] rounded-[6px] px-[10px] py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1 hover:opacity-85 transition-opacity duration-150"
                               onClick={() => setActiveTask(task)}
                             >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -394,7 +399,7 @@ export default function Tasks() {
                               <button
                                 type="button"
                                 title="Delete Task (Admin)"
-                                style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                className="bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] text-[#ef4444] rounded-[6px] px-[10px] py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1 hover:opacity-85 transition-opacity duration-150"
                                 onClick={() => setDeletingTask(task)}
                               >
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -448,6 +453,8 @@ export default function Tasks() {
         onConfirm={handleConfirmDeleteTask}
         onClose={() => setDeletingTask(null)}
       />
-    </div>
+
+    </>
+
   );
 }

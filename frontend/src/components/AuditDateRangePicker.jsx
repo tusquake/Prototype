@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import styles from './AuditDateRangePicker.module.css';
+
 
 const PRESETS = [
   { id: 'ALL', label: 'All Time' },
@@ -201,121 +201,146 @@ export default function AuditDateRangePicker({ rangeType, startDate, endDate, on
   }
 
   return (
-    <div className={styles.pickerContainer} ref={containerRef}>
-      <button
-        type="button"
-        className={`${styles.triggerBtn} ${isOpen ? styles.active : ''}`}
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <span className={styles.triggerLeft}>
-          <svg className={styles.calIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-            <line x1="16" y1="2" x2="16" y2="6" />
-            <line x1="8" y1="2" x2="8" y2="6" />
-            <line x1="3" y1="10" x2="21" y2="10" />
-          </svg>
-          <span className={styles.labelText}>{getDisplayText()}</span>
-        </span>
-        <svg
-          className={`${styles.chevron} ${isOpen ? styles.rotated : ''}`}
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
+    <>
+      <div className="relative inline-block min-w-[220px]" ref={containerRef}>
+        <button
+          type="button"
+          className={`flex h-10 w-full items-center justify-between gap-2.5 rounded-lg border px-3.5 text-xs font-medium text-slate-900 shadow-sm transition-all ${isOpen
+              ? 'border-blue-600 bg-white ring-4 ring-blue-600/12'
+              : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50'
+            }`}
+          onClick={() => setIsOpen(!isOpen)}
         >
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
+          <span className="flex items-center gap-2 overflow-hidden">
+            <svg className="h-4 w-4 shrink-0 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            <span className="truncate font-semibold text-slate-800">{getDisplayText()}</span>
+          </span>
+          <svg
+            className={`h-3.75 w-3.75 shrink-0 text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
 
-      {isOpen && (
-        <div className={styles.popoverCard}>
-          {/* Presets Sidebar Column */}
-          <div className={styles.presetsCol}>
-            {PRESETS.map(p => (
-              <div
-                key={p.id}
-                className={`${styles.presetItem} ${rangeType === p.id ? styles.presetActive : ''}`}
-                onClick={() => handleSelectPreset(p.id)}
-              >
-                <span>{p.label}</span>
-                {rangeType === p.id && (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Custom Mini Calendar Column */}
-          <div className={styles.calendarCol}>
-            <div className={styles.calendarHeader}>
-              <button type="button" className={styles.navBtn} onClick={handlePrevMonth}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="15 18 9 12 15 6" />
-                </svg>
-              </button>
-              <span className={styles.monthTitle}>
-                {MONTH_NAMES[month]} {year}
-              </span>
-              <button type="button" className={styles.navBtn} onClick={handleNextMonth}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
-            </div>
-
-            <div className={styles.weekDaysGrid}>
-              {WEEKDAYS.map(w => (
-                <div key={w}>{w}</div>
-              ))}
-            </div>
-
-            <div className={styles.daysGrid}>
-              {dayCells.map((dayNum, idx) => {
-                if (!dayNum) {
-                  return <div key={`empty-${idx}`} className={`${styles.dayCell} ${styles.emptyCell}`} />;
-                }
-                const cellDate = new Date(year, month, dayNum);
-                const isStart = isSameDay(cellDate, selStart);
-                const isEnd = isSameDay(cellDate, selEnd);
-                const inRange = isDayInRange(dayNum);
-
-                let cellClass = styles.dayCell;
-                if (isStart || isEnd) cellClass += ` ${styles.rangeEndpoint}`;
-                else if (inRange) cellClass += ` ${styles.inRange}`;
-
+        {isOpen && (
+          <div className="absolute left-0 top-[calc(100%+8px)] z-[300] flex w-[480px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-[slideDown_0.18s_ease-out]">
+            {/* Presets Sidebar Column */}
+            <div className="flex w-[155px] flex-col gap-0.75 border-r border-slate-200 bg-slate-50 p-3 pt-3">
+              {PRESETS.map(p => {
+                const isActive = rangeType === p.id;
                 return (
-                  <button
-                    key={dayNum}
-                    type="button"
-                    className={cellClass}
-                    onClick={() => {
-                      handleDayClick(dayNum);
-                      if (rangeType !== 'CUSTOM') onChange({ rangeType: 'CUSTOM', startDate: formatDateISO(cellDate), endDate: '' });
-                    }}
+                  <div
+                    key={p.id}
+                    className={`flex items-center justify-between rounded-md px-3 py-2 text-[12.5px] font-medium transition-all cursor-pointer ${isActive
+                        ? 'bg-blue-600 text-white font-semibold'
+                        : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                      }`}
+                    onClick={() => handleSelectPreset(p.id)}
                   >
-                    {dayNum}
-                  </button>
+                    <span>{p.label}</span>
+                    {isActive && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </div>
                 );
               })}
             </div>
 
-            <div className={styles.footerRow}>
-              <span className={styles.rangeSummary}>
-                {formatRangeSummary(selStart, selEnd)}
-              </span>
-              <button type="button" className={styles.applyBtn} onClick={handleApplyCustom}>
-                Apply
-              </button>
+            {/* Custom Mini Calendar Column */}
+            <div className="flex flex-1 flex-col gap-3 p-4">
+              <div className="flex items-center justify-between px-1">
+                <button
+                  type="button"
+                  className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-600 transition-all hover:bg-blue-600 hover:text-white"
+                  onClick={handlePrevMonth}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+                <span className="text-[13.5px] font-bold text-slate-900">
+                  {MONTH_NAMES[month]} {year}
+                </span>
+                <button
+                  type="button"
+                  className="flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 text-slate-600 transition-all hover:bg-blue-600 hover:text-white"
+                  onClick={handleNextMonth}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="mb-0.5 grid grid-cols-7 text-center text-[11px] font-bold text-slate-400">
+                {WEEKDAYS.map(w => (
+                  <div key={w}>{w}</div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-7 gap-0.5">
+                {dayCells.map((dayNum, idx) => {
+                  if (!dayNum) {
+                    return <div key={`empty-${idx}`} className="h-8 select-none" />;
+                  }
+                  const cellDate = new Date(year, month, dayNum);
+                  const isStart = isSameDay(cellDate, selStart);
+                  const isEnd = isSameDay(cellDate, selEnd);
+                  const inRange = isDayInRange(dayNum);
+
+                  let dayClasses = "flex h-8 items-center justify-center text-xs font-medium text-slate-700 transition-all cursor-pointer select-none bg-transparent hover:bg-slate-200 hover:text-slate-900 rounded-md";
+
+                  if (isStart || isEnd) {
+                    dayClasses = "flex h-8 items-center justify-center text-xs font-bold text-white bg-blue-600 select-none cursor-pointer rounded-md";
+                  } else if (inRange) {
+                    dayClasses = "flex h-8 items-center justify-center text-xs font-medium text-blue-900 bg-blue-600/12 select-none cursor-pointer rounded-none";
+                  }
+
+                  return (
+                    <button
+                      key={dayNum}
+                      type="button"
+                      className={dayClasses}
+                      onClick={() => {
+                        handleDayClick(dayNum);
+                        if (rangeType !== 'CUSTOM') onChange({ rangeType: 'CUSTOM', startDate: formatDateISO(cellDate), endDate: '' });
+                      }}
+                    >
+                      {dayNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-1 flex items-center justify-between border-t border-slate-100 pt-2.5">
+                <span className="text-[11.5px] font-semibold text-slate-600">
+                  {formatRangeSummary(selStart, selEnd)}
+                </span>
+                <button
+                  type="button"
+                  className="h-8 rounded-md bg-blue-600 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
+                  onClick={handleApplyCustom}
+                >
+                  Apply
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }

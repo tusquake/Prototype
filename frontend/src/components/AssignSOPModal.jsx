@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import UserPickerModal from './UserPickerModal';
 import { assignSop, getProcessCategories, getUsersByPermission } from '../services/api';
-import styles from './SopDetailModal.module.css';
+
 
 const ENTITY_OPTIONS = [
   { value: 'CK_INDIA', label: 'CK India' },
@@ -141,158 +141,118 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
 
   return (
     <>
-      <div className={styles.backdrop} onClick={onClose}>
-        <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+      <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-900/60 p-5 backdrop-blur-sm" onClick={onClose}>
+        <div
+          className="w-full max-w-[560px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl animate-[modalFade_0.2s_ease-out]"
+          onClick={e => e.stopPropagation()}
+        >
 
           {/* Header */}
-          <div className={styles.header}>
-            <div className={styles.titleArea}>
-              <h3 style={{ margin: 0 }}>Assign New SOP</h3>
-              <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#64748b' }}>
+          <div className="flex items-start justify-between border-b border-slate-100 bg-slate-50 px-7 pb-[18px] pt-6">
+            <div className="flex flex-col">
+              <h3 className="m-0 text-lg font-bold text-slate-900">Assign New SOP</h3>
+              <p className="mt-0.5 text-[12.5px] text-slate-500">
                 Creator & approver lists show only users with required permissions for the selected category.
               </p>
             </div>
-            <button type="button" className={styles.closeBtn} onClick={onClose} title="Close modal">
+            <button
+              type="button"
+              className="rounded-md p-1 text-slate-500 transition-all hover:bg-slate-200 hover:text-slate-900"
+              onClick={onClose}
+              title="Close modal"
+            >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           </div>
 
           {/* Body */}
-          <div className={styles.body}>
+          <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto px-7 py-6">
             {errorMsg && (
-              <div style={{ color: '#dc2626', background: '#fee2e2', border: '1px solid #fca5a5', padding: '10px 14px', borderRadius: 8, fontSize: 13 }}>
+              <div className="rounded-lg border border-red-300 bg-red-100 p-2.5 text-xs font-medium text-red-600">
                 {errorMsg}
               </div>
             )}
 
-            <form id="assign-sop-form" onSubmit={handleAssignSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <form id="assign-sop-form" onSubmit={handleAssignSubmit} className="flex flex-col gap-4">
 
               {/* SOP Code */}
-              <div className={styles.field}>
-                <span className={styles.label}>SOP Code *</span>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">SOP Code *</span>
                 <input
                   type="text"
                   placeholder="e.g. SOP-TAX-2026-005"
                   value={assignForm.sopCode}
                   onChange={e => setAssignForm(prev => ({ ...prev, sopCode: e.target.value }))}
                   required
-                  style={{ width: '100%', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13.5, background: '#fff', color: '#0f172a', boxSizing: 'border-box', outline: 'none' }}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[13.5px] text-slate-900 outline-none transition focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 />
               </div>
 
               {/* Entity */}
-              <div className={styles.field}>
-                <span className={styles.label}>Entity *</span>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Entity *</span>
                 <select
                   value={assignForm.entityCode}
                   onChange={e => setAssignForm(prev => ({ ...prev, entityCode: e.target.value }))}
-                  style={{ width: '100%', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13.5, background: '#fff', color: '#0f172a', boxSizing: 'border-box', outline: 'none' }}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[13.5px] text-slate-900 outline-none transition focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 >
                   {ENTITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
 
               {/* Process Category */}
-              <div className={styles.field}>
-                <span className={styles.label}>Process Category *</span>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Process Category *</span>
                 <select
                   value={assignForm.processCategory}
                   onChange={e => setAssignForm(prev => ({ ...prev, processCategory: e.target.value }))}
-                  style={{ width: '100%', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13.5, background: '#fff', color: '#0f172a', boxSizing: 'border-box', outline: 'none' }}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[13.5px] text-slate-900 outline-none transition focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 >
                   {processOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
 
               {/* SOP Creators — UserPicker Modal Trigger + Badges */}
-              <div className={styles.field}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span className={styles.label} style={{ margin: 0 }}>
+              <div className="flex flex-col gap-1">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                     Assign SOP Creators *
                   </span>
                   <button
                     type="button"
                     onClick={() => setShowCreatorPicker(true)}
                     disabled={loadingUsers || permittedCreators.length === 0}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '5px 12px',
-                      borderRadius: 6,
-                      background: '#eff6ff',
-                      border: '1px solid #bfdbfe',
-                      color: '#1d4ed8',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: (loadingUsers || permittedCreators.length === 0) ? 'not-allowed' : 'pointer',
-                      opacity: (loadingUsers || permittedCreators.length === 0) ? 0.6 : 1,
-                    }}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.25 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Select Creators ({assignForm.assignedCreatorIds.length})
                   </button>
                 </div>
 
                 {noCreatorsMsg ? (
-                  <div style={{ padding: '10px 14px', border: '1px dashed #e2e8f0', borderRadius: 8, fontSize: 13, color: '#64748b', background: '#f8fafc' }}>
+                  <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
                     {noCreatorsMsg}
                   </div>
                 ) : (
-                  <div style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: 6,
-                    background: '#fff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: 8,
-                    padding: '8px 12px',
-                    minHeight: 42,
-                    alignItems: 'center',
-                    boxSizing: 'border-box',
-                  }}>
+                  <div className="flex min-h-[42px] flex-wrap items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2">
                     {assignForm.assignedCreatorIds.length === 0 ? (
-                      <span style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>No creators selected — click "Select Creators" above</span>
+                      <span className="text-xs italic text-slate-400">No creators selected — click "Select Creators" above</span>
                     ) : (
                       assignForm.assignedCreatorIds.map(id => {
                         const u = permittedCreators.find(x => x.id === id) || { id, name: id };
                         return (
                           <div
                             key={id}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              padding: '4px 10px',
-                              borderRadius: 16,
-                              background: '#f1f5f9',
-                              border: '1px solid #cbd5e1',
-                              color: '#334155',
-                              fontSize: 12,
-                              fontWeight: 600,
-                            }}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700"
                           >
                             <span>{u.name || id}</span>
                             <button
                               type="button"
                               onClick={() => removeCreator(id)}
                               title="Remove creator"
-                              style={{
-                                border: 'none',
-                                background: 'rgba(100, 116, 139, 0.18)',
-                                color: '#475569',
-                                borderRadius: '50%',
-                                width: 16,
-                                height: 16,
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 12,
-                                padding: 0,
-                                lineHeight: 1,
-                              }}
+                              className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-500/20 text-[12px] leading-none text-slate-600 hover:bg-slate-500/30"
                             >
                               &times;
                             </button>
@@ -305,92 +265,43 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
               </div>
 
               {/* SOP Approvers — UserPicker Modal Trigger + Badges */}
-              <div className={styles.field}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span className={styles.label} style={{ margin: 0 }}>
+              <div className="flex flex-col gap-1">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                     Assign SOP Approvers *
                   </span>
                   <button
                     type="button"
                     onClick={() => setShowApproverPicker(true)}
                     disabled={loadingUsers || permittedApprovers.length === 0}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '5px 12px',
-                      borderRadius: 6,
-                      background: '#eff6ff',
-                      border: '1px solid #bfdbfe',
-                      color: '#1d4ed8',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: (loadingUsers || permittedApprovers.length === 0) ? 'not-allowed' : 'pointer',
-                      opacity: (loadingUsers || permittedApprovers.length === 0) ? 0.6 : 1,
-                    }}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.25 text-xs font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Select Approvers ({assignForm.assignedApproverIds.length})
                   </button>
                 </div>
 
                 {noApproversMsg ? (
-                  <div style={{ padding: '10px 14px', border: '1px dashed #e2e8f0', borderRadius: 8, fontSize: 13, color: '#64748b', background: '#f8fafc' }}>
+                  <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
                     {noApproversMsg}
                   </div>
                 ) : (
-                  <div style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: 6,
-                    background: '#fff',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: 8,
-                    padding: '8px 12px',
-                    minHeight: 42,
-                    alignItems: 'center',
-                    boxSizing: 'border-box',
-                  }}>
+                  <div className="flex min-h-[42px] flex-wrap items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2">
                     {assignForm.assignedApproverIds.length === 0 ? (
-                      <span style={{ fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>No approvers selected — click "Select Approvers" above</span>
+                      <span className="text-xs italic text-slate-400">No approvers selected — click "Select Approvers" above</span>
                     ) : (
                       assignForm.assignedApproverIds.map(id => {
                         const u = permittedApprovers.find(x => x.id === id) || { id, name: id };
                         return (
                           <div
                             key={id}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              padding: '4px 10px',
-                              borderRadius: 16,
-                              background: '#f1f5f9',
-                              border: '1px solid #cbd5e1',
-                              color: '#334155',
-                              fontSize: 12,
-                              fontWeight: 600,
-                            }}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700"
                           >
                             <span>{u.name || id}</span>
                             <button
                               type="button"
                               onClick={() => removeApprover(id)}
                               title="Remove approver"
-                              style={{
-                                border: 'none',
-                                background: 'rgba(100, 116, 139, 0.18)',
-                                color: '#475569',
-                                borderRadius: '50%',
-                                width: 16,
-                                height: 16,
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 12,
-                                padding: 0,
-                                lineHeight: 1,
-                              }}
+                              className="flex h-4 w-4 items-center justify-center rounded-full bg-slate-500/20 text-[12px] leading-none text-slate-600 hover:bg-slate-500/30"
                             >
                               &times;
                             </button>
@@ -405,9 +316,20 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
           </div>
 
           {/* Footer */}
-          <div className={styles.footer} style={{ justifyContent: 'flex-end' }}>
-            <button type="button" className={styles.btnSecondary} onClick={onClose}>Cancel</button>
-            <button type="submit" form="assign-sop-form" className={styles.btnPrimary} disabled={saving || loadingUsers}>
+          <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-7 py-4">
+            <button
+              type="button"
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="assign-sop-form"
+              className="rounded-lg border border-blue-600 bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition-all hover:border-blue-700 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={saving || loadingUsers}
+            >
               {saving ? 'Assigning…' : 'Assign SOP'}
             </button>
           </div>

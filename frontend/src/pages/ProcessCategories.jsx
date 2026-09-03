@@ -5,7 +5,6 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import Toast from '../components/Toast';
 import { getProcessCategories, createProcessCategory, deleteProcessCategory } from '../services/api';
 import { getSession } from '../auth/auth';
-import styles from './AuditLogs.module.css';
 
 export default function ProcessCategories() {
   const [categories, setCategories] = useState([]);
@@ -105,87 +104,87 @@ export default function ProcessCategories() {
   });
 
   return (
-    <div className={styles.layout}>
-      <Sidebar currentUser={currentUser} />
-
-      <main className={styles.main}>
+    <div className="flex min-h-screen bg-[#f8fafc] text-text-primary">
+      <main className="ml-[248px] flex-1 min-w-0 bg-bg-base">
         {/* Standardized Master-Detail Top Header */}
-        <div className={styles.pageHeader}>
-          <div className={styles.pageHeaderInner}>
+        <div className="w-full bg-[#f8fafc] border-b border-[#cbd5e1] px-8 py-[18px] shadow-sm box-border">
+          <div className="flex items-center justify-between gap-4 w-full max-w-full box-border">
             <div>
-              <h2>Process Category Management</h2>
-              <p>Define and manage operational categories used across SOP master definitions and compliance task workflows.</p>
+              <h2 className="text-[22px] font-bold text-[#1e293b]">Process Category Management</h2>
+              <p className="text-[13.5px] text-text-muted mt-1">
+                Define and manage operational categories used across SOP master definitions and compliance task workflows.
+              </p>
             </div>
           </div>
         </div>
 
         {/* Page Content View */}
-        <div className={styles.page}>
+        <div className="p-6 md:px-8 w-full max-w-full box-border">
           {/* Action & Filter Bar on Top of Table */}
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px 10px 0 0', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-            <div style={{ flex: 1, maxWidth: 360 }}>
+          <div className="bg-bg-surface border border-[#e2e8f0] rounded-t-[10px] p-[16px_20px] flex items-center justify-between gap-4">
+            <div className="flex-1 max-w-[360px]">
               <input
                 type="text"
                 placeholder="Search category code or name..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, background: '#f8fafc', color: '#0f172a' }}
+                className="w-full px-3 py-2 border border-[#cbd5e1] rounded-[6px] text-[13px] bg-[#f8fafc] text-[#0f172a] outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.1)]"
               />
             </div>
 
             <button
               type="button"
               onClick={() => setShowCreateModal(true)}
-              style={{ padding: '9px 18px', background: '#0284c7', color: '#ffffff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+              className="px-[18px] py-[9px] bg-[#0284c7] text-white border-none rounded-[6px] text-[13px] font-bold cursor-pointer flex items-center gap-1.5 transition-colors duration-150 hover:bg-[#0369a1]"
             >
               <span>+ Create Process Category</span>
             </button>
           </div>
 
           {/* Categories Table View */}
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 10px 10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)' }}>
+          <div className="bg-bg-surface border border-[#e2e8f0] border-t-0 rounded-b-[10px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
             {loading ? (
-              <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+              <div className="p-10 text-center text-text-muted text-[13px]">
                 Loading process categories...
               </div>
             ) : filteredCategories.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+              <div className="p-10 text-center text-text-muted text-[13px]">
                 No process categories found matching your query.
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <table className="w-full border-collapse text-[13px]">
                 <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    <th style={{ padding: '12px 16px', width: 220 }}>Category Code</th>
-                    <th style={{ padding: '12px 16px', width: 260 }}>Category Name</th>
-                    <th style={{ padding: '12px 16px' }}>Description</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'right', width: 160 }}>Actions</th>
+                  <tr className="bg-[#f8fafc] border-b border-[#e2e8f0] text-[#475569] text-left text-[11px] uppercase tracking-[0.5px]">
+                    <th className="px-4 py-3 w-[220px]">Category Code</th>
+                    <th className="px-4 py-3 w-[260px]">Category Name</th>
+                    <th className="px-4 py-3">Description</th>
+                    <th className="px-4 py-3 text-right w-[160px]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredCategories.map(cat => (
-                    <tr key={cat.id || cat.categoryCode} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontWeight: 600, color: '#0284c7' }}>
+                    <tr key={cat.id || cat.categoryCode} className="border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]">
+                      <td className="px-4 py-3.5 font-mono font-semibold text-[#0284c7] align-middle">
                         {cat.categoryCode}
                       </td>
-                      <td style={{ padding: '14px 16px', fontWeight: 600, color: '#0f172a' }}>
+                      <td className="px-4 py-3.5 font-semibold text-text-primary align-middle">
                         {cat.categoryName}
                       </td>
-                      <td style={{ padding: '14px 16px', color: '#64748b' }}>
+                      <td className="px-4 py-3.5 text-text-muted align-middle">
                         {cat.description || 'No description provided'}
                       </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'right', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                      <td className="px-4 py-3.5 text-right flex gap-2 justify-end align-middle">
                         <button
                           type="button"
                           onClick={() => setEditingCategory(cat)}
-                          style={{ background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0284c7', borderRadius: 4, padding: '5px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                          className="bg-[#f0f9ff] border border-[#bae6fd] text-[#0284c7] rounded-[4px] px-3 py-[5px] cursor-pointer text-[12px] font-semibold transition-colors duration-150 hover:bg-[#e0f2fe]"
                         >
-                          Edit & Details
+                          Edit &amp; Details
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeleteCategoryTarget(cat.categoryCode)}
-                          style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#b91c1c', borderRadius: 4, padding: '5px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                          className="bg-[#fee2e2] border border-[#fca5a5] text-[#b91c1c] rounded-[4px] px-3 py-[5px] cursor-pointer text-[12px] font-semibold transition-colors duration-150 hover:bg-[#fca5a5]/40"
                         >
                           Delete
                         </button>
@@ -200,15 +199,15 @@ export default function ProcessCategories() {
 
         {/* Modal for Creating New Process Category */}
         {showCreateModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ background: '#ffffff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 500, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', margin: '0 0 16px 0' }}>
+          <div className="fixed inset-0 bg-[#0f172a]/50 flex items-center justify-center z-[1000] p-4">
+            <div className="bg-bg-surface rounded-[12px] p-6 w-full max-w-[500px] shadow-[0_20px_25px_-5px_rgba(0,0,0,0.1)]">
+              <h2 className="text-[16px] font-bold text-[#0f172a] m-0 mb-4">
                 Create Process Category
               </h2>
 
-              <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <form onSubmit={handleCreate} className="flex flex-col gap-4">
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
+                  <label className="block text-[12px] font-semibold text-[#475569] mb-1">
                     Category Code *
                   </label>
                   <input
@@ -217,12 +216,12 @@ export default function ProcessCategories() {
                     value={code}
                     onChange={e => setCode(e.target.value)}
                     required
-                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, background: '#f8fafc' }}
+                    className="w-full p-[9px_12px] border border-[#cbd5e1] rounded-[6px] text-[13px] bg-[#f8fafc] text-text-primary outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
+                  <label className="block text-[12px] font-semibold text-[#475569] mb-1">
                     Category Name *
                   </label>
                   <input
@@ -231,12 +230,12 @@ export default function ProcessCategories() {
                     value={name}
                     onChange={e => setName(e.target.value)}
                     required
-                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, background: '#f8fafc' }}
+                    className="w-full p-[9px_12px] border border-[#cbd5e1] rounded-[6px] text-[13px] bg-[#f8fafc] text-text-primary outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
+                  <label className="block text-[12px] font-semibold text-[#475569] mb-1">
                     Description
                   </label>
                   <textarea
@@ -244,22 +243,22 @@ export default function ProcessCategories() {
                     placeholder="Operational scope of compliance area"
                     value={description}
                     onChange={e => setDescription(e.target.value)}
-                    style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, background: '#f8fafc', resize: 'vertical' }}
+                    className="w-full p-[9px_12px] border border-[#cbd5e1] rounded-[6px] text-[13px] bg-[#f8fafc] text-text-primary resize-y outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
                   />
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
+                <div className="flex justify-end gap-3 mt-2">
                   <button
                     type="button"
                     onClick={() => setShowCreateModal(false)}
-                    style={{ padding: '8px 16px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                    className="px-4 py-2 bg-[#f1f5f9] text-[#475569] border border-[#cbd5e1] rounded-[6px] text-[13px] font-semibold cursor-pointer transition-colors duration-150 hover:bg-[#e2e8f0] hover:text-text-primary"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={creating}
-                    style={{ padding: '8px 18px', background: '#0284c7', color: '#ffffff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                    className="px-[18px] py-2 bg-[#0284c7] text-white border-none rounded-[6px] text-[13px] font-bold cursor-pointer transition-colors duration-150 hover:bg-[#0369a1] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {creating ? 'Creating...' : 'Create Category'}
                   </button>

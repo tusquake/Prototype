@@ -2,7 +2,6 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { clearSession, getSession, saveSession, USERS } from '../auth/auth';
 import { hasPermission } from '../auth/rbac';
 import NotificationBell from './NotificationBell';
-import styles from './Sidebar.module.css';
 
 const NAV_ITEMS = [
   {
@@ -53,27 +52,6 @@ const NAV_ITEMS = [
     ),
   },
   {
-    to: '/access-control',
-    label: 'Access Control',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-      </svg>
-    ),
-  },
-  {
-    to: '/process-categories',
-    label: 'Process Categories',
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="12 2 2 7 12 12 22 7 12 2" />
-        <polyline points="2 17 12 22 22 17" />
-        <polyline points="2 12 12 17 22 12" />
-      </svg>
-    ),
-  },
-  {
     to: '/audit',
     label: 'Audit Trail',
     icon: (
@@ -81,6 +59,47 @@ const NAV_ITEMS = [
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
         <polyline points="9 12 11 14 15 10" />
       </svg>
+    ),
+  },
+  {
+    to: '/access-control',
+    label: 'Access Control',
+    icon: (
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </svg>
+    ),
+  },
+  {
+    to: '/categories',
+    label: 'Process Categories',
+    icon: (
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+      </svg>
+
     ),
   },
 ];
@@ -104,50 +123,62 @@ export default function Sidebar() {
   );
 
   return (
-    <aside className={styles.sidebar}>
-      <div className={styles.header}>
-        <div className={styles.logoRow}>
-          <img src="/CLoudKaptan-logo.png" alt="CloudKaptan" className={styles.logo} />
+    <aside className="fixed left-0 top-0 z-50 flex h-screen w-[248px] flex-col bg-[#091124] text-white shadow-[2px_0_12px_rgba(0,0,0,0.15)]">
+      {/* Header */}
+      <div className="flex flex-col gap-1 px-5 pb-4 pt-6">
+        <div className="flex items-center">
+          <img src="/CLoudKaptan-logo.png" alt="CloudKaptan" className="h-7 w-auto object-contain brightness-0 invert" />
         </div>
-        <span className={styles.appSub}>FINANCE SOP TRACKER</span>
+        <span className="mt-1 text-[10px] font-bold uppercase tracking-widest text-sky-400">
+          FINANCE SOP TRACKER
+        </span>
       </div>
 
-      <nav className={styles.nav}>
+      {/* Navigation */}
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
         {visibleNavItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
-              `${styles.navItem} ${isActive ? styles.active : ''}`
+              `flex items-center gap-3 rounded-lg px-4 py-2.5 text-[13.5px] font-medium transition-all ${isActive
+                ? 'bg-blue-600 font-semibold text-white shadow-[0_4px_12px_rgba(37,99,235,0.35)]'
+                : 'text-slate-400 hover:bg-white/5 hover:text-white'
+              }`
             }
           >
-            <span className={styles.navIcon}>{item.icon}</span>
+            <span className="flex items-center justify-center leading-none">{item.icon}</span>
             <span>{item.label}</span>
           </NavLink>
         ))}
       </nav>
 
-      <div className={styles.footer}>
+      {/* Footer */}
+      <div className="relative flex flex-col gap-2.5 border-t border-white/10 px-3 pb-4 pt-3.5">
         <NotificationBell currentUser={currentUser} />
 
         {/* Logged in User Card */}
-        <div className={styles.userCard}>
-          <div className={styles.userInfo}>
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 p-2.5">
+          <div className="flex min-w-0 items-center gap-2.25 overflow-hidden">
             {currentUser.picture ? (
-              <img src={currentUser.picture} alt="avatar" className={styles.avatar} />
+              <img src={currentUser.picture} alt="avatar" className="h-7.5 w-7.5 shrink-0 rounded-full border border-white/20 object-cover" />
             ) : (
-              <div className={styles.avatarPlaceholder}>
+              <div className="flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-full border border-white/20 bg-blue-600 text-xs font-bold text-white">
                 {currentUser.name?.[0]?.toUpperCase() ?? 'U'}
               </div>
             )}
-            <div className={styles.userText}>
-              <div className={styles.userName}>{currentUser.name}</div>
-              <div className={styles.userEmail} title={currentUser.email}>
+            <div className="min-w-0">
+              <div className="truncate text-xs font-semibold text-slate-50">{currentUser.name}</div>
+              <div className="truncate text-[10px] text-slate-400" title={currentUser.email}>
                 {currentUser.email}
               </div>
             </div>
           </div>
-          <button className={styles.logoutBtn} onClick={handleLogout} title="Sign out">
+          <button
+            className="flex shrink-0 items-center rounded p-1.5 text-slate-400 transition-all hover:bg-red-600/15 hover:text-red-400"
+            onClick={handleLogout}
+            title="Sign out"
+          >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
               <polyline points="16 17 21 12 16 7" />

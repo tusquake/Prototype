@@ -14,7 +14,6 @@ import SopActivityLogModal from '../components/SopActivityLogModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
 import { ENTITIES, getSops, deleteSop, getUsers, actionSop, getProcessCategories } from '../services/api';
-import styles from './Sops.module.css';
 
 const FREQ_LABEL = { MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', ANNUAL: 'Annual', DAILY: 'Daily', WEEKLY: 'Weekly' };
 
@@ -121,7 +120,6 @@ const MAKER_FILTER_OPTIONS = [
   { value: 'Prayasa Sharma', label: 'Prayasa Sharma' },
   { value: 'Manoj Agarwal', label: 'Manoj Agarwal' },
 ];
-
 
 const CHECKER_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All Checkers' },
@@ -628,35 +626,34 @@ export default function Sops() {
   const paginatedSops = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
-    <div className={styles.layout}>
-      <Sidebar onOpenSopTask={handleOpenSopTask} />
-      <main className={styles.main}>
-        <div className={styles.pageHeader}>
-          <div className={styles.pageHeaderInner}>
+    <>
+      <main className="ml-[248px] flex-1 min-w-0 bg-bg-base">
+        <div className="w-full bg-[#f8fafc] border-b border-[#cbd5e1] px-8 py-[18px] shadow-sm box-border">
+          <div className="flex items-center justify-between gap-4 w-full max-w-full box-border">
             <div>
-              <h2>SOP Management</h2>
-              <p>Standard operating procedures configured per corporate entity.</p>
+              <h2 className="text-[22px] font-bold text-[#1e293b]">SOP Management</h2>
+              <p className="text-[13.5px] text-text-muted mt-1">Standard operating procedures configured per corporate entity.</p>
             </div>
             <EntityPills selectedEntities={selected} onChange={setSelected} />
           </div>
         </div>
 
-        <div className={styles.page}>
+        <div className="p-6 md:px-8 w-full max-w-full box-border">
 
           <Toast message={successMsg} type="success" onClose={() => setSuccessMsg('')} />
 
           {/* SOP Filter Toolbar */}
-          <div className={styles.filterRow}>
-            <div className={styles.filterGroup} style={{ flex: 1.5, minWidth: 220 }}>
-              <span className={styles.filterLabel}>Search SOP</span>
-              <div className={styles.searchBox}>
-                <svg className={styles.searchIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <div className="relative z-10 flex flex-wrap items-end gap-3 mb-6 bg-bg-surface p-[16px_20px] rounded-[12px] border border-[#e2e8f0] shadow-[0_1px_3px_rgba(0,0,0,0.04)] w-full box-border overflow-visible">
+            <div className="relative flex flex-col gap-1.5 flex-[1.5] min-w-[220px]">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Search SOP</span>
+              <div className="relative flex items-center w-full">
+                <svg className="absolute left-3 text-[#94a3b8] pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8" />
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
                 <input
                   type="text"
-                  className={styles.searchInput}
+                  className="w-full h-[40px] pl-[38px] pr-[14px] bg-bg-surface border border-[#cbd5e1] rounded-[8px] text-[13.5px] text-text-primary outline-none transition-all duration-150 box-border focus:border-[#2563eb] focus:ring-3 focus:ring-[rgba(37,99,235,0.1)]"
                   placeholder="Search code, title, process..."
                   value={searchTerm}
                   onChange={e => {
@@ -667,8 +664,8 @@ export default function Sops() {
               </div>
             </div>
 
-            <div className={styles.filterGroup}>
-              <span className={styles.filterLabel}>Process Category</span>
+            <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
+              <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Process Category</span>
               <CustomSelect
                 name="selectedProcess"
                 value={selectedProcess}
@@ -682,8 +679,8 @@ export default function Sops() {
 
             {isAdmin ? (
               <>
-                <div className={styles.filterGroup}>
-                  <span className={styles.filterLabel}>Creator</span>
+                <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
+                  <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Creator</span>
                   <CustomSelect
                     name="selectedCreator"
                     value={selectedCreator}
@@ -695,8 +692,8 @@ export default function Sops() {
                   />
                 </div>
 
-                <div className={styles.filterGroup}>
-                  <span className={styles.filterLabel}>Approver</span>
+                <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
+                  <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Approver</span>
                   <CustomSelect
                     name="selectedApprover"
                     value={selectedApprover}
@@ -708,8 +705,8 @@ export default function Sops() {
                   />
                 </div>
 
-                <div className={styles.filterGroup}>
-                  <span className={styles.filterLabel}>Status</span>
+                <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
+                  <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Status</span>
                   <CustomSelect
                     name="selectedStatus"
                     value={selectedStatus}
@@ -723,8 +720,8 @@ export default function Sops() {
               </>
             ) : (
               <>
-                <div className={styles.filterGroup}>
-                  <span className={styles.filterLabel}>Frequency</span>
+                <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
+                  <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Frequency</span>
                   <CustomSelect
                     name="selectedFrequency"
                     value={selectedFrequency}
@@ -736,8 +733,8 @@ export default function Sops() {
                   />
                 </div>
 
-                <div className={styles.filterGroup}>
-                  <span className={styles.filterLabel}>Maker</span>
+                <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
+                  <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Maker</span>
                   <CustomSelect
                     name="selectedMaker"
                     value={selectedMaker}
@@ -749,8 +746,8 @@ export default function Sops() {
                   />
                 </div>
 
-                <div className={styles.filterGroup}>
-                  <span className={styles.filterLabel}>Checker</span>
+                <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
+                  <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Checker</span>
                   <CustomSelect
                     name="selectedChecker"
                     value={selectedChecker}
@@ -762,8 +759,8 @@ export default function Sops() {
                   />
                 </div>
 
-                <div className={styles.filterGroup}>
-                  <span className={styles.filterLabel}>Status</span>
+                <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
+                  <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Status</span>
                   <CustomSelect
                     name="selectedStatus"
                     value={selectedStatus}
@@ -778,7 +775,12 @@ export default function Sops() {
             )}
 
             {isFiltered && (
-              <button className={styles.resetBtn} onClick={resetFilters} title="Reset all filters">
+              <button
+                type="button"
+                className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#475569] text-[12.5px] font-semibold px-4 h-[40px] rounded-[8px] cursor-pointer transition-all duration-150 whitespace-nowrap inline-flex items-center gap-1.5 hover:bg-[#e2e8f0] hover:text-text-primary"
+                onClick={resetFilters}
+                title="Reset all filters"
+              >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -788,10 +790,10 @@ export default function Sops() {
             )}
           </div>
 
-          <div className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a2b6b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 8, verticalAlign: 'middle' }}>
+          <div className="bg-bg-surface border border-[#e2e8f0] rounded-[12px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div className="flex items-center justify-between px-6 py-[18px] bg-bg-surface border-b border-[#f1f5f9]">
+              <span className="text-[14.5px] font-bold text-[#1e293b] flex items-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a2b6b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 inline-block align-middle">
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                   <polyline points="14 2 14 8 20 8" />
                   <line x1="16" y1="13" x2="8" y2="13" />
@@ -800,8 +802,12 @@ export default function Sops() {
                 {isAdmin ? 'SOP Governance Assignments' : 'Master Operating Procedures'}
               </span>
               {isAdmin && (
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <button className={styles.createBtn} onClick={() => setShowAssignModal(true)} style={{ background: '#0284c7' }}>
+                <div className="flex gap-2.5 items-center">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-4 py-[7px] rounded-[6px] bg-[#0284c7] text-white text-[12.5px] font-semibold border-none cursor-pointer shadow-sm transition-all duration-150 hover:bg-[#0369a1]"
+                    onClick={() => setShowAssignModal(true)}
+                  >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                       <circle cx="8.5" cy="7" r="4" />
@@ -814,64 +820,68 @@ export default function Sops() {
               )}
             </div>
 
-            <div className={styles.tableWrap}>
+            <div className="overflow-x-auto w-full">
               {isAdmin ? (
-                <table className={styles.table}>
+                <table className="w-full border-collapse">
                   <thead>
-                    <tr>
-                      <th>SOP CODE</th>
-                      <th>PROCESS CATEGORY</th>
-                      <th>CORPORATE ENTITY</th>
-                      <th>ASSIGNED CREATOR</th>
-                      <th>ASSIGNED APPROVER</th>
-                      <th>STATUS</th>
-                      <th style={{ textAlign: 'right' }}>ACTIONS</th>
+                    <tr className="border-b border-[#f1f5f9]">
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">SOP CODE</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">PROCESS CATEGORY</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">CORPORATE ENTITY</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ASSIGNED CREATOR</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ASSIGNED APPROVER</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">STATUS</th>
+                      <th className="px-6 py-3 text-right text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       <TableSkeleton rows={4} columns={7} />
                     ) : filtered.length === 0 ? (
-                      <tr><td colSpan={7} className={styles.empty}>No SOP assignments created yet.</td></tr>
+                      <tr><td colSpan={7} className="text-center p-12 text-[#94a3b8] text-[13.5px]">No SOP assignments created yet.</td></tr>
                     ) : paginatedSops.map(sop => (
-                      <tr key={sop.id || sop.code} style={{ cursor: 'pointer' }} onClick={() => setViewingAssignment(sop)}>
-                        <td className={styles.tdCode}>{sop.code}</td>
-                        <td>{sop.process || sop.processCategory}</td>
-                        <td>{sop.entity || sop.entityName}</td>
-                        <td style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                      <tr
+                        key={sop.id || sop.code}
+                        className="cursor-pointer border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]"
+                        onClick={() => setViewingAssignment(sop)}
+                      >
+                        <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{sop.code}</td>
+                        <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{sop.process || sop.processCategory}</td>
+                        <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{sop.entity || sop.entityName}</td>
+                        <td className="px-6 py-3.5 text-[12px] font-semibold text-[#334155] align-middle">
                           {(Array.isArray(sop.assignedCreatorNames) && sop.assignedCreatorNames.length > 0) ? sop.assignedCreatorNames.join(', ') : (sop.assignedCreatorName || sop.assignedCreatorId || 'N/A')}
                         </td>
-                        <td style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                        <td className="px-6 py-3.5 text-[12px] font-semibold text-[#334155] align-middle">
                           {(Array.isArray(sop.assignedApproverNames) && sop.assignedApproverNames.length > 0) ? sop.assignedApproverNames.join(', ') : (sop.assignedApproverName || sop.assignedApproverId || 'N/A')}
                         </td>
-                        <td>
+                        <td className="px-6 py-3.5 text-[13.5px] align-middle">
                           {sop.status === 'PENDING_CREATION' && (
-                            <span style={{ fontSize: 11, background: '#ffedd5', color: '#c2410c', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                            <span className="text-[11px] bg-[#ffedd5] text-[#c2410c] px-2 py-[3px] rounded-[4px] font-bold inline-block">
                               PENDING CREATION
                             </span>
                           )}
                           {sop.status === 'PENDING_APPROVAL' && (
-                            <span style={{ fontSize: 11, background: '#fef3c7', color: '#b45309', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                            <span className="text-[11px] bg-[#fef3c7] text-[#b45309] px-2 py-[3px] rounded-[4px] font-bold inline-block">
                               PENDING APPROVAL
                             </span>
                           )}
                           {(sop.status === 'ACTIVE' || sop.status === 'APPROVED') && (
-                            <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                            <span className="text-[11px] bg-[#dcfce7] text-[#15803d] px-2 py-[3px] rounded-[4px] font-bold inline-block">
                               ACTIVE
                             </span>
                           )}
                           {sop.status === 'REJECTED' && (
-                            <span style={{ fontSize: 11, background: '#fee2e2', color: '#b91c1c', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                            <span className="text-[11px] bg-[#fee2e2] text-[#b91c1c] px-2 py-[3px] rounded-[4px] font-bold inline-block">
                               REJECTED
                             </span>
                           )}
                         </td>
-                        <td onClick={e => e.stopPropagation()}>
-                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <td className="px-6 py-3.5 text-[13.5px] align-middle" onClick={e => e.stopPropagation()}>
+                          <div className="flex gap-1.5 justify-end">
                             {(sop.status === 'PENDING_CREATION' || sop.status === 'REJECTED') && (
                               <button
                                 type="button"
-                                style={{ background: '#f0f9ff', border: '1px solid #0284c7', color: '#0369a1', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                                className="bg-[#f0f9ff] border border-[#0284c7] text-[#0369a1] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-bold"
                                 onClick={() => {
                                   setLockedAssignment(sop);
                                   setEditingSop(null);
@@ -884,7 +894,7 @@ export default function Sops() {
                             <button
                               type="button"
                               title="View Assignment Details"
-                              style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#334155', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#334155] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1"
                               onClick={() => setViewingAssignment(sop)}
                             >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -896,7 +906,7 @@ export default function Sops() {
                             <button
                               type="button"
                               title="Delete Assignment"
-                              style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#ef4444', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              className="bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] text-[#ef4444] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1"
                               onClick={() => setDeletingSop(sop)}
                             >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -912,38 +922,42 @@ export default function Sops() {
                   </tbody>
                 </table>
               ) : (
-                <table className={styles.table}>
+                <table className="w-full border-collapse">
                   <thead>
-                    <tr>
-                      <th>CODE</th>
-                      <th>TITLE</th>
-                      <th>PROCESS</th>
-                      <th>ENTITY</th>
-                      <th>FREQUENCY</th>
-                      <th>MAKERS</th>
-                      <th>CHECKERS</th>
-                      <th>STATUS</th>
-                      <th>VERSION</th>
-                      <th style={{ textAlign: 'right' }}>ACTIONS</th>
+                    <tr className="border-b border-[#f1f5f9]">
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">CODE</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">TITLE</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">PROCESS</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ENTITY</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">FREQUENCY</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">MAKERS</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">CHECKERS</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">STATUS</th>
+                      <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">VERSION</th>
+                      <th className="px-6 py-3 text-right text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
                       <TableSkeleton rows={4} columns={10} />
                     ) : filtered.length === 0 ? (
-                      <tr><td colSpan={10} className={styles.empty}>No SOPs assigned for creation or approval.</td></tr>
+                      <tr><td colSpan={10} className="text-center p-12 text-[#94a3b8] text-[13.5px]">No SOPs assigned for creation or approval.</td></tr>
                     ) : paginatedSops.map(sop => (
-                      <tr key={sop.id || sop.code} style={{ cursor: 'pointer' }} onClick={() => setViewingSop(sop)}>
-                        <td className={styles.tdCode}>{sop.code}</td>
-                        <td className={styles.tdName}>{sop.name || sop.title}</td>
-                        <td>{sop.process || sop.processCategory}</td>
-                        <td>{sop.entity || sop.entityName}</td>
-                        <td>
+                      <tr
+                        key={sop.id || sop.code}
+                        className="cursor-pointer border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]"
+                        onClick={() => setViewingSop(sop)}
+                      >
+                        <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{sop.code}</td>
+                        <td className="px-6 py-3.5 text-[13.5px] font-semibold text-text-primary align-middle">{sop.name || sop.title}</td>
+                        <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{sop.process || sop.processCategory}</td>
+                        <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{sop.entity || sop.entityName}</td>
+                        <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">
                           {sop.status === 'PENDING_CREATION' ? (
-                            <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: 12 }}>—</span>
+                            <span className="text-[#94a3b8] italic text-[12px]">—</span>
                           ) : (
-                            <span className={styles.freqBadge}>
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 4, verticalAlign: 'middle' }}>
+                            <span className="inline-flex items-center px-[10px] py-[3px] rounded-[6px] text-[11.5px] font-semibold bg-[#f1f5f9] text-[#475569] border border-[#e2e8f0]">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1 inline-block align-middle">
                                 <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                                 <line x1="16" y1="2" x2="16" y2="6" />
                                 <line x1="8" y1="2" x2="8" y2="6" />
@@ -953,46 +967,56 @@ export default function Sops() {
                             </span>
                           )}
                         </td>
-                        <td>
-                          <span style={{ fontWeight: 500, color: sop.status === 'PENDING_CREATION' ? '#94a3b8' : '#1e293b', fontStyle: sop.status === 'PENDING_CREATION' ? 'italic' : 'normal', fontSize: sop.status === 'PENDING_CREATION' ? 12 : 'inherit' }}>
+                        <td className="px-6 py-3.5 text-[13.5px] align-middle">
+                          <span
+                            className={`font-medium ${sop.status === 'PENDING_CREATION'
+                              ? 'text-[#94a3b8] italic text-[12px]'
+                              : 'text-[#1e293b]'
+                              }`}
+                          >
                             {sop.status === 'PENDING_CREATION' ? '—' : (sop.makers?.length ? sop.makers.join(', ') : (sop.maker || '—'))}
                           </span>
                         </td>
-                        <td>
-                          <span style={{ fontWeight: 500, color: sop.status === 'PENDING_CREATION' ? '#94a3b8' : '#1e293b', fontStyle: sop.status === 'PENDING_CREATION' ? 'italic' : 'normal', fontSize: sop.status === 'PENDING_CREATION' ? 12 : 'inherit' }}>
+                        <td className="px-6 py-3.5 text-[13.5px] align-middle">
+                          <span
+                            className={`font-medium ${sop.status === 'PENDING_CREATION'
+                              ? 'text-[#94a3b8] italic text-[12px]'
+                              : 'text-[#1e293b]'
+                              }`}
+                          >
                             {sop.status === 'PENDING_CREATION' ? '—' : (sop.checkers?.length ? sop.checkers.join(', ') : (sop.checker || '—'))}
                           </span>
                         </td>
-                        <td>
+                        <td className="px-6 py-3.5 text-[13.5px] align-middle">
                           {sop.status === 'PENDING_CREATION' && (
-                            <span style={{ fontSize: 11, background: '#ffedd5', color: '#c2410c', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                            <span className="text-[11px] bg-[#ffedd5] text-[#c2410c] px-2 py-[3px] rounded-[4px] font-bold inline-block">
                               PENDING CREATION
                             </span>
                           )}
                           {sop.status === 'PENDING_APPROVAL' && (
-                            <span style={{ fontSize: 11, background: '#fef3c7', color: '#b45309', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                            <span className="text-[11px] bg-[#fef3c7] text-[#b45309] px-2 py-[3px] rounded-[4px] font-bold inline-block">
                               PENDING APPROVAL
                             </span>
                           )}
                           {(sop.status === 'ACTIVE' || sop.status === 'APPROVED') && (
-                            <span style={{ fontSize: 11, background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                            <span className="text-[11px] bg-[#dcfce7] text-[#15803d] px-2 py-[3px] rounded-[4px] font-bold inline-block">
                               ACTIVE
                             </span>
                           )}
                           {sop.status === 'REJECTED' && (
-                            <span style={{ fontSize: 11, background: '#fee2e2', color: '#b91c1c', padding: '3px 8px', borderRadius: 4, fontWeight: 700 }}>
+                            <span className="text-[11px] bg-[#fee2e2] text-[#b91c1c] px-2 py-[3px] rounded-[4px] font-bold inline-block">
                               REJECTED
                             </span>
                           )}
                         </td>
-                        <td>v{sop.version || 1}</td>
-                        <td onClick={e => e.stopPropagation()}>
-                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">v{sop.version || 1}</td>
+                        <td className="px-6 py-3.5 text-[13.5px] align-middle" onClick={e => e.stopPropagation()}>
+                          <div className="flex gap-1.5 justify-end">
                             {(sop.status === 'PENDING_CREATION' || sop.status === 'REJECTED') && (
                               (sop.assignedCreatorId === currentUser.id || currentUser.role === 'ADMIN') && (
                                 <button
                                   type="button"
-                                  style={{ background: '#f0f9ff', border: '1px solid #0284c7', color: '#0369a1', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                                  className="bg-[#f0f9ff] border border-[#0284c7] text-[#0369a1] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-bold"
                                   onClick={() => {
                                     setLockedAssignment(sop);
                                     setEditingSop(null);
@@ -1008,14 +1032,14 @@ export default function Sops() {
                                 <>
                                   <button
                                     type="button"
-                                    style={{ background: '#f0fdf4', border: '1px solid #16a34a', color: '#15803d', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                                    className="bg-[#f0fdf4] border border-[#16a34a] text-[#15803d] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-bold"
                                     onClick={() => handleApproveSop(sop)}
                                   >
                                     Approve
                                   </button>
                                   <button
                                     type="button"
-                                    style={{ background: '#fff1f2', border: '1px solid #e11d48', color: '#be123c', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                                    className="bg-[#fff1f2] border border-[#e11d48] text-[#be123c] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-bold"
                                     onClick={() => { setRejectingSop(sop); setRejectionReasonInput(''); }}
                                   >
                                     Reject
@@ -1025,7 +1049,7 @@ export default function Sops() {
                             )}
                             <button
                               type="button"
-                              style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#334155', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                              className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#334155] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1"
                               onClick={() => setViewingSop(sop)}
                             >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1109,34 +1133,94 @@ export default function Sops() {
       />
 
       {rejectingSop && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal} style={{ maxWidth: 480 }}>
-            <div className={styles.modalHeader} style={{ background: '#fff1f2', borderBottom: '1px solid #fecdd3' }}>
+        <div className="fixed inset-0 bg-[#091124]/65 backdrop-blur-sm flex items-center justify-center z-[999] p-6">
+          <div className="bg-bg-surface rounded-[16px] w-full max-w-[480px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.1)] overflow-hidden animate-modal-slide-in">
+            <div className="p-[24px_28px] bg-[#fff1f2] border-b border-[#fecdd3] flex items-start justify-between">
               <div>
-                <h3 style={{ color: '#be123c' }}>Reject SOP Draft</h3>
-                <p style={{ color: '#9f1239' }}>Revision feedback for: {rejectingSop.code}</p>
+                <h3 className="text-[17px] font-bold text-[#be123c] tracking-[-0.2px]">Reject SOP Draft</h3>
+                <p className="text-[12.5px] text-[#9f1239] mt-0.5">Revision feedback for: {rejectingSop.code}</p>
               </div>
-              <button className={styles.closeBtn} onClick={() => setRejectingSop(null)}>
+              <button
+                type="button"
+                className="bg-white/15 border border-white/25 rounded-[8px] w-8 h-8 text-white cursor-pointer flex items-center justify-center transition-all duration-150 hover:bg-white/30"
+                onClick={() => setRejectingSop(null)}
+              >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
             <form onSubmit={handleConfirmRejectSop}>
-              <div className={styles.modalBody}>
-                <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                  <label style={{ color: '#be123c', fontWeight: 700 }}>FEEDBACK *</label>
-                  <textarea value={rejectionReasonInput} onChange={e => setRejectionReasonInput(e.target.value)} required rows={4} />
+              <div className="p-7 grid grid-cols-1 gap-[18px] max-h-[72vh] overflow-y-auto [scrollbar-gutter:stable]">
+                <div className="col-span-full flex flex-col gap-1.5 min-w-0">
+                  <label className="text-[12px] font-bold text-[#be123c] uppercase tracking-[0.4px]">FEEDBACK *</label>
+                  <textarea
+                    className="w-full p-[10px_14px] rounded-[8px] border border-[#cbd5e1] bg-bg-surface text-[13.5px] text-text-primary outline-none transition-all duration-150 resize-y min-h-[85px] leading-normal focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
+                    value={rejectionReasonInput}
+                    onChange={e => setRejectionReasonInput(e.target.value)}
+                    required
+                    rows={4}
+                  />
                 </div>
               </div>
-              <div className={styles.modalFooter}>
-                <button type="button" className={styles.cancelBtn} onClick={() => setRejectingSop(null)}>Cancel</button>
-                <button type="submit" className={styles.submitBtn} disabled={saving} style={{ background: '#dc2626' }}>Confirm Rejection</button>
+              <div className="p-[18px_28px] border-t border-[#e2e8f0] bg-[#f8fafc] flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  className="px-5 py-[9px] rounded-[8px] border border-[#cbd5e1] bg-bg-surface text-[#475569] text-[13px] font-semibold cursor-pointer transition-all duration-150 hover:bg-[#f1f5f9] hover:text-[#0f172a]"
+                  onClick={() => setRejectingSop(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-[22px] py-[9px] rounded-[8px] border-none bg-[#dc2626] text-white text-[13px] font-semibold cursor-pointer shadow-[0_4px_12px_rgba(37,99,235,0.35)] transition-all duration-150 hover:bg-[#b91c1c] hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={saving}
+                >
+                  Confirm Rejection
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
-    </div>
+
+      {/* User Picker Modal for Maker Pool */}
+      <UserPickerModal
+        isOpen={showMakerPicker}
+        title="Select Assigned Maker Pool"
+        entityCode={formData.entityCode}
+        targetRole="MAKER"
+        selectedUserIds={formData.defaultMakerIds}
+        onClose={() => setShowMakerPicker(false)}
+        onConfirm={selectedIds => {
+          setFormData(prev => ({ ...prev, defaultMakerIds: selectedIds }));
+          setShowMakerPicker(false);
+        }}
+        onSelect={selectedIds => {
+          setFormData(prev => ({ ...prev, defaultMakerIds: selectedIds }));
+          setShowMakerPicker(false);
+        }}
+      />
+
+      {/* User Picker Modal for Checker Pool */}
+      <UserPickerModal
+        isOpen={showCheckerPicker}
+        title="Select Assigned Checker Pool"
+        entityCode={formData.entityCode}
+        targetRole="CHECKER"
+        selectedUserIds={formData.defaultCheckerIds}
+        onClose={() => setShowCheckerPicker(false)}
+        onConfirm={selectedIds => {
+          setFormData(prev => ({ ...prev, defaultCheckerIds: selectedIds }));
+          setShowCheckerPicker(false);
+        }}
+        onSelect={selectedIds => {
+          setFormData(prev => ({ ...prev, defaultCheckerIds: selectedIds }));
+          setShowCheckerPicker(false);
+        }}
+      />
+
+    </>
   );
 }

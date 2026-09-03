@@ -11,8 +11,7 @@ import {
   MOCK_ORGANIZATION_USERS,
 } from '../services/api';
 import { getSession } from '../auth/auth';
-import styles from './AuditLogs.module.css';
-import modalStyles from '../components/SopDetailModal.module.css';
+
 
 export default function AccessControl() {
   const [allUsers, setAllUsers] = useState(MOCK_ORGANIZATION_USERS);
@@ -20,7 +19,7 @@ export default function AccessControl() {
   const [categoryAssignments, setCategoryAssignments] = useState({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Active Category Modal State
   const [activeCategory, setActiveCategory] = useState(null);
   const [activeModalTab, setActiveModalTab] = useState('CONFIGURE'); // 'CONFIGURE' | 'ACTIVITY'
@@ -268,55 +267,55 @@ export default function AccessControl() {
   const viewUsersList = viewUsersModal.userIds.map(id => allUsers.find(u => u.id === id || u.userId === id) || { id, name: id, fullName: id, email: '—', role: 'USER' });
 
   return (
-    <div className={styles.layout}>
-      <Sidebar currentUser={currentUser} />
-
-      <main className={styles.main}>
+    <div className="flex min-h-screen bg-[#f8fafc] text-text-primary">
+      <main className="ml-[248px] flex-1 min-w-0 bg-bg-base">
         {/* Standardized Master-Detail Header */}
-        <div className={styles.pageHeader}>
-          <div className={styles.pageHeaderInner}>
+        <div className="w-full bg-[#f8fafc] border-b border-[#cbd5e1] px-8 py-[18px] shadow-sm box-border">
+          <div className="flex items-center justify-between gap-4 w-full max-w-full box-border">
             <div>
-              <h2>Named Access Control Manager</h2>
-              <p>Configure named user permissions for SOP creation, SOP approval, Task execution, and Task verification across process categories.</p>
+              <h2 className="text-[22px] font-bold text-[#1e293b]">Named Access Control Manager</h2>
+              <p className="text-[13.5px] text-text-muted mt-1">
+                Configure named user permissions for SOP creation, SOP approval, Task execution, and Task verification across process categories.
+              </p>
             </div>
           </div>
         </div>
 
         {/* Page Content View */}
-        <div className={styles.page}>
+        <div className="p-6 md:px-8 w-full max-w-full box-border">
           {/* Filter Bar */}
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px 10px 0 0', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ flex: 1, maxWidth: 380 }}>
+          <div className="bg-bg-surface border border-[#e2e8f0] rounded-t-[10px] p-[16px_20px] flex items-center justify-between">
+            <div className="flex-1 max-w-[380px]">
               <input
                 type="text"
                 placeholder="Search category name or code..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 13, background: '#f8fafc', color: '#0f172a' }}
+                className="w-full px-3 py-2 border border-[#cbd5e1] rounded-[6px] text-[13px] bg-[#f8fafc] text-[#0f172a] outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.1)]"
               />
             </div>
           </div>
 
           {/* Categories Table View with Horizontal Scroll & Sticky Actions Column */}
-          <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 10px 10px', overflowX: 'auto', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)' }}>
+          <div className="bg-bg-surface border border-[#e2e8f0] border-t-0 rounded-b-[10px] overflow-x-auto shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
             {loading ? (
-              <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+              <div className="p-10 text-center text-text-muted text-[13px]">
                 Loading process categories and access permissions...
               </div>
             ) : filteredCategories.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+              <div className="p-10 text-center text-text-muted text-[13px]">
                 No process categories found. Please create process categories first.
               </div>
             ) : (
-              <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse', fontSize: 13 }}>
+              <table className="w-full min-w-[900px] border-collapse text-[13px]">
                 <thead>
-                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    <th style={{ padding: '12px 16px', width: 180 }}>Process Category</th>
-                    <th style={{ padding: '12px 16px' }}>SOP Creators</th>
-                    <th style={{ padding: '12px 16px' }}>SOP Approvers</th>
-                    <th style={{ padding: '12px 16px' }}>Task Submitters</th>
-                    <th style={{ padding: '12px 16px' }}>Task Approvers</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'right', width: 160, position: 'sticky', right: 0, background: '#f8fafc', zIndex: 2, boxShadow: '-4px 0 8px rgba(0,0,0,0.04)' }}>
+                  <tr className="bg-[#f8fafc] border-b border-[#e2e8f0] text-[#475569] text-left text-[11px] uppercase tracking-[0.5px]">
+                    <th className="px-4 py-3 w-[180px]">Process Category</th>
+                    <th className="px-4 py-3">SOP Creators</th>
+                    <th className="px-4 py-3">SOP Approvers</th>
+                    <th className="px-4 py-3">Task Submitters</th>
+                    <th className="px-4 py-3">Task Approvers</th>
+                    <th className="px-4 py-3 text-right w-[160px] sticky right-0 bg-[#f8fafc] z-[2] shadow-[-4px_0_8px_rgba(0,0,0,0.04)]">
                       Actions
                     </th>
                   </tr>
@@ -327,30 +326,30 @@ export default function AccessControl() {
                     const assign = categoryAssignments[code] || {};
 
                     return (
-                      <tr key={cat.id || code} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '14px 16px' }}>
-                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{cat.categoryName}</div>
-                          <div style={{ fontSize: 11, color: '#0284c7', fontFamily: 'monospace', marginTop: 2 }}>{code}</div>
+                      <tr key={cat.id || code} className="border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]">
+                        <td className="px-4 py-3.5 align-middle">
+                          <div className="font-bold text-text-primary">{cat.categoryName}</div>
+                          <div className="text-[11px] text-[#0284c7] font-mono mt-0.5">{code}</div>
                         </td>
-                        <td style={{ padding: '14px 16px' }}>
+                        <td className="px-4 py-3.5 align-middle">
                           {renderUserListCell(assign.creatorUserIds, 'SOP Creators', cat.categoryName)}
                         </td>
-                        <td style={{ padding: '14px 16px' }}>
+                        <td className="px-4 py-3.5 align-middle">
                           {renderUserListCell(assign.approverUserIds, 'SOP Approvers', cat.categoryName)}
                         </td>
-                        <td style={{ padding: '14px 16px' }}>
+                        <td className="px-4 py-3.5 align-middle">
                           {renderUserListCell(assign.makerUserIds, 'Task Submitters', cat.categoryName)}
                         </td>
-                        <td style={{ padding: '14px 16px' }}>
+                        <td className="px-4 py-3.5 align-middle">
                           {renderUserListCell(assign.checkerUserIds, 'Task Approvers', cat.categoryName)}
                         </td>
-                        <td style={{ padding: '14px 16px', textAlign: 'right', position: 'sticky', right: 0, background: '#ffffff', zIndex: 1, boxShadow: '-4px 0 8px rgba(0,0,0,0.04)' }}>
+                        <td className="px-4 py-3.5 text-right sticky right-0 bg-bg-surface z-[1] shadow-[-4px_0_8px_rgba(0,0,0,0.04)] align-middle">
                           <button
                             type="button"
                             onClick={() => handleOpenConfigureModal(cat, 'CONFIGURE')}
-                            style={{ background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0284c7', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap' }}
+                            className="bg-[#f0f9ff] border border-[#bae6fd] text-[#0284c7] rounded-[6px] px-3 py-[6px] cursor-pointer text-[12px] font-bold whitespace-nowrap transition-colors duration-150 hover:bg-[#e0f2fe]"
                           >
-                            Configure & Details
+                            Configure &amp; Details
                           </button>
                         </td>
                       </tr>
@@ -364,20 +363,20 @@ export default function AccessControl() {
 
         {/* Modal for Configuring Access Control & Viewing Category Activity Logs */}
         {activeCategory && (
-          <div className={modalStyles.backdrop} onClick={() => setActiveCategory(null)}>
-            <div className={modalStyles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
-              
+          <div className="fixed inset-0 bg-[#091124]/65 backdrop-blur-sm flex items-center justify-center z-[999] p-6" onClick={() => setActiveCategory(null)}>
+            <div className="bg-bg-surface rounded-[16px] w-full max-w-[640px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.1)] overflow-hidden animate-modal-slide-in" onClick={e => e.stopPropagation()}>
+
               {/* Header */}
-              <div className={modalStyles.header}>
-                <div className={modalStyles.titleArea}>
-                  <h3>Category Access: {activeCategory.categoryName}</h3>
-                  <div className={modalStyles.badges}>
-                    <span className={modalStyles.codeBadge}>{activeCategory.categoryCode}</span>
+              <div className="p-[24px_28px] bg-gradient-to-br from-[#1d4ed8] to-[#2563eb] text-white flex items-start justify-between">
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-[17px] font-bold text-white tracking-[-0.2px]">Category Access: {activeCategory.categoryName}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-white/20 border border-white/30 text-white font-mono text-[11px] px-2 py-[2px] rounded-[4px]">{activeCategory.categoryCode}</span>
                   </div>
                 </div>
                 <button
                   type="button"
-                  className={modalStyles.closeBtn}
+                  className="bg-white/15 border border-white/25 rounded-[8px] w-8 h-8 text-white cursor-pointer flex items-center justify-center transition-all duration-150 hover:bg-white/30"
                   onClick={() => setActiveCategory(null)}
                   title="Close modal"
                 >
@@ -389,23 +388,12 @@ export default function AccessControl() {
               </div>
 
               {/* Icon-Tabs Header Bar */}
-              <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', padding: '0 24px' }}>
+              <div className="flex border-b border-[#e2e8f0] bg-[#f8fafc] px-6">
                 <button
                   type="button"
                   onClick={() => setActiveModalTab('CONFIGURE')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '12px 16px',
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: activeModalTab === 'CONFIGURE' ? '#0284c7' : '#64748b',
-                    borderBottom: activeModalTab === 'CONFIGURE' ? '2.5px solid #0284c7' : '2.5px solid transparent',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
+                  className={`flex items-center gap-2 px-4 py-3 text-[13px] font-bold bg-transparent border-none cursor-pointer border-b-[2.5px] transition-colors duration-150 ${activeModalTab === 'CONFIGURE' ? 'text-[#0284c7] border-[#0284c7]' : 'text-[#64748b] border-transparent hover:text-[#0f172a]'
+                    }`}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="4" y1="21" x2="4" y2="14" />
@@ -424,19 +412,8 @@ export default function AccessControl() {
                 <button
                   type="button"
                   onClick={() => setActiveModalTab('ACTIVITY')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '12px 16px',
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: activeModalTab === 'ACTIVITY' ? '#0284c7' : '#64748b',
-                    borderBottom: activeModalTab === 'ACTIVITY' ? '2.5px solid #0284c7' : '2.5px solid transparent',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
+                  className={`flex items-center gap-2 px-4 py-3 text-[13px] font-bold bg-transparent border-none cursor-pointer border-b-[2.5px] transition-colors duration-150 ${activeModalTab === 'ACTIVITY' ? 'text-[#0284c7] border-[#0284c7]' : 'text-[#64748b] border-transparent hover:text-[#0f172a]'
+                    }`}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10" />
@@ -447,108 +424,108 @@ export default function AccessControl() {
               </div>
 
               {/* Body Content based on Active Tab */}
-              <div className={modalStyles.body} style={{ maxHeight: 440, overflowY: 'auto' }}>
+              <div className="p-7 max-h-[440px] overflow-y-auto [scrollbar-gutter:stable]">
                 {activeModalTab === 'CONFIGURE' ? (
                   <>
                     {hasSoDWarning && (
-                      <div style={{ background: '#fffbe6', border: '1px solid #ffe58f', padding: '10px 14px', borderRadius: 8, fontSize: 12, color: '#873800', marginBottom: 16 }}>
-                        <span style={{ fontWeight: 700 }}>Notice: Segregation of Duties (SoD) Active. </span>
+                      <div className="bg-[#fffbe6] border border-[#ffe58f] p-[10px_14px] rounded-[8px] text-[12px] text-[#873800] mb-4">
+                        <span className="font-bold">Notice: Segregation of Duties (SoD) Active. </span>
                         Users assigned both Creator and Approver rights in this category are automatically prohibited by the security engine from self-approving their own drafts.
                       </div>
                     )}
 
-                    <form id="access-control-form" onSubmit={handleSaveAccess} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                      
+                    <form id="access-control-form" onSubmit={handleSaveAccess} className="flex flex-col gap-[18px]">
+
                       {/* Read-Only Process Category Field */}
-                      <div className={modalStyles.field}>
-                        <span className={modalStyles.label}>Process Category (Read-Only)</span>
+                      <div className="flex flex-col gap-1.5 min-w-0">
+                        <span className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">Process Category (Read-Only)</span>
                         <input
                           type="text"
                           value={`${activeCategory.categoryName} (${activeCategory.categoryCode})`}
                           disabled
-                          style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13, background: '#f1f5f9', color: '#475569', fontWeight: 600, boxSizing: 'border-box' }}
+                          className="w-full px-3 py-[10px] border border-[#cbd5e1] rounded-[8px] text-[13px] bg-[#f1f5f9] text-[#475569] font-semibold outline-none cursor-not-allowed box-border"
                         />
                       </div>
 
                       {/* 1. SOP Creators Trigger Field */}
-                      <div className={modalStyles.field}>
-                        <span className={modalStyles.label}>SOP Creators</span>
+                      <div className="flex flex-col gap-1.5 min-w-0">
+                        <span className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">SOP Creators</span>
                         <div
                           onClick={() => handleOpenUserPicker('creators')}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
+                          className="flex items-center justify-between p-[10px_14px] border border-[#cbd5e1] rounded-[8px] bg-bg-surface cursor-pointer hover:border-[#94a3b8] transition-colors duration-150"
                         >
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: creators.length ? '#0f172a' : '#94a3b8' }}>
+                            <div className={`text-[13px] font-semibold ${creators.length ? 'text-text-primary' : 'text-[#94a3b8]'}`}>
                               {getUserNames(creators)}
                             </div>
-                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                            <div className="text-[11px] text-text-muted mt-0.5">
                               Allowed to draft new SOP specifications
                             </div>
                           </div>
-                          <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                          <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
                             {creators.length} Selected ✎
                           </span>
                         </div>
                       </div>
 
                       {/* 2. SOP Approvers Trigger Field */}
-                      <div className={modalStyles.field}>
-                        <span className={modalStyles.label}>SOP Approvers</span>
+                      <div className="flex flex-col gap-1.5 min-w-0">
+                        <span className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">SOP Approvers</span>
                         <div
                           onClick={() => handleOpenUserPicker('approvers')}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
+                          className="flex items-center justify-between p-[10px_14px] border border-[#cbd5e1] rounded-[8px] bg-bg-surface cursor-pointer hover:border-[#94a3b8] transition-colors duration-150"
                         >
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: approvers.length ? '#0f172a' : '#94a3b8' }}>
+                            <div className={`text-[13px] font-semibold ${approvers.length ? 'text-text-primary' : 'text-[#94a3b8]'}`}>
                               {getUserNames(approvers)}
                             </div>
-                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                              Allowed to review & approve SOP drafts
+                            <div className="text-[11px] text-text-muted mt-0.5">
+                              Allowed to review &amp; approve SOP drafts
                             </div>
                           </div>
-                          <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                          <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
                             {approvers.length} Selected ✎
                           </span>
                         </div>
                       </div>
 
                       {/* 3. Task Submitters (Makers) Trigger Field */}
-                      <div className={modalStyles.field}>
-                        <span className={modalStyles.label}>Task Submitters (Makers)</span>
+                      <div className="flex flex-col gap-1.5 min-w-0">
+                        <span className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">Task Submitters (Makers)</span>
                         <div
                           onClick={() => handleOpenUserPicker('makers')}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
+                          className="flex items-center justify-between p-[10px_14px] border border-[#cbd5e1] rounded-[8px] bg-bg-surface cursor-pointer hover:border-[#94a3b8] transition-colors duration-150"
                         >
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: makers.length ? '#0f172a' : '#94a3b8' }}>
+                            <div className={`text-[13px] font-semibold ${makers.length ? 'text-text-primary' : 'text-[#94a3b8]'}`}>
                               {getUserNames(makers)}
                             </div>
-                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                              Allowed to execute & submit compliance tasks
+                            <div className="text-[11px] text-text-muted mt-0.5">
+                              Allowed to execute &amp; submit compliance tasks
                             </div>
                           </div>
-                          <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                          <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
                             {makers.length} Selected ✎
                           </span>
                         </div>
                       </div>
 
                       {/* 4. Task Approvers (Checkers) Trigger Field */}
-                      <div className={modalStyles.field}>
-                        <span className={modalStyles.label}>Task Approvers (Checkers)</span>
+                      <div className="flex flex-col gap-1.5 min-w-0">
+                        <span className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">Task Approvers (Checkers)</span>
                         <div
                           onClick={() => handleOpenUserPicker('checkers')}
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#ffffff', cursor: 'pointer' }}
+                          className="flex items-center justify-between p-[10px_14px] border border-[#cbd5e1] rounded-[8px] bg-bg-surface cursor-pointer hover:border-[#94a3b8] transition-colors duration-150"
                         >
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: checkers.length ? '#0f172a' : '#94a3b8' }}>
+                            <div className={`text-[13px] font-semibold ${checkers.length ? 'text-text-primary' : 'text-[#94a3b8]'}`}>
                               {getUserNames(checkers)}
                             </div>
-                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                              Allowed to verify & approve compliance tasks
+                            <div className="text-[11px] text-text-muted mt-0.5">
+                              Allowed to verify &amp; approve compliance tasks
                             </div>
                           </div>
-                          <span style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#0284c7', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 700 }}>
+                          <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
                             {checkers.length} Selected ✎
                           </span>
                         </div>
@@ -560,43 +537,35 @@ export default function AccessControl() {
                   /* TAB 2: ACCESS CONTROL ACTIVITY LOG TIMELINE */
                   <div>
                     {loadingLogs ? (
-                      <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                      <div className="p-10 text-center text-text-muted text-[13px]">
                         Loading category access audit history...
                       </div>
                     ) : categoryLogs.length === 0 ? (
-                      <div style={{ padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                      <div className="p-10 text-center text-text-muted text-[13px]">
                         No access control modifications logged for this category yet.
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div className="flex flex-col gap-3">
                         {categoryLogs.map(log => (
                           <div
                             key={log.id}
-                            style={{
-                              background: '#f8fafc',
-                              border: '1px solid #e2e8f0',
-                              borderRadius: 10,
-                              padding: '12px 16px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 6,
-                            }}
+                            className="bg-[#f8fafc] border border-[#e2e8f0] rounded-[10px] p-[12px_16px] flex flex-col gap-1.5"
                           >
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <span style={{ fontSize: 11, fontWeight: 700, background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 6, textTransform: 'uppercase' }}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold bg-[#e0f2fe] text-[#0369a1] px-2 py-[2px] rounded-[6px] uppercase">
                                 {log.action || 'ACCESS_CONTROL_UPDATED'}
                               </span>
-                              <span style={{ fontSize: 11, color: '#64748b' }}>
+                              <span className="text-[11px] text-text-muted">
                                 {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Just now'}
                               </span>
                             </div>
 
-                            <div style={{ fontSize: 13, color: '#1e293b', lineHeight: 1.4 }}>
+                            <div className="text-[13px] text-[#1e293b] leading-normal">
                               {log.details}
                             </div>
 
-                            <div style={{ fontSize: 11, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                              <span style={{ fontWeight: 600, color: '#475569' }}>Updated by:</span> {log.actorName || log.actorId}
+                            <div className="text-[11px] text-text-muted flex items-center gap-1 mt-0.5">
+                              <span className="font-semibold text-[#475569]">Updated by:</span> {log.actorName || log.actorId}
                             </div>
                           </div>
                         ))}
@@ -607,10 +576,10 @@ export default function AccessControl() {
               </div>
 
               {/* Footer */}
-              <div className={modalStyles.footer} style={{ justifyContent: 'flex-end' }}>
+              <div className="p-[18px_28px] border-t border-[#e2e8f0] bg-[#f8fafc] flex items-center justify-end gap-3">
                 <button
                   type="button"
-                  className={modalStyles.btnSecondary}
+                  className="px-5 py-[9px] rounded-[8px] border border-[#cbd5e1] bg-bg-surface text-[#475569] text-[13px] font-semibold cursor-pointer transition-all duration-150 hover:bg-[#f1f5f9] hover:text-[#0f172a]"
                   onClick={() => setActiveCategory(null)}
                 >
                   Close
@@ -619,7 +588,7 @@ export default function AccessControl() {
                   <button
                     type="submit"
                     form="access-control-form"
-                    className={modalStyles.btnPrimary}
+                    className="inline-flex items-center gap-1.5 px-[22px] py-[9px] rounded-[8px] border-none bg-[#2563eb] text-white text-[13px] font-semibold cursor-pointer shadow-[0_4px_12px_rgba(37,99,235,0.35)] transition-all duration-150 hover:bg-[#1d4ed8] hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={saving}
                   >
                     {saving ? 'Saving Access...' : 'Save Access Control'}
@@ -642,20 +611,20 @@ export default function AccessControl() {
 
         {/* Full Assigned Users List View Modal */}
         {viewUsersModal.isOpen && (
-          <div className={modalStyles.backdrop} onClick={() => setViewUsersModal(prev => ({ ...prev, isOpen: false }))}>
-            <div className={modalStyles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
-              
-              <div className={modalStyles.header}>
-                <div className={modalStyles.titleArea}>
-                  <h3>Assigned {viewUsersModal.title}</h3>
-                  <div className={modalStyles.badges}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{viewUsersModal.categoryName}</span>
-                    <span className={modalStyles.codeBadge}>{viewUsersList.length} Users</span>
+          <div className="fixed inset-0 bg-[#091124]/65 backdrop-blur-sm flex items-center justify-center z-[999] p-6" onClick={() => setViewUsersModal(prev => ({ ...prev, isOpen: false }))}>
+            <div className="bg-bg-surface rounded-[16px] w-full max-w-[520px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.1)] overflow-hidden animate-modal-slide-in" onClick={e => e.stopPropagation()}>
+
+              <div className="p-[24px_28px] bg-gradient-to-br from-[#1d4ed8] to-[#2563eb] text-white flex items-start justify-between">
+                <div className="flex flex-col gap-1">
+                  <h3 className="text-[17px] font-bold text-white tracking-[-0.2px]">Assigned {viewUsersModal.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-bold text-white">{viewUsersModal.categoryName}</span>
+                    <span className="bg-white/20 border border-white/30 text-white font-mono text-[11px] px-2 py-[2px] rounded-[4px]">{viewUsersList.length} Users</span>
                   </div>
                 </div>
                 <button
                   type="button"
-                  className={modalStyles.closeBtn}
+                  className="bg-white/15 border border-white/25 rounded-[8px] w-8 h-8 text-white cursor-pointer flex items-center justify-center transition-all duration-150 hover:bg-white/30"
                   onClick={() => setViewUsersModal(prev => ({ ...prev, isOpen: false }))}
                 >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -665,8 +634,8 @@ export default function AccessControl() {
                 </button>
               </div>
 
-              <div className={modalStyles.body} style={{ maxHeight: 380, overflowY: 'auto' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="p-7 max-h-[380px] overflow-y-auto [scrollbar-gutter:stable]">
+                <div className="flex flex-col gap-2.5">
                   {viewUsersList.map((u, idx) => {
                     const initials = u.name
                       ? u.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
@@ -675,28 +644,20 @@ export default function AccessControl() {
                     return (
                       <div
                         key={u.id || idx}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justify: 'space-between',
-                          padding: '12px 16px',
-                          background: '#f8fafc',
-                          borderRadius: 10,
-                          border: '1px solid #e2e8f0',
-                          gap: 16,
-                        }}
+                        className="flex items-center justify-between p-[12px_16px] bg-[#f8fafc] rounded-[10px] border border-[#e2e8f0] gap-4"
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
-                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#0284c7', color: '#ffffff', fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-9 h-9 rounded-full bg-[#0284c7] text-white text-[13px] font-bold flex items-center justify-center shrink-0">
                             {initials}
                           </div>
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f172a' }}>{u.name}</div>
-                            <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[13.5px] font-semibold text-text-primary">{u.name}</div>
+                            <div className="text-[11.5px] text-text-muted mt-0.5 truncate">{u.email}</div>
                           </div>
                         </div>
 
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, background: u.role === 'ADMIN' ? '#fee2e2' : '#e0f2fe', color: u.role === 'ADMIN' ? '#b91c1c' : '#0369a1', flexShrink: 0, textTransform: 'uppercase' }}>
+                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-[6px] shrink-0 uppercase ${u.role === 'ADMIN' ? 'bg-[#fee2e2] text-[#b91c1c]' : 'bg-[#e0f2fe] text-[#0369a1]'
+                          }`}>
                           {u.role || 'NON_ADMIN'}
                         </span>
                       </div>
@@ -705,10 +666,10 @@ export default function AccessControl() {
                 </div>
               </div>
 
-              <div className={modalStyles.footer} style={{ justifyContent: 'flex-end' }}>
+              <div className="p-[18px_28px] border-t border-[#e2e8f0] bg-[#f8fafc] flex items-center justify-end">
                 <button
                   type="button"
-                  className={modalStyles.btnSecondary}
+                  className="px-5 py-[9px] rounded-[8px] border border-[#cbd5e1] bg-bg-surface text-[#475569] text-[13px] font-semibold cursor-pointer transition-all duration-150 hover:bg-[#f1f5f9] hover:text-[#0f172a]"
                   onClick={() => setViewUsersModal(prev => ({ ...prev, isOpen: false }))}
                 >
                   Close

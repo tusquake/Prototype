@@ -1,4 +1,4 @@
-import styles from './StatusBadge.module.css';
+
 
 const CONFIG = {
   OPEN: {
@@ -54,9 +54,19 @@ const CONFIG = {
 };
 
 export default function StatusBadge({ status }) {
+
+  const badgeVariants = {
+    open: 'bg-amber-500/10 text-amber-600',
+    pending: 'bg-blue-600/10 text-blue-600',
+    approved: 'bg-green-600/10 text-green-600',
+    rejected: 'bg-red-600/10 text-red-600',
+    permanentlyRejected: 'bg-red-50 text-red-800 border border-red-300',
+  };
+
+  const currentVariant = badgeVariants[cls] || badgeVariants.open;
   const { label, cls, icon } = CONFIG[status] ?? { label: status, cls: 'open', icon: null };
   return (
-    <span className={`${styles.badge} ${styles[cls]}`}>
+    <span className={`inline-flex items-center gap-1.25 rounded-full px-2.5 py-0.75 text-[11px] font-semibold whitespace-nowrap ${currentVariant}`}>
       {icon}
       <span>{label}</span>
     </span>

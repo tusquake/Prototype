@@ -1,15 +1,16 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useLocation, createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Callback from './pages/Callback';
 import Dashboard from './pages/Dashboard';
+import ParentPage from './pages/ParentPage';
 import Tasks from './pages/Tasks';
 import Inbox from './pages/Inbox';
 import Sops from './pages/Sops';
 import AuditLogs from './pages/AuditLogs';
-import AccessControl from './pages/AccessControl';
-import ProcessCategories from './pages/ProcessCategories';
 import { getSession } from './auth/auth';
 import './index.css';
+import AccessControl from './pages/AccessControl';
+import ProcessCategories from './pages/ProcessCategories';
 
 function ProtectedRoute({ children }) {
   const location = useLocation();
@@ -32,81 +33,94 @@ function PublicOnlyRoute({ children }) {
   return children;
 }
 
+
 export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route
-          path="/login"
-          element={
-            <PublicOnlyRoute>
-              <Login />
-            </PublicOnlyRoute>
-          }
-        />
 
-        <Route path="/callback" element={<Callback />} />
-
-        <Route
-          path="/dashboard"
-          element={
+  const router = createBrowserRouter([
+    {
+      path: "/login",
+      element: (
+        <PublicOnlyRoute>
+          <Login />
+        </PublicOnlyRoute>
+      ),
+    },
+    {
+      path: "/callback",
+      element: <Callback />,
+    },
+    {
+      element: <ParentPage />,
+      children: [
+        {
+          path: "/dashboard",
+          element: (
             <ProtectedRoute>
               <Dashboard />
             </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/tasks"
-          element={
+          ),
+        },
+        {
+          path: "/tasks",
+          element: (
             <ProtectedRoute>
               <Tasks />
             </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/inbox"
-          element={
+          ),
+        },
+        {
+          path: "/inbox",
+          element: (
             <ProtectedRoute>
               <Inbox />
             </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/sops"
-          element={
+          ),
+        },
+        {
+          path: "/sops",
+          element: (
             <ProtectedRoute>
               <Sops />
             </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/access-control"
-          element={
-            <ProtectedRoute>
-              <AccessControl />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/process-categories"
-          element={
-            <ProtectedRoute>
-              <ProcessCategories />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/audit"
-          element={
+          ),
+        },
+        {
+          path: "/audit",
+          element: (
             <ProtectedRoute>
               <AuditLogs />
             </ProtectedRoute>
-          }
-        />
+          ),
+        },
+        {
+          path: "/access-control",
+          element: (
+            <ProtectedRoute>
+              <AccessControl/>
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: "/categories",
+          element: (
+            <ProtectedRoute>
+              <ProcessCategories />
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: "/",
+          element: <Navigate to="/dashboard" replace />,
+        },
 
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </BrowserRouter>
+      ]
+    },
+    {
+      path: "*",
+      element: <Navigate to="/login" replace />,
+    },
+  ]);
+  return (
+    <RouterProvider router={router} />
   );
 }

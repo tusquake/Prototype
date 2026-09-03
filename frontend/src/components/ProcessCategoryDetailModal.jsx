@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { updateProcessCategory, getCategoryActivityLogs } from '../services/api';
 import Toast from './Toast';
-import styles from './SopDetailModal.module.css';
 
 export default function ProcessCategoryDetailModal({ isOpen, category, onClose, onUpdated }) {
   const [activeTab, setActiveTab] = useState('DETAILS'); // 'DETAILS' | 'ACTIVITY'
@@ -64,20 +63,28 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
   }
 
   return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.modal} onClick={e => e.stopPropagation()} style={{ maxWidth: 580 }}>
-        
-        {/* Header matching SopDetailModal */}
-        <div className={styles.header}>
-          <div className={styles.titleArea}>
-            <h3>Process Category: {category.categoryName}</h3>
-            <div className={styles.badges}>
-              <span className={styles.codeBadge}>{category.categoryCode}</span>
+    <div
+      className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-900/60 p-5 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[580px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl animate-[modalFade_0.2s_ease-out]"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between border-b border-slate-100 bg-slate-50 px-7 pb-[18px] pt-6">
+          <div className="flex flex-col">
+            <h3 className="mb-1.5 text-lg font-bold text-slate-900">Process Category: {category.categoryName}</h3>
+            <div className="flex items-center gap-2">
+              <span className="rounded-md bg-[#1a2b6b]/[0.08] px-2.5 py-0.5 font-mono text-xs font-semibold text-[#1a2b6b]">
+                {category.categoryCode}
+              </span>
             </div>
           </div>
+
           <button
             type="button"
-            className={styles.closeBtn}
+            className="rounded-md p-1 text-slate-500 transition-all hover:bg-slate-200 hover:text-slate-900"
             onClick={onClose}
             title="Close modal"
           >
@@ -89,24 +96,14 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
         </div>
 
         {/* Icon-Tabs Header Bar */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', padding: '0 24px' }}>
+        <div className="flex border-b border-slate-200 bg-slate-50 px-6">
           <button
             type="button"
             onClick={() => setActiveTab('DETAILS')}
-            style={{
-              padding: '12px 16px',
-              background: 'transparent',
-              border: 'none',
-              borderBottom: activeTab === 'DETAILS' ? '2.5px solid #0284c7' : '2.5px solid transparent',
-              color: activeTab === 'DETAILS' ? '#0284c7' : '#64748b',
-              fontWeight: activeTab === 'DETAILS' ? 700 : 600,
-              fontSize: 13,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              transition: 'all 0.15s ease',
-            }}
+            className={`flex items-center gap-2 border-b-[2.5px] px-4 py-3 text-d-13 transition-all ${activeTab === 'DETAILS'
+                ? 'border-sky-600 font-bold text-sky-600'
+                : 'border-transparent font-semibold text-slate-500 hover:text-slate-800'
+              }`}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -118,20 +115,10 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
           <button
             type="button"
             onClick={() => setActiveTab('ACTIVITY')}
-            style={{
-              padding: '12px 16px',
-              background: 'transparent',
-              border: 'none',
-              borderBottom: activeTab === 'ACTIVITY' ? '2.5px solid #0284c7' : '2.5px solid transparent',
-              color: activeTab === 'ACTIVITY' ? '#0284c7' : '#64748b',
-              fontWeight: activeTab === 'ACTIVITY' ? 700 : 600,
-              fontSize: 13,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              transition: 'all 0.15s ease',
-            }}
+            className={`flex items-center gap-2 border-b-[2.5px] px-4 py-3 text-d-13 transition-all ${activeTab === 'ACTIVITY'
+                ? 'border-sky-600 font-bold text-sky-600'
+                : 'border-transparent font-semibold text-slate-500 hover:text-slate-800'
+              }`}
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <circle cx="12" cy="12" r="10" />
@@ -142,74 +129,40 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
         </div>
 
         {/* Modal Body */}
-        <div className={styles.body}>
+        <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto px-7 py-6">
           {/* Tab 1: Category Details Form */}
           {activeTab === 'DETAILS' && (
-            <form id="category-edit-form" onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              <div className={styles.field}>
-                <span className={styles.label}>Category Code (Read-Only)</span>
+            <form id="category-edit-form" onSubmit={handleSave} className="flex flex-col gap-4.5">
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Category Code (Read-Only)</span>
                 <input
                   type="text"
                   value={category.categoryCode}
                   disabled
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: 8,
-                    fontSize: 13,
-                    background: '#f1f5f9',
-                    color: '#0284c7',
-                    fontWeight: 600,
-                    fontFamily: 'monospace',
-                    boxSizing: 'border-box',
-                  }}
+                  className="w-full rounded-lg border border-slate-300 bg-slate-100 px-3.5 py-2.5 font-mono text-xs font-semibold text-sky-600"
                 />
               </div>
 
-              <div className={styles.field}>
-                <span className={styles.label}>Category Name *</span>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Category Name *</span>
                 <input
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="Enter Category Name"
                   required
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: 8,
-                    fontSize: 13.5,
-                    background: '#ffffff',
-                    color: '#0f172a',
-                    fontFamily: 'inherit',
-                    boxSizing: 'border-box',
-                    outline: 'none',
-                  }}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[13.5px] text-slate-900 outline-none transition focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 />
               </div>
 
-              <div className={styles.field}>
-                <span className={styles.label}>Description</span>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Description</span>
                 <textarea
                   rows={4}
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   placeholder="Enter category scope and description"
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: 8,
-                    fontSize: 13.5,
-                    background: '#ffffff',
-                    color: '#0f172a',
-                    fontFamily: 'inherit',
-                    boxSizing: 'border-box',
-                    outline: 'none',
-                    resize: 'vertical',
-                  }}
+                  className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[13.5px] text-slate-900 outline-none transition focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 />
               </div>
             </form>
@@ -219,43 +172,35 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
           {activeTab === 'ACTIVITY' && (
             <div>
               {loadingLogs ? (
-                <div style={{ padding: 30, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                <div className="p-7.5 text-center text-xs text-slate-500">
                   Loading category activity history...
                 </div>
               ) : logs.length === 0 ? (
-                <div style={{ padding: 30, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+                <div className="p-7.5 text-center text-xs text-slate-500">
                   No activity logged for this category yet.
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div className="flex flex-col gap-3">
                   {logs.map(log => (
                     <div
                       key={log.id}
-                      style={{
-                        background: '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: 10,
-                        padding: '12px 16px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 6,
-                      }}
+                      className="flex flex-col gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3 px-4"
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 6, textTransform: 'uppercase' }}>
+                      <div className="flex items-center justify-between">
+                        <span className="rounded-md bg-sky-100 px-2 py-0.5 text-[11px] font-bold uppercase text-sky-800">
                           {log.action}
                         </span>
-                        <span style={{ fontSize: 11, color: '#64748b' }}>
+                        <span className="text-[11px] text-slate-500">
                           {log.timestamp ? new Date(log.timestamp).toLocaleString() : 'Just now'}
                         </span>
                       </div>
 
-                      <div style={{ fontSize: 13, color: '#1e293b', marginTop: 2, lineHeight: 1.4 }}>
+                      <div className="mt-0.5 text-xs text-slate-800 leading-relaxed">
                         {log.details}
                       </div>
 
-                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                        Performed by: <span style={{ fontWeight: 600, color: '#475569' }}>{log.actorName || log.actorId}</span>
+                      <div className="mt-0.5 text-[11px] text-slate-500">
+                        Performed by: <span className="font-semibold text-slate-600">{log.actorName || log.actorId}</span>
                       </div>
                     </div>
                   ))}
@@ -265,16 +210,20 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
           )}
         </div>
 
-        {/* Footer matching SopDetailModal */}
-        <div className={styles.footer} style={{ justifyContent: 'flex-end' }}>
-          <button type="button" className={styles.btnSecondary} onClick={onClose}>
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-7 py-4">
+          <button
+            type="button"
+            className="rounded-lg border border-slate-300 bg-white px-4.5 py-2 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900"
+            onClick={onClose}
+          >
             {activeTab === 'DETAILS' ? 'Cancel' : 'Close'}
           </button>
           {activeTab === 'DETAILS' && (
             <button
               type="submit"
               form="category-edit-form"
-              className={styles.btnPrimary}
+              className="rounded-lg border border-blue-600 bg-blue-600 px-4.5 py-2 text-xs font-semibold text-white transition-all hover:border-blue-700 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
               disabled={saving}
             >
               {saving ? 'Saving Changes...' : 'Save Changes'}
@@ -288,7 +237,6 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
           type="error"
           onClose={() => setErrorMsg('')}
         />
-
       </div>
     </div>
   );

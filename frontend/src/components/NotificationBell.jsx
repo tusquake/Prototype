@@ -7,7 +7,6 @@ import {
   markAllNotificationsAsRead,
   deleteNotification,
 } from '../services/api';
-import styles from './Sidebar.module.css';
 
 export default function NotificationBell({ currentUser }) {
   const navigate = useNavigate();
@@ -116,7 +115,7 @@ export default function NotificationBell({ currentUser }) {
     if (isSop) {
       const isReview = item.eventType === 'SOP_SUBMITTED' || item.eventType === 'SOP_APPROVAL';
       const isDraft = item.eventType === 'SOP_ASSIGNED' || item.eventType === 'SOP_REJECTED';
-      
+
       let queryParam = 'sopId';
       if (isReview) queryParam = 'reviewSopCode';
       else if (isDraft) queryParam = 'draftSopCode';
@@ -124,7 +123,7 @@ export default function NotificationBell({ currentUser }) {
 
       const eventName = isReview ? 'open-sop-review' : isDraft ? 'open-sop-draft' : 'open-sop-view';
       window.dispatchEvent(new CustomEvent(eventName, { detail: { sopId: refId, code: refId, id: refId } }));
-      
+
       navigate(`/sops?${queryParam}=${encodeURIComponent(refId)}`);
     } else if (isTask) {
       window.dispatchEvent(new CustomEvent('open-task-action', { detail: { taskId: refId, id: refId } }));
@@ -151,52 +150,61 @@ export default function NotificationBell({ currentUser }) {
   }
 
   return (
-    <div className={styles.notifContainer} ref={popoverRef}>
+    <div className="relative w-full" ref={popoverRef}>
       <button
         type="button"
-        className={`${styles.notifBellBtn} ${showPopover ? styles.notifBellBtnActive : ''}`}
+        className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-[12.5px] font-medium transition-all ${showPopover
+            ? 'border-white/20 bg-white/10 text-white'
+            : 'border-white/10 bg-white/[0.04] text-slate-400 hover:border-white/20 hover:bg-white/10 hover:text-white'
+          }`}
         onClick={() => setShowPopover(!showPopover)}
         title="Notifications"
       >
-        <div className={styles.notifBellIconWrap}>
+        <div className="relative flex items-center justify-center">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
             <path d="M13.73 21a2 2 0 0 1-3.46 0" />
           </svg>
           {unreadCount > 0 && (
-            <span className={styles.notifBadgeDot}>{unreadCount}</span>
+            <span className="absolute -right-1.25 -top-1 flex h-3.75 w-3.75 items-center justify-center rounded-full border-[1.5px] border-[#091124] bg-blue-600 text-[9.5px] font-bold text-white">
+              {unreadCount}
+            </span>
           )}
         </div>
-        <span className={styles.notifBellLabel}>Notifications</span>
+        <span className="flex-1 text-left">Notifications</span>
         {unreadCount > 0 && (
-          <span className={styles.notifCountPill}>{unreadCount} unread</span>
+          <span className="rounded-full bg-sky-500/12 px-1.75 py-0.5 text-[10.5px] font-semibold text-sky-400">
+            {unreadCount} unread
+          </span>
         )}
       </button>
 
       {/* Clean White Notification Drawer / Popover */}
       {showPopover && (
-        <div className={styles.notifPopover}>
-          <div className={styles.notifHeader}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span className={styles.notifTitle}>Notifications</span>
+        <div className="absolute bottom-[calc(100%+8px)] left-0 z-[100] w-[280px] overflow-hidden rounded-xl border border-slate-300 bg-white shadow-[0_12px_30px_-5px_rgba(0,0,0,0.15),0_4px_10px_-2px_rgba(0,0,0,0.05)] animate-[fadeInNotif_0.15s_ease-out]">
+          <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3.5 py-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold tracking-tight text-slate-900">Notifications</span>
               {unreadCount > 0 && (
-                <span className={styles.notifHeaderBadge}>{unreadCount} New</span>
+                <span className="rounded-full bg-sky-600 px-1.75 py-0.5 text-[10px] font-bold text-white">
+                  {unreadCount} New
+                </span>
               )}
             </div>
             {unreadCount > 0 && (
               <button
                 type="button"
                 onClick={handleMarkAllRead}
-                style={{ background: 'none', border: 'none', color: '#0284c7', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}
+                className="border-none bg-transparent text-[11px] font-semibold text-sky-600 cursor-pointer hover:underline"
               >
                 Mark all read
               </button>
             )}
           </div>
 
-          <div className={styles.notifList}>
+          <div className="max-h-[260px] overflow-y-auto bg-white p-1.5">
             {notifications.length === 0 ? (
-              <div className={styles.notifEmpty}>
+              <div className="flex flex-col items-center gap-2 bg-white px-3.5 py-6 text-center text-xs text-slate-500">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                   <polyline points="22 4 12 14.01 9 11.01" />
@@ -208,20 +216,21 @@ export default function NotificationBell({ currentUser }) {
                 const isUnread = !item.isRead;
                 const isGreen = item.eventType?.includes('APPROVED');
                 const isRed = item.eventType?.includes('REJECTED');
+
                 const strokeColor = isGreen ? '#16a34a' : isRed ? '#dc2626' : '#0284c7';
-                const iconBg = isGreen ? 'rgba(22, 163, 74, 0.1)' : isRed ? 'rgba(220, 38, 38, 0.1)' : 'rgba(2, 132, 199, 0.1)';
+                const iconBgClass = isGreen ? 'bg-green-600/10' : isRed ? 'bg-red-600/10' : 'bg-sky-600/10';
+                const actionColorClass = isGreen ? 'text-green-600 hover:text-green-500' : isRed ? 'text-red-600 hover:text-red-500' : 'text-sky-600 hover:text-blue-400';
 
                 return (
                   <div
                     key={item.notificationId}
-                    className={styles.notifItem}
-                    style={{
-                      background: isUnread ? '#f0f9ff' : '#ffffff',
-                      borderLeft: isUnread ? '3px solid #0284c7' : '3px solid transparent',
-                    }}
+                    className={`group relative flex gap-2.5 rounded-lg border-b border-slate-100 p-2.5 transition-all cursor-pointer hover:bg-slate-50 ${isUnread
+                        ? 'border-l-[3px] border-l-sky-600 bg-sky-50/50'
+                        : 'border-l-[3px] border-l-transparent bg-white'
+                      }`}
                     onClick={() => handleNotificationClick(item)}
                   >
-                    <div className={styles.notifItemIcon} style={{ background: iconBg }}>
+                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${iconBgClass}`}>
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={strokeColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <polyline points="14 2 14 8 20 8" />
@@ -233,14 +242,14 @@ export default function NotificationBell({ currentUser }) {
                       </svg>
                     </div>
 
-                    <div className={styles.notifItemContent}>
-                      <div className={styles.notifItemTitle} style={{ fontWeight: isUnread ? 700 : 600 }}>
+                    <div className="min-w-0 flex-1 pr-4.5">
+                      <div className={`mb-0.5 text-xs text-slate-900 leading-snug ${isUnread ? 'font-bold' : 'font-semibold'}`}>
                         {item.title}
                       </div>
-                      <div className={styles.notifItemMeta}>
+                      <div className="mb-1 text-[11px] text-slate-500">
                         {item.message}
                       </div>
-                      <div className={styles.notifItemAction} style={{ color: strokeColor }}>
+                      <div className={`inline-flex items-center gap-1 text-[11px] font-semibold transition-colors ${actionColorClass}`}>
                         <span>Open {item.referenceEntityType || 'Item'} →</span>
                       </div>
                     </div>
@@ -249,7 +258,7 @@ export default function NotificationBell({ currentUser }) {
                     <button
                       type="button"
                       title="Dismiss notification"
-                      className={styles.notifDismissBtn}
+                      className="absolute right-2 top-2 flex rounded p-1 transition-colors hover:bg-slate-200"
                       onClick={(e) => handleDismissNotification(e, item)}
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
