@@ -1,15 +1,15 @@
 spring:
   config:
     activate:
-      on-profile: prod
+      on-profile: uat
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/finsop_db}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/finsop_uat_db}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 20
+      maximum-pool-size: 15
       minimum-idle: 5
       idle-timeout: 300000
       connection-timeout: 20000
