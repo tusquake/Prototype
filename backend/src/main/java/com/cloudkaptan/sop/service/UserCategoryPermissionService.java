@@ -3,6 +3,9 @@ package com.cloudkaptan.sop.service;
 import com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto;
 import com.cloudkaptan.sop.dto.CategoryPermissionDto;
 import com.cloudkaptan.sop.dto.GrantPermissionRequest;
+import com.cloudkaptan.sop.dto.UpdateCategoryAccessTypeRequest;
+import com.cloudkaptan.sop.dto.UpdateUserCategoryPermissionRequest;
+import com.cloudkaptan.sop.dto.UpdateSinglePermissionRequest;
 import com.cloudkaptan.sop.entity.AccessControlActivityLog;
 import com.cloudkaptan.sop.entity.AuditLog;
 import com.cloudkaptan.sop.entity.User;
@@ -270,6 +273,79 @@ public class UserCategoryPermissionService {
             case "CHECK_TASK", "APPROVE_TASK" -> Boolean.TRUE.equals(p.getCanCheckTask());
             default -> false;
         };
+    }
+
+    @Transactional
+    public CategoryAccessAssignmentDto updateCategoryAccessType(String categoryCode, String accessType, List<String> targetUserIds, String actorId) {
+        CategoryAccessAssignmentDto current = getCategoryAssignments(categoryCode);
+        List<String> creators = new ArrayList<>(current.getCreatorUserIds() != null ? current.getCreatorUserIds() : Collections.emptyList());
+        List<String> approvers = new ArrayList<>(current.getApproverUserIds() != null ? current.getApproverUserIds() : Collections.emptyList());
+        List<String> makers = new ArrayList<>(current.getMakerUserIds() != null ? current.getMakerUserIds() : Collections.emptyList());
+        List<String> checkers = new ArrayList<>(current.getCheckerUserIds() != null ? current.getCheckerUserIds() : Collections.emptyList());
+
+        List<String> newUsers = targetUserIds != null ? targetUserIds : Collections.emptyList();
+
+        switch (accessType.toUpperCase()) {
+            case "CREATE_SOP", "CREATOR", "CANCREATESOP" -> creators = newUsers;
+            case "APPROVE_SOP", "APPROVER", "CANAPPROVESOP" -> approvers = newUsers;
+            case "MAKE_TASK", "MAKER", "SUBMITTER", "CANMAKETASK" -> makers = newUsers;
+            case "CHECK_TASK", "CHECKER", "CANCHECKTASK" -> checkers = newUsers;
+            default -> throw new IllegalArgumentException("Invalid access type: " + accessType + ". Expected one of: CREATE_SOP, APPROVE_SOP, MAKE_TASK, CHECK_TASK");
+        }
+
+        CategoryAccessAssignmentDto updatedDto = CategoryAccessAssignmentDto.builder()
+                .processCategory(categoryCode)
+                .creatorUserIds(creators)
+                .approverUserIds(approvers)
+                .makerUserIds(makers)
+                .checkerUserIds(checkers)
+                .build();
+
+        return saveCategoryAssignments(updatedDto, actorId);
+    }
+
+    @Transactional
+    public CategoryPermissionDto updateUserCategoryPermission(String userId, String categoryCode, UpdateUserCategoryPermissionRequest request, String actorId) {
+        Optional<UserCategoryPermission> existing = permissionRepository.findByUserIdAndProcessCategory(userId, categoryCode);
+        UserCategoryPermission entity;
+        if (existing.isPresent()) {
+            entity = existing.get();
+            if (request.getCanCreateSop() != null) entity.setCanCreateSop(request.getCanCreateSop());
+            if (request.getCanApproveSop() != null) entity.setCanApproveSop(request.getCanApproveSop());
+            if (request.getCanMakeTask() != null) entity.setCanMakeTask(request.getCanMakeTask());
+            if (request.getCanCheckTask() != null) entity.setCanCheckTask(request.getCanCheckTask());
+        } else {
+            entity = UserCategoryPermission.builder()
+                    .userId(userId)
+                    .processCategory(categoryCode)
+                    .canCreateSop(Boolean.TRUE.equals(request.getCanCreateSop()))
+                    .canApproveSop(Boolean.TRUE.equals(request.getCanApproveSop()))
+                    .canMakeTask(Boolean.TRUE.equals(request.getCanMakeTask()))
+                    .canCheckTask(Boolean.TRUE.equals(request.getCanCheckTask()))
+                    .build();
+        }
+        UserCategoryPermission saved = permissionRepository.save(entity);
+        log.info("Updated category permissions for user [{}] on category [{}] via PUT API", userId, categoryCode);
+
+        // Record audit
+        CategoryAccessAssignmentDto updatedAssignments = getCategoryAssignments(categoryCode);
+        recordAccessControlAudit(categoryCode, getCategoryAssignments(categoryCode), updatedAssignments, actorId);
+
+        return mapToDto(saved);
+    }
+
+    @Transactional
+    public CategoryPermissionDto updateSinglePermission(String userId, String categoryCode, String accessType, Boolean enabled, String actorId) {
+        UpdateUserCategoryPermissionRequest req = new UpdateUserCategoryPermissionRequest();
+        boolean isEnabled = Boolean.TRUE.equals(enabled);
+        switch (accessType.toUpperCase()) {
+            case "CREATE_SOP", "CREATOR", "CANCREATESOP" -> req.setCanCreateSop(isEnabled);
+            case "APPROVE_SOP", "APPROVER", "CANAPPROVESOP" -> req.setCanApproveSop(isEnabled);
+            case "MAKE_TASK", "MAKER", "SUBMITTER", "CANMAKETASK" -> req.setCanMakeTask(isEnabled);
+            case "CHECK_TASK", "CHECKER", "CANCHECKTASK" -> req.setCanCheckTask(isEnabled);
+            default -> throw new IllegalArgumentException("Invalid access type: " + accessType);
+        }
+        return updateUserCategoryPermission(userId, categoryCode, req, actorId);
     }
 
     public CategoryPermissionDto mapToDto(UserCategoryPermission entity) {
