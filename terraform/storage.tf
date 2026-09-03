@@ -1,11 +1,3 @@
-# ============================================================
-# Phase 3 — Frontend GCS Bucket with Public Access
-# Matches gcloud commands:
-#   gcloud storage buckets create gs://fin-sop-frontend-bucket ...
-#   gcloud storage buckets add-iam-policy-binding ... --member="allUsers" --role="roles/storage.objectViewer"
-# ============================================================
-
-# GCS Bucket for React SPA static assets
 resource "google_storage_bucket" "frontend" {
   name                        = var.bucket_name
   location                    = var.region
@@ -14,7 +6,7 @@ resource "google_storage_bucket" "frontend" {
 
   website {
     main_page_suffix = "index.html"
-    not_found_page   = "index.html" # SPA fallback for React Router
+    not_found_page   = "index.html"
   }
 
   cors {
@@ -25,8 +17,6 @@ resource "google_storage_bucket" "frontend" {
   }
 }
 
-# Public read IAM binding — allows Cloud CDN to serve objects
-# Matches: gcloud storage buckets add-iam-policy-binding ... --member="allUsers" --role="roles/storage.objectViewer"
 resource "google_storage_bucket_iam_member" "public_viewer" {
   bucket = google_storage_bucket.frontend.name
   role   = "roles/storage.objectViewer"
