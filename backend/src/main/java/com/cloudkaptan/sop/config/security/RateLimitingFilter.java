@@ -44,7 +44,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
         // 2. Select Bucket based on route
         Bucket bucket;
-        if (path.startsWith("/api/v1/auth")) {
+        if (path.startsWith("/finsop/v1/access") || path.startsWith("/api/v1/auth")) {
             bucket = rateLimiterService.resolveAuthBucket("auth_" + clientKey);
         } else {
             bucket = rateLimiterService.resolveStandardBucket("api_" + clientKey);

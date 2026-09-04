@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping(value = {"/finsop/v1/notifications", "/api/v1/notifications"})
+@RequestMapping("/finsop/v1/notifications")
 @RequiredArgsConstructor
 public class NotificationController {
 

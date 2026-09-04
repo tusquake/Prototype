@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping(value = {"/finsop/v1/process-categories", "/api/v1/process-categories"})
+@RequestMapping("/finsop/v1/process-categories")
 @RequiredArgsConstructor
 public class ProcessCategoryController {
 
