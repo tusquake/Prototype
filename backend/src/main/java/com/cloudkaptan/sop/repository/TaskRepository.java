@@ -25,7 +25,7 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     Optional<Task> findByRecordNo(String recordNo);
 
     @Query("""
-        SELECT 
+        SELECT DISTINCT
             t.taskId as taskId,
             t.recordNo as recordNo,
             s.title as sopTitle,
@@ -43,11 +43,25 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
             t.approvedAt as approvedAt
         FROM Task t
         JOIN t.sop s
-        JOIN t.maker m
-        JOIN t.checker c
+        LEFT JOIN t.maker m
+        LEFT JOIN t.checker c
+        LEFT JOIN t.assignedMakerIds am
+        LEFT JOIN t.assignedCheckerIds ac
+        LEFT JOIN s.assignedCreatorIds sc
+        LEFT JOIN s.assignedApproverIds sa
+        LEFT JOIN s.createdBy cb
         WHERE (:entities IS NULL OR t.entity.entityCode IN :entities)
           AND (:status IS NULL OR t.status = :status)
-          AND (:userId IS NULL OR t.maker.userId = :userId OR t.checker.userId = :userId)
+          AND (:userId IS NULL 
+               OR t.maker.userId = :userId 
+               OR t.checker.userId = :userId 
+               OR am = :userId 
+               OR ac = :userId 
+               OR s.assignedCreatorId = :userId 
+               OR sc = :userId 
+               OR s.assignedApproverId = :userId 
+               OR sa = :userId 
+               OR cb.userId = :userId)
         ORDER BY t.dueDate ASC
     """)
     Page<TaskInboxView> findInboxTasks(

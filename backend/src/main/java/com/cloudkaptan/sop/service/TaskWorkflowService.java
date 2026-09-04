@@ -5,6 +5,7 @@ import com.cloudkaptan.sop.domain.enums.EntityCode;
 import com.cloudkaptan.sop.domain.enums.TaskStatus;
 import com.cloudkaptan.sop.domain.state.TaskContext;
 import com.cloudkaptan.sop.dto.TaskDto;
+import com.cloudkaptan.sop.entity.Sop;
 import com.cloudkaptan.sop.entity.Task;
 import com.cloudkaptan.sop.entity.User;
 import com.cloudkaptan.sop.event.TaskStatusChangedEvent;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -38,6 +40,9 @@ public class TaskWorkflowService {
     private final com.cloudkaptan.sop.repository.UserNotificationRepository userNotificationRepository;
     private final com.cloudkaptan.sop.config.security.SopSecurityEvaluator sopSecurityEvaluator;
     private final UserCategoryPermissionService categoryPermissionService;
+    private final com.cloudkaptan.sop.repository.TaskReassignmentHistoryRepository taskReassignmentHistoryRepository;
+    private final TaskSchedulerService taskSchedulerService;
+    private final com.cloudkaptan.sop.repository.TaskDocumentRepository taskDocumentRepository;
 
     @Transactional
     public TaskDto processTaskAction(UUID taskId, com.cloudkaptan.sop.dto.TaskActionRequest request) {
@@ -234,26 +239,70 @@ public class TaskWorkflowService {
     }
 
     @ApplyRowLevelSecurity
-    @Transactional(readOnly = true)
+    @Transactional
     public List<TaskDto> getTasksForUser(List<EntityCode> entities, String userId, String userRole) {
+        try {
+            taskSchedulerService.generateScheduledTasks();
+        } catch (Exception e) {
+            // Non-fatal if already generating
+        }
+
         List<Task> tasks = taskRepository.findTasksByEntities(entities);
 
         if ("ADMIN".equalsIgnoreCase(userRole) || userId == null || userId.isBlank()) {
             return tasks.stream().map(this::mapToDto).toList();
         }
 
+        final String uid = userId.trim();
+        User resolvedUser = userRepository.findById(uid)
+                .or(() -> userRepository.findByEmail(uid))
+                .orElse(null);
+
+        final String userEmail = resolvedUser != null ? resolvedUser.getEmail() : null;
+        final String userFullName = resolvedUser != null ? resolvedUser.getFullName() : null;
+
         // NON_ADMIN user: Filter strictly by assigned process categories & direct assignments
-        List<String> accessibleCategories = categoryPermissionService.getUserAccessibleCategories(userId);
+        List<String> accessibleCategories = categoryPermissionService.getUserAccessibleCategories(uid);
 
         return tasks.stream()
             .filter(task -> {
                 String cat = task.getSop() != null ? task.getSop().getProcessCategory() : null;
                 boolean categoryAllowed = cat != null && accessibleCategories.contains(cat);
 
-                boolean isDirectlyAssigned = (task.getMaker() != null && userId.equals(task.getMaker().getUserId()))
-                        || (task.getChecker() != null && userId.equals(task.getChecker().getUserId()))
-                        || (task.getAssignedMakerIds() != null && task.getAssignedMakerIds().contains(userId))
-                        || (task.getAssignedCheckerIds() != null && task.getAssignedCheckerIds().contains(userId));
+                Sop sop = task.getSop();
+                boolean isSopCreator = false;
+                if (sop != null) {
+                    if (sop.getCreatedBy() != null) {
+                        String cbId = sop.getCreatedBy().getUserId();
+                        String cbEmail = sop.getCreatedBy().getEmail();
+                        if (uid.equalsIgnoreCase(cbId) || (userEmail != null && userEmail.equalsIgnoreCase(cbEmail)) || (cbId != null && cbId.equalsIgnoreCase(userEmail))) {
+                            isSopCreator = true;
+                        }
+                    }
+                    if (sop.getAssignedCreatorId() != null && (uid.equalsIgnoreCase(sop.getAssignedCreatorId()) || (userEmail != null && userEmail.equalsIgnoreCase(sop.getAssignedCreatorId())))) {
+                        isSopCreator = true;
+                    }
+                    if (sop.getAssignedCreatorIds() != null && (sop.getAssignedCreatorIds().contains(uid) || (userEmail != null && sop.getAssignedCreatorIds().contains(userEmail)))) {
+                        isSopCreator = true;
+                    }
+                }
+
+                boolean isSopApprover = false;
+                if (sop != null) {
+                    if (sop.getAssignedApproverId() != null && (uid.equalsIgnoreCase(sop.getAssignedApproverId()) || (userEmail != null && userEmail.equalsIgnoreCase(sop.getAssignedApproverId())))) {
+                        isSopApprover = true;
+                    }
+                    if (sop.getAssignedApproverIds() != null && (sop.getAssignedApproverIds().contains(uid) || (userEmail != null && sop.getAssignedApproverIds().contains(userEmail)))) {
+                        isSopApprover = true;
+                    }
+                }
+
+                boolean isDirectlyAssigned = (task.getMaker() != null && (uid.equalsIgnoreCase(task.getMaker().getUserId()) || (userEmail != null && userEmail.equalsIgnoreCase(task.getMaker().getEmail()))))
+                        || (task.getChecker() != null && (uid.equalsIgnoreCase(task.getChecker().getUserId()) || (userEmail != null && userEmail.equalsIgnoreCase(task.getChecker().getEmail()))))
+                        || (task.getAssignedMakerIds() != null && (task.getAssignedMakerIds().contains(uid) || (userEmail != null && task.getAssignedMakerIds().contains(userEmail)) || (userFullName != null && task.getAssignedMakerIds().contains(userFullName))))
+                        || (task.getAssignedCheckerIds() != null && (task.getAssignedCheckerIds().contains(uid) || (userEmail != null && task.getAssignedCheckerIds().contains(userEmail)) || (userFullName != null && task.getAssignedCheckerIds().contains(userFullName))))
+                        || isSopCreator
+                        || isSopApprover;
 
                 return categoryAllowed || isDirectlyAssigned;
             })
@@ -268,7 +317,150 @@ public class TaskWorkflowService {
 
     private User getUserOrThrow(String userId) {
         return userRepository.findById(userId)
-            .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+            .or(() -> userRepository.findByEmail(userId))
+            .orElseThrow(() -> new ResourceNotFoundException("User not found with ID or Email: " + userId));
+    }
+
+    @Transactional
+    public TaskDto reassignTask(UUID taskId, com.cloudkaptan.sop.dto.TaskReassignRequest request) {
+        Task task = getTaskOrThrow(taskId);
+        User actor = getUserOrThrow(request.getActorId());
+
+        // Validate Authorization: Must be Admin, SOP Creator, or SOP Approver
+        String actorId = actor.getUserId();
+        String actorEmail = actor.getEmail();
+        String userRole = actor.getRole() != null ? actor.getRole().name() : "";
+        boolean isAdmin = "ADMIN".equalsIgnoreCase(userRole);
+
+        com.cloudkaptan.sop.entity.Sop sop = task.getSop();
+        boolean isSopCreator = (sop.getCreatedBy() != null && (actorId.equalsIgnoreCase(sop.getCreatedBy().getUserId()) || (actorEmail != null && actorEmail.equalsIgnoreCase(sop.getCreatedBy().getEmail()))))
+                || (sop.getAssignedCreatorId() != null && (actorId.equalsIgnoreCase(sop.getAssignedCreatorId()) || (actorEmail != null && actorEmail.equalsIgnoreCase(sop.getAssignedCreatorId()))))
+                || (sop.getAssignedCreatorIds() != null && (sop.getAssignedCreatorIds().contains(actorId) || (actorEmail != null && sop.getAssignedCreatorIds().contains(actorEmail))))
+                || categoryPermissionService.hasPermission(actorId, sop.getProcessCategory(), "CREATE_SOP");
+
+        boolean isSopApprover = (sop.getAssignedApproverId() != null && (actorId.equalsIgnoreCase(sop.getAssignedApproverId()) || (actorEmail != null && actorEmail.equalsIgnoreCase(sop.getAssignedApproverId()))))
+                || (sop.getAssignedApproverIds() != null && (sop.getAssignedApproverIds().contains(actorId) || (actorEmail != null && sop.getAssignedApproverIds().contains(actorEmail))))
+                || categoryPermissionService.hasPermission(actorId, sop.getProcessCategory(), "APPROVE_SOP");
+
+        if (!isAdmin && !isSopCreator && !isSopApprover) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                "Access Denied: Only the SOP Creator, SOP Approver, or Admin can edit/reassign this task."
+            );
+        }
+
+        // Capture previous assigned Maker & Checker full names
+        List<String> prevMakerIds = (task.getAssignedMakerIds() != null && !task.getAssignedMakerIds().isEmpty())
+                ? new java.util.ArrayList<>(task.getAssignedMakerIds())
+                : (task.getMaker() != null ? List.of(task.getMaker().getUserId()) : List.of());
+
+        List<String> prevCheckerIds = (task.getAssignedCheckerIds() != null && !task.getAssignedCheckerIds().isEmpty())
+                ? new java.util.ArrayList<>(task.getAssignedCheckerIds())
+                : (task.getChecker() != null ? List.of(task.getChecker().getUserId()) : List.of());
+
+        String prevMakerNames = prevMakerIds.stream()
+                .map(id -> userRepository.findById(id).map(User::getFullName).orElse(id))
+                .collect(java.util.stream.Collectors.joining(", "));
+
+        String prevCheckerNames = prevCheckerIds.stream()
+                .map(id -> userRepository.findById(id).map(User::getFullName).orElse(id))
+                .collect(java.util.stream.Collectors.joining(", "));
+
+        // Update task assignments
+        List<String> newMakerIds = request.getMakerIds() != null ? request.getMakerIds() : prevMakerIds;
+        List<String> newCheckerIds = request.getCheckerIds() != null ? request.getCheckerIds() : prevCheckerIds;
+
+        task.setAssignedMakerIds(newMakerIds);
+        task.setAssignedCheckerIds(newCheckerIds);
+
+        String newMakerNames = newMakerIds.stream()
+                .map(id -> userRepository.findById(id).map(User::getFullName).orElse(id))
+                .collect(java.util.stream.Collectors.joining(", "));
+
+        String newCheckerNames = newCheckerIds.stream()
+                .map(id -> userRepository.findById(id).map(User::getFullName).orElse(id))
+                .collect(java.util.stream.Collectors.joining(", "));
+
+        // Save Reassignment History record
+        com.cloudkaptan.sop.entity.TaskReassignmentHistory historyRecord = com.cloudkaptan.sop.entity.TaskReassignmentHistory.builder()
+                .task(task)
+                .previousMakerIds(String.join(", ", prevMakerIds))
+                .previousMakerNames(prevMakerNames)
+                .newMakerIds(String.join(", ", newMakerIds))
+                .newMakerNames(newMakerNames)
+                .previousCheckerIds(String.join(", ", prevCheckerIds))
+                .previousCheckerNames(prevCheckerNames)
+                .newCheckerIds(String.join(", ", newCheckerIds))
+                .newCheckerNames(newCheckerNames)
+                .reassignedBy(actorId)
+                .reassignedByName(actor.getFullName())
+                .workedUntil(java.time.OffsetDateTime.now())
+                .reason(request.getReason() != null ? request.getReason().trim() : "Task reassignment updated by " + actor.getFullName())
+                .build();
+
+        taskReassignmentHistoryRepository.save(historyRecord);
+
+        Task saved = taskRepository.save(task);
+
+        // Record global audit log
+        com.cloudkaptan.sop.entity.AuditLog auditLog = com.cloudkaptan.sop.entity.AuditLog.builder()
+                .actorId(actorId)
+                .action("REASSIGN_TASK")
+                .entityType("TASK")
+                .entityId(saved.getRecordNo())
+                .correlationId(UUID.randomUUID().toString())
+                .build();
+        auditLogRepository.save(auditLog);
+
+        // 1. Notify newly assigned Makers
+        for (String mId : newMakerIds) {
+            if (!mId.equals(actorId)) {
+                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                        .recipientUserId(mId)
+                        .eventType("TASK_REASSIGNED")
+                        .title("Task Assigned to You (Maker Pool)")
+                        .message("Task " + saved.getRecordNo() + " (" + saved.getSop().getTitle() + ") was assigned to you as Maker by " + actor.getFullName())
+                        .referenceEntityType("TASK")
+                        .referenceEntityId(saved.getTaskId().toString())
+                        .build());
+            }
+        }
+
+        // 2. Notify newly assigned Checkers
+        for (String cId : newCheckerIds) {
+            if (!cId.equals(actorId) && !newMakerIds.contains(cId)) {
+                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                        .recipientUserId(cId)
+                        .eventType("TASK_REASSIGNED")
+                        .title("Task Assigned to You (Checker Pool)")
+                        .message("Task " + saved.getRecordNo() + " (" + saved.getSop().getTitle() + ") was assigned to you as Checker by " + actor.getFullName())
+                        .referenceEntityType("TASK")
+                        .referenceEntityId(saved.getTaskId().toString())
+                        .build());
+            }
+        }
+
+        // 3. Notify SOP Creator & Approvers (if different from actor)
+        java.util.Set<String> sopStakeholders = new java.util.HashSet<>();
+        if (sop.getCreatedBy() != null) sopStakeholders.add(sop.getCreatedBy().getUserId());
+        if (sop.getAssignedCreatorId() != null) sopStakeholders.add(sop.getAssignedCreatorId());
+        if (sop.getAssignedCreatorIds() != null) sopStakeholders.addAll(sop.getAssignedCreatorIds());
+        if (sop.getAssignedApproverId() != null) sopStakeholders.add(sop.getAssignedApproverId());
+        if (sop.getAssignedApproverIds() != null) sopStakeholders.addAll(sop.getAssignedApproverIds());
+
+        for (String stId : sopStakeholders) {
+            if (stId != null && !stId.equals(actorId) && !newMakerIds.contains(stId) && !newCheckerIds.contains(stId)) {
+                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                        .recipientUserId(stId)
+                        .eventType("TASK_REASSIGNED")
+                        .title("Task Reassignment Notice")
+                        .message("Task " + saved.getRecordNo() + " (" + saved.getSop().getTitle() + ") assignments were updated by " + actor.getFullName())
+                        .referenceEntityType("TASK")
+                        .referenceEntityId(saved.getTaskId().toString())
+                        .build());
+            }
+        }
+
+        return mapToDto(saved);
     }
 
     public TaskDto mapToDto(Task task) {
@@ -346,6 +538,52 @@ public class TaskWorkflowService {
                 .build());
         }
 
+        List<com.cloudkaptan.sop.entity.TaskReassignmentHistory> rawReassignments =
+                taskReassignmentHistoryRepository.findByTask_TaskIdOrderByWorkedUntilDesc(task.getTaskId());
+
+        List<com.cloudkaptan.sop.dto.TaskReassignmentHistoryDto> reassignList = rawReassignments.stream()
+                .map(r -> com.cloudkaptan.sop.dto.TaskReassignmentHistoryDto.builder()
+                        .historyId(r.getHistoryId())
+                        .taskId(task.getTaskId())
+                        .previousMakerNames(r.getPreviousMakerNames())
+                        .newMakerNames(r.getNewMakerNames())
+                        .previousCheckerNames(r.getPreviousCheckerNames())
+                        .newCheckerNames(r.getNewCheckerNames())
+                        .reassignedById(r.getReassignedBy())
+                        .reassignedByName(r.getReassignedByName())
+                        .workedUntil(r.getWorkedUntil())
+                        .reason(r.getReason())
+                        .createdAt(r.getCreatedAt())
+                        .build())
+                .toList();
+
+        List<String> creatorList = new java.util.ArrayList<>();
+        if (task.getSop() != null) {
+            if (task.getSop().getCreatedBy() != null) creatorList.add(task.getSop().getCreatedBy().getUserId());
+            if (task.getSop().getAssignedCreatorId() != null) creatorList.add(task.getSop().getAssignedCreatorId());
+            if (task.getSop().getAssignedCreatorIds() != null) creatorList.addAll(task.getSop().getAssignedCreatorIds());
+        }
+
+        List<String> approverList = new java.util.ArrayList<>();
+        if (task.getSop() != null) {
+            if (task.getSop().getAssignedApproverId() != null) approverList.add(task.getSop().getAssignedApproverId());
+            if (task.getSop().getAssignedApproverIds() != null) approverList.addAll(task.getSop().getAssignedApproverIds());
+        }
+
+        List<com.cloudkaptan.sop.dto.TaskDocumentDto> documentList = taskDocumentRepository.findByTaskTaskIdOrderByUploadedAtDesc(task.getTaskId()).stream()
+                .map(doc -> com.cloudkaptan.sop.dto.TaskDocumentDto.builder()
+                        .documentId(doc.getDocumentId())
+                        .taskId(doc.getTask().getTaskId())
+                        .fileName(doc.getFileName())
+                        .gcsObjectPath(doc.getGcsObjectPath())
+                        .fileSize(doc.getFileSize())
+                        .contentType(doc.getContentType())
+                        .uploadedById(doc.getUploadedBy() != null ? doc.getUploadedBy().getUserId() : null)
+                        .uploadedByName(doc.getUploadedBy() != null ? doc.getUploadedBy().getFullName() : null)
+                        .uploadedAt(doc.getUploadedAt())
+                        .build())
+                .toList();
+
         return TaskDto.builder()
             .taskId(task.getTaskId())
             .version(task.getVersion())
@@ -374,7 +612,12 @@ public class TaskWorkflowService {
             .completedAt(task.getCompletedAt())
             .approvedAt(task.getApprovedAt())
             .createdAt(task.getCreatedAt())
+            .sopCreatedBy(task.getSop() != null && task.getSop().getCreatedBy() != null ? task.getSop().getCreatedBy().getUserId() : (task.getSop() != null ? task.getSop().getAssignedCreatorId() : null))
+            .sopAssignedCreatorIds(creatorList.stream().filter(Objects::nonNull).distinct().toList())
+            .sopAssignedApproverIds(approverList.stream().filter(Objects::nonNull).distinct().toList())
             .history(historyList)
+            .reassignmentHistory(reassignList)
+            .documents(documentList)
             .build();
     }
 }

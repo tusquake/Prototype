@@ -2,7 +2,61 @@ import { useState, useEffect } from 'react';
 import StatusBadge from './StatusBadge';
 import ConfirmationModal from './ConfirmationModal';
 import TaskActivityLogModal from './TaskActivityLogModal';
+import UserPickerModal from './UserPickerModal';
 import Toast from './Toast';
+import {
+  getUsers,
+  getUsersByPermission,
+  uploadTaskDocument,
+  getTaskDocuments,
+  deleteTaskDocument,
+  getTaskDocumentDownloadUrl,
+} from '../services/api';
+
+function formatFileSize(bytes) {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function getFileBadgeStyle(filename) {
+  const ext = (filename || '').split('.').pop().toLowerCase();
+  if (['pdf'].includes(ext)) return { bg: 'bg-red-50 text-red-700 border-red-200', icon: 'PDF' };
+  if (['xls', 'xlsx', 'csv'].includes(ext)) return { bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'XLS' };
+  if (['doc', 'docx'].includes(ext)) return { bg: 'bg-blue-50 text-blue-700 border-blue-200', icon: 'DOC' };
+  if (['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(ext)) return { bg: 'bg-purple-50 text-purple-700 border-purple-200', icon: 'IMG' };
+  return { bg: 'bg-slate-50 text-slate-700 border-slate-200', icon: ext.toUpperCase() || 'FILE' };
+}
+
+const USER_ID_NAME_MAP = {
+  'usr-manoj-042': 'Manoj Agarwal',
+  'usr-vivek-108': 'Vivek Raj',
+  'usr-mainak-215': 'Mainak Gupta',
+  'usr-tushar-304': 'Tushar Seth',
+  'usr-prayasa-410': 'Prayasa Sharma',
+  'usr-avisek-499': 'Avisek Shaw',
+  'usr-anirban-001': 'Anirban Paul',
+  'usr-annu-002': 'Annu Shaw',
+  'usr-avisek2-003': 'Avisek Shaw',
+  'usr-ayush-004': 'Ayush Pandey',
+  'usr-debajyo-005': 'Debajyoti Dattagupta',
+  'usr-isha-006': 'Isha Prasad',
+  'usr-king-007': 'Kingshuk Roy',
+  'usr-moit-008': 'Moitrayee Dutta',
+  'usr-nishan-009': 'Nishan Mandal',
+  'usr-rounok-010': 'Rounok Das',
+  'usr-sanjeev-011': 'Sanjeev Kumar',
+  'usr-sayant-012': 'Sayantan Ghosh',
+  'usr-shreya-013': 'Shreya Singh',
+  'Tushar Seth': 'Tushar Seth',
+  'Vivek Raj': 'Vivek Raj',
+  'Mainak Gupta': 'Mainak Gupta',
+  'Prayasa Sharma': 'Prayasa Sharma',
+  'Manoj Agarwal': 'Manoj Agarwal',
+  'Avisek Shaw': 'Avisek Shaw',
+};
 
 export default function TaskActionModal({
   isOpen,
@@ -12,6 +66,7 @@ export default function TaskActionModal({
   onSubmitTask,
   onApproveTask,
   onRejectTask,
+  onReassignTask,
 }) {
   const [comment, setComment] = useState('');
   const [toastError, setToastError] = useState('');
@@ -21,6 +76,33 @@ export default function TaskActionModal({
   const [showHistory, setShowHistory] = useState(true);
   const [showActivityLogModal, setShowActivityLogModal] = useState(false);
 
+  // Document attachments state
+  const [documents, setDocuments] = useState([]);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [deletingDocId, setDeletingDocId] = useState(null);
+
+  // Reassignment states
+  const [showReassignSection, setShowReassignSection] = useState(false);
+  const [showMakerPicker, setShowMakerPicker] = useState(false);
+  const [showCheckerPicker, setShowCheckerPicker] = useState(false);
+  const [permittedMakers, setPermittedMakers] = useState(null);
+  const [permittedCheckers, setPermittedCheckers] = useState(null);
+  const [selectedMakerIds, setSelectedMakerIds] = useState([]);
+  const [selectedCheckerIds, setSelectedCheckerIds] = useState([]);
+  const [reassignReason, setReassignReason] = useState('');
+  const [reassigning, setReassigning] = useState(false);
+
+  const currentUserId = currentUser?.id || currentUser?.userId || '';
+  const rawName = currentUser?.name || '';
+  const cleanName = rawName.split(' (')[0].trim().toLowerCase();
+  const userRole = currentUser?.role || 'ADMIN';
+  const isAdmin = userRole === 'ADMIN';
+
+  const isSopCreator = (task?.sopCreatedBy && task.sopCreatedBy === currentUserId) ||
+    (Array.isArray(task?.sopAssignedCreatorIds) && task.sopAssignedCreatorIds.includes(currentUserId));
+  const isSopApprover = Array.isArray(task?.sopAssignedApproverIds) && task.sopAssignedApproverIds.includes(currentUserId);
+  const canReassign = isAdmin || isSopCreator || isSopApprover;
+
   useEffect(() => {
     if (isOpen && task) {
       setComment('');
@@ -29,16 +111,77 @@ export default function TaskActionModal({
       setRejectionMode('resubmit');
       setShowHistory(true);
       setShowActivityLogModal(false);
+      setShowReassignSection(false);
+      setShowMakerPicker(false);
+      setShowCheckerPicker(false);
+      setReassignReason('');
+
+      if (Array.isArray(task.documents)) {
+        setDocuments(task.documents);
+      }
+      if (task.taskId) {
+        getTaskDocuments(task.taskId).then(docs => {
+          if (Array.isArray(docs)) setDocuments(docs);
+        }).catch(() => {});
+      }
+    } else {
+      setDocuments([]);
     }
   }, [isOpen, task]);
 
-  if (!isOpen || !task) return null;
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !task?.taskId) return;
 
-  const currentUserId = currentUser?.id || currentUser?.userId || '';
-  const rawName = currentUser?.name || '';
-  const cleanName = rawName.split(' (')[0].trim().toLowerCase();
-  const userRole = currentUser?.role || 'ADMIN';
-  const isAdmin = userRole === 'ADMIN';
+    if (file.size > 25 * 1024 * 1024) {
+      setToastError('File size exceeds maximum limit of 25 MB.');
+      return;
+    }
+
+    setUploadingDoc(true);
+    setToastError('');
+    try {
+      const uploaded = await uploadTaskDocument(task.taskId, file, currentUserId);
+      setDocuments(prev => [uploaded, ...prev]);
+    } catch (err) {
+      setToastError(err.message || 'Failed to upload document to GCS storage.');
+    } finally {
+      setUploadingDoc(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDocumentDelete = async (docId) => {
+    if (!task?.taskId || !docId) return;
+    setDeletingDocId(docId);
+    try {
+      await deleteTaskDocument(task.taskId, docId, currentUserId);
+      setDocuments(prev => prev.filter(d => d.documentId !== docId));
+    } catch (err) {
+      setToastError(err.message || 'Failed to delete document.');
+    } finally {
+      setDeletingDocId(null);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && task && canReassign) {
+      // Load maker pool: users with MAKER role
+      getUsers(task.entityCode, 'MAKER').then(makerUsers => {
+        setPermittedMakers(makerUsers || []);
+      }).catch(() => setPermittedMakers([]));
+
+      // Load checker pool: users with CHECKER role
+      getUsers(task.entityCode, 'CHECKER').then(checkerUsers => {
+        setPermittedCheckers(checkerUsers || []);
+      }).catch(() => setPermittedCheckers([]));
+
+      setSelectedMakerIds(task.assignedMakerIds || []);
+      setSelectedCheckerIds(task.assignedCheckerIds || []);
+    }
+  }, [isOpen, task, canReassign]);
+
+  if (!isOpen || !task) return null;
 
   function isUserMatch(personName, personIdList) {
     if (currentUserId && Array.isArray(personIdList) && personIdList.includes(currentUserId)) return true;
@@ -48,15 +191,11 @@ export default function TaskActionModal({
     return cleanPerson.includes(cleanName) || cleanName.includes(cleanPerson);
   }
 
-  const isAssignedMaker = isUserMatch(task.maker, task.assignedMakerIds) ||
-    isUserMatch(task.assignedMakers?.join(', '), task.assignedMakerIds) ||
-    (Array.isArray(task.assignedMakerIds) && task.assignedMakerIds.includes(currentUserId)) ||
-    isAdmin;
+  const isExplicitMaker = (Array.isArray(task.assignedMakerIds) && task.assignedMakerIds.includes(currentUserId)) ||
+    isUserMatch(task.maker) || isUserMatch(task.assignedMakers?.join(', '));
 
-  const isAssignedChecker = isUserMatch(task.checker, task.assignedCheckerIds) ||
-    isUserMatch(task.assignedCheckers?.join(', '), task.assignedCheckerIds) ||
-    (Array.isArray(task.assignedCheckerIds) && task.assignedCheckerIds.includes(currentUserId)) ||
-    isAdmin;
+  const isExplicitChecker = (Array.isArray(task.assignedCheckerIds) && task.assignedCheckerIds.includes(currentUserId)) ||
+    isUserMatch(task.checker) || isUserMatch(task.assignedCheckers?.join(', '));
 
   const isLockedByOtherMaker = task.lockedMaker && !isUserMatch(task.lockedMaker) && !isAdmin;
   const isActionedByOtherChecker = task.lockedChecker && !isUserMatch(task.lockedChecker) && !isAdmin;
@@ -64,11 +203,42 @@ export default function TaskActionModal({
   // Separation of duties rule: If current non-admin user is the Maker who submitted this task, they cannot approve/reject it.
   const isSelfMakerSubmission = task.lockedMaker && isUserMatch(task.lockedMaker) && !isAdmin;
 
-  const canSubmit = (task.status === 'OPEN' || task.status === 'REJECTED') && isAssignedMaker && !isLockedByOtherMaker;
-  const canApproveOrReject = task.status === 'PENDING_REVIEW' && isAssignedChecker && !isActionedByOtherChecker && !isSelfMakerSubmission;
+  // SOP Creator / Approver should see Edit Task Assignment button, but NOT Submit/Approve/Reject buttons (unless Admin)
+  const isSopOnlyUser = (isSopCreator || isSopApprover) && !isAdmin;
+
+  const canSubmit = (task.status === 'OPEN' || task.status === 'REJECTED') &&
+    (isAdmin || (isExplicitMaker && !isSopOnlyUser)) &&
+    !isLockedByOtherMaker;
+
+  const canApproveOrReject = task.status === 'PENDING_REVIEW' &&
+    (isAdmin || (isExplicitChecker && !isSopOnlyUser)) &&
+    !isActionedByOtherChecker &&
+    !isSelfMakerSubmission;
+
   const isReadOnly = !canSubmit && !canApproveOrReject;
 
   const isSubmittedOrDone = task.status === 'PENDING_REVIEW' || task.status === 'APPROVED' || task.status === 'REJECTED' || task.status === 'PERMANENTLY_REJECTED';
+
+  async function handleReassignSubmit() {
+    setToastError('');
+    if (selectedMakerIds.length === 0 && selectedCheckerIds.length === 0) {
+      setToastError('Please select at least one Maker or Checker for reassignment.');
+      return;
+    }
+    try {
+      setReassigning(true);
+      const targetId = task.taskId || task.id || task.recordNo;
+      const targetActor = currentUserId || 'usr-manoj-042';
+      if (onReassignTask) {
+        await onReassignTask(targetId, targetActor, selectedMakerIds, selectedCheckerIds, reassignReason);
+      }
+      setShowReassignSection(false);
+    } catch (err) {
+      setToastError(err.message || 'Task reassignment failed');
+    } finally {
+      setReassigning(false);
+    }
+  }
 
   const rawHistory = (task.history && task.history.length > 0) ? task.history : [];
   const hasCreate = rawHistory.some(h => (h.action || '').toUpperCase().includes('CREATE'));
@@ -311,6 +481,283 @@ export default function TaskActionModal({
               </div>
             </div>
 
+            {/* Reassign Task Form Card (Expandable for SOP Creator, SOP Approver, Admin) */}
+            {showReassignSection && canReassign && (
+              <div className="flex flex-col gap-4 rounded-xl border border-amber-300 bg-amber-50/70 p-5 shadow-sm animate-[modalSlideIn_0.18s_ease-out]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-amber-900">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                    <strong className="text-xs font-bold uppercase tracking-wider">Reassign Task Assignments (Task-Specific Override)</strong>
+                  </div>
+                  <span className="rounded bg-amber-200/80 px-2 py-0.5 text-[10px] font-bold text-amber-900">Parent SOP Template Unchanged</span>
+                </div>
+
+                <p className="text-xs text-amber-800">
+                  Update assigned Makers or Checkers for <strong>this specific task cycle only</strong>. Only users with explicit Maker or Approver permissions are eligible. Previous assigned individuals and work timeline will be recorded in audit history.
+                </p>
+
+                <div className="flex flex-col gap-4 w-full">
+                  {/* Maker Pool List */}
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    <div className="flex items-center justify-between gap-3 mb-1">
+                      <label className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">ASSIGNED MAKER POOL *</label>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 p-[5px_12px] rounded-[6px] bg-[#eff6ff] border border-[#bfdbfe] text-[#1d4ed8] text-[12px] font-semibold cursor-pointer transition-all duration-150 hover:bg-[#dbeafe] hover:border-[#93c5fd] hover:text-[#1e40af]"
+                        onClick={() => setShowMakerPicker(true)}
+                      >
+                        Select Makers ({selectedMakerIds.length})
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 bg-white border border-[#cbd5e1] rounded-[8px] p-[8px_12px] min-h-[42px] items-center box-border">
+                      {selectedMakerIds.length === 0 ? (
+                        <span className="text-[13px] text-[#94a3b8] italic">No Makers selected — click "Select Makers" to assign</span>
+                      ) : (
+                        selectedMakerIds.map(id => (
+                          <div key={id} className="inline-flex items-center gap-1.5 p-[4px_8px_4px_10px] rounded-[16px] bg-[#f1f5f9] border border-[#cbd5e1] text-[#334155] text-[12px] font-semibold">
+                            <span>{USER_ID_NAME_MAP[id] || id}</span>
+                            <button
+                              type="button"
+                              className="inline-flex items-center justify-center w-4 h-4 rounded-full border-none bg-[rgba(100,116,139,0.15)] text-[#64748b] cursor-pointer ml-0.5 p-0 transition-all duration-150 hover:bg-[#ef4444] hover:text-white"
+                              onClick={() => setSelectedMakerIds(selectedMakerIds.filter(mId => mId !== id))}
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Checker Pool List */}
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    <div className="flex items-center justify-between gap-3 mb-1">
+                      <label className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">ASSIGNED CHECKER POOL *</label>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 p-[5px_12px] rounded-[6px] bg-[#eff6ff] border border-[#bfdbfe] text-[#1d4ed8] text-[12px] font-semibold cursor-pointer transition-all duration-150 hover:bg-[#dbeafe] hover:border-[#93c5fd] hover:text-[#1e40af]"
+                        onClick={() => setShowCheckerPicker(true)}
+                      >
+                        Select Checkers ({selectedCheckerIds.length})
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 bg-white border border-[#cbd5e1] rounded-[8px] p-[8px_12px] min-h-[42px] items-center box-border">
+                      {selectedCheckerIds.length === 0 ? (
+                        <span className="text-[13px] text-[#94a3b8] italic">No Checkers selected — click "Select Checkers" to assign</span>
+                      ) : (
+                        selectedCheckerIds.map(id => (
+                          <div key={id} className="inline-flex items-center gap-1.5 p-[4px_8px_4px_10px] rounded-[16px] bg-[#f1f5f9] border border-[#cbd5e1] text-[#334155] text-[12px] font-semibold">
+                            <span>{USER_ID_NAME_MAP[id] || id}</span>
+                            <button
+                              type="button"
+                              className="inline-flex items-center justify-center w-4 h-4 rounded-full border-none bg-[rgba(100,116,139,0.15)] text-[#64748b] cursor-pointer ml-0.5 p-0 transition-all duration-150 hover:bg-[#ef4444] hover:text-white"
+                              onClick={() => setSelectedCheckerIds(selectedCheckerIds.filter(cId => cId !== id))}
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Reason Input */}
+                  <div className="flex flex-col gap-1.5 min-w-0">
+                    <label className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">REASSIGNMENT REASON / WORK CONTINUITY CONTEXT</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Previous Maker completed part of calculation, reassigning remaining work to Prayasa..."
+                      value={reassignReason}
+                      onChange={e => setReassignReason(e.target.value)}
+                      className="w-full p-[10px_14px] rounded-[8px] border border-[#cbd5e1] bg-white text-[13.5px] outline-none transition-all focus:border-[#2563eb]"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowReassignSection(false)}
+                      className="px-4 py-2 rounded-[8px] border border-[#cbd5e1] bg-white text-[#475569] text-xs font-semibold hover:bg-slate-100"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleReassignSubmit}
+                      disabled={reassigning}
+                      className="px-5 py-2 rounded-[8px] bg-[#2563eb] text-white text-xs font-semibold shadow-sm hover:bg-[#1d4ed8] disabled:opacity-60"
+                    >
+                      {reassigning ? 'Saving Reassignment...' : 'Confirm Task Reassignment'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Task Reassignment History & Continuity Track Card */}
+            {task.reassignmentHistory && task.reassignmentHistory.length > 0 && (
+              <div className="flex flex-col gap-3 rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
+                <div className="flex items-center gap-2 text-indigo-900">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 8v4l3 3" />
+                    <circle cx="12" cy="12" r="9" />
+                  </svg>
+                  <strong className="text-xs font-bold uppercase tracking-wider">Task Reassignment &amp; Work Continuity Track</strong>
+                  <span className="ml-auto rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">
+                    {task.reassignmentHistory.length} Record{task.reassignmentHistory.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-2.5">
+                  {task.reassignmentHistory.map((r, idx) => (
+                    <div key={r.id || idx} className="flex flex-col gap-1.5 rounded-lg border border-indigo-100 bg-white p-3 shadow-2xs">
+                      <div className="flex items-center justify-between text-xs text-slate-700">
+                        <div className="flex items-center gap-1.5 font-semibold text-indigo-900">
+                          <span className="inline-block h-2 w-2 rounded-full bg-indigo-600"></span>
+                          Reassigned by {r.actorName}
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-medium">
+                          Worked Until: <strong>{r.workedUntil ? new Date(r.workedUntil).toLocaleString() : new Date(r.reassignedAt).toLocaleString()}</strong>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs text-slate-800 bg-slate-50 p-2 rounded border border-slate-100">
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 block">Previous Maker(s):</span>
+                          <span className="line-through text-slate-500">{r.previousMakerNames?.length ? r.previousMakerNames.join(', ') : 'None'}</span>
+                          <span className="text-indigo-700 font-semibold block mt-0.5">&rarr; New: {r.newMakerNames?.length ? r.newMakerNames.join(', ') : 'None'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-500 block">Previous Checker(s):</span>
+                          <span className="line-through text-slate-500">{r.previousCheckerNames?.length ? r.previousCheckerNames.join(', ') : 'None'}</span>
+                          <span className="text-indigo-700 font-semibold block mt-0.5">&rarr; New: {r.newCheckerNames?.length ? r.newCheckerNames.join(', ') : 'None'}</span>
+                        </div>
+                      </div>
+
+                      {r.reason && (
+                        <div className="text-[11.5px] italic text-slate-600 bg-amber-50/60 border border-amber-200/60 p-1.5 px-2.5 rounded mt-0.5">
+                          Note: "{r.reason}"
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Task Attachments & Evidence (GCS Cloud Storage) Card */}
+            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-900">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                  </svg>
+                  <strong className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    Task Documents &amp; Working Papers (GCS Storage)
+                  </strong>
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-bold text-blue-700">
+                    {documents.length} File{documents.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+
+                {(isAdmin || isSopCreator || isSopApprover || isExplicitMaker || isExplicitChecker) && (
+                  <label className={`inline-flex items-center gap-1.5 rounded-lg border border-blue-600/30 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 cursor-pointer hover:bg-blue-100 transition-all ${uploadingDoc ? 'opacity-60 pointer-events-none' : ''}`}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <span>{uploadingDoc ? 'Uploading to GCS...' : 'Upload Document'}</span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                      disabled={uploadingDoc}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {documents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white p-4 text-center">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 mb-1">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                  <p className="text-xs text-slate-500 font-medium">No documents attached yet.</p>
+                  {(isAdmin || isSopCreator || isSopApprover || isExplicitMaker || isExplicitChecker) && (
+                    <p className="text-[11px] text-slate-400 mt-0.5">Click 'Upload Document' above to attach proof or working papers (PDF, Excel, Word, images up to 25MB).</p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {documents.map((doc) => {
+                    const badge = getFileBadgeStyle(doc.fileName);
+                    const canDelete = isAdmin || (doc.uploadedById && doc.uploadedById.toLowerCase() === currentUserId.toLowerCase());
+                    const downloadUrl = getTaskDocumentDownloadUrl(task.taskId || task.id, doc.documentId, currentUserId);
+
+                    return (
+                      <div key={doc.documentId} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-2.5 px-3 shadow-2xs hover:border-slate-300 transition-all">
+                        <div className="flex items-center gap-2.5 overflow-hidden">
+                          <span className={`inline-flex items-center justify-center px-2 py-1 text-[10px] font-bold rounded border uppercase tracking-wider ${badge.bg}`}>
+                            {badge.icon}
+                          </span>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className="text-xs font-semibold text-slate-800 truncate" title={doc.fileName}>
+                              {doc.fileName}
+                            </span>
+                            <span className="text-[11px] text-slate-500">
+                              {formatFileSize(doc.fileSize)} • Uploaded by <strong className="text-slate-700">{doc.uploadedByName || doc.uploadedById || 'User'}</strong>
+                              {doc.uploadedAt ? ` on ${new Date(doc.uploadedAt).toLocaleString()}` : ''}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <a
+                            href={downloadUrl}
+                            download={doc.fileName}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md bg-slate-100 hover:bg-blue-50 hover:text-blue-700 px-2.5 py-1 text-[11.5px] font-semibold text-slate-700 transition-all border border-slate-200"
+                            title="Download Document via Secure Proxy"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                              <polyline points="7 10 12 15 17 10" />
+                              <line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                            <span>Download</span>
+                          </a>
+
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => handleDocumentDelete(doc.documentId)}
+                              disabled={deletingDocId === doc.documentId}
+                              className="inline-flex items-center gap-1 rounded-md bg-rose-50 hover:bg-rose-100 px-2 py-1 text-[11.5px] font-semibold text-rose-700 transition-all border border-rose-200 disabled:opacity-50"
+                              title="Delete Document"
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                              <span>{deletingDocId === doc.documentId ? '...' : 'Delete'}</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             {/* Execution Comments Section */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold uppercase tracking-wide text-slate-800">
@@ -346,7 +793,28 @@ export default function TaskActionModal({
             </button>
 
             <div className="flex items-center gap-2.5">
-              {canSubmit && (
+              {/* Edit Task Assignment Button in Footer beside Submit */}
+              {canReassign && (
+                <button
+                  type="button"
+                  className={`inline-flex items-center gap-1.75 rounded-lg border px-4 py-2 text-xs font-semibold transition-all shadow-sm ${
+                    showReassignSection
+                      ? 'border-amber-400 bg-amber-500 text-white'
+                      : 'border-amber-600/40 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                  }`}
+                  onClick={() => setShowReassignSection(!showReassignSection)}
+                  title="Reassign Task (SOP Creator, SOP Approver, or Admin)"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="8.5" cy="7" r="4" />
+                    <polyline points="17 11 19 13 23 9" />
+                  </svg>
+                  <span>{showReassignSection ? 'Close Edit' : 'Edit Task Assignment'}</span>
+                </button>
+              )}
+
+              {!showReassignSection && canSubmit && (
                 <button
                   type="button"
                   className="inline-flex items-center gap-1.75 rounded-lg bg-blue-600 px-5 py-2 text-xs font-semibold text-white shadow-[0_4px_12px_rgba(37,99,235,0.35)] transition-all hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -361,7 +829,7 @@ export default function TaskActionModal({
                 </button>
               )}
 
-              {canApproveOrReject && (
+              {!showReassignSection && canApproveOrReject && (
                 <>
                   <button
                     type="button"
@@ -393,6 +861,35 @@ export default function TaskActionModal({
           </div>
         </div>
       </div>
+
+      {/* User Pickers for Task Maker / Checker Pool Selection */}
+      <UserPickerModal
+        isOpen={showMakerPicker}
+        title="Select Eligible Makers for Task"
+        entityCode={task.entityCode}
+        targetRole="MAKER"
+        selectedUserIds={selectedMakerIds}
+        permittedUsers={permittedMakers}
+        onClose={() => setShowMakerPicker(false)}
+        onConfirm={ids => {
+          setSelectedMakerIds(ids);
+          setShowMakerPicker(false);
+        }}
+      />
+
+      <UserPickerModal
+        isOpen={showCheckerPicker}
+        title="Select Eligible Checkers for Task"
+        entityCode={task.entityCode}
+        targetRole="CHECKER"
+        selectedUserIds={selectedCheckerIds}
+        permittedUsers={permittedCheckers}
+        onClose={() => setShowCheckerPicker(false)}
+        onConfirm={ids => {
+          setSelectedCheckerIds(ids);
+          setShowCheckerPicker(false);
+        }}
+      />
 
       {/* Standalone Dedicated Activity Log Modal */}
       <TaskActivityLogModal

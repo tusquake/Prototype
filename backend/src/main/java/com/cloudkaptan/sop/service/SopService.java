@@ -59,19 +59,64 @@ public class SopService {
             return sops.stream().map(this::mapToDto).toList();
         }
 
+        final String uid = userId.trim();
+        // Try to resolve the user by ID or email so we can match on both
+        User resolvedUser = userRepository.findById(uid)
+                .or(() -> userRepository.findByEmail(uid))
+                .orElse(null);
+
+        final String userEmail = resolvedUser != null ? resolvedUser.getEmail() : null;
+
         // NON_ADMIN user: Filter strictly by assigned process categories & direct assignments
-        List<String> accessibleCategories = categoryPermissionService.getUserAccessibleCategories(userId);
+        List<String> accessibleCategories = categoryPermissionService.getUserAccessibleCategories(uid);
 
         return sops.stream()
             .filter(sop -> {
                 String cat = sop.getProcessCategory();
                 boolean categoryAllowed = cat != null && accessibleCategories.contains(cat);
 
-                boolean isDirectlyAssigned = (sop.getAssignedCreatorId() != null && userId.equals(sop.getAssignedCreatorId()))
-                        || (sop.getAssignedApproverId() != null && userId.equals(sop.getAssignedApproverId()))
-                        || (sop.getCreatedBy() != null && userId.equals(sop.getCreatedBy().getUserId()))
-                        || (sop.getDefaultMakerIds() != null && sop.getDefaultMakerIds().contains(userId))
-                        || (sop.getDefaultCheckerIds() != null && sop.getDefaultCheckerIds().contains(userId));
+                // Check creator match (userId, email, single-ID field, or multi-ID list)
+                boolean isCreator = false;
+                if (sop.getCreatedBy() != null) {
+                    String cbId = sop.getCreatedBy().getUserId();
+                    String cbEmail = sop.getCreatedBy().getEmail();
+                    if (uid.equalsIgnoreCase(cbId) || (userEmail != null && userEmail.equalsIgnoreCase(cbEmail))
+                            || (cbId != null && cbId.equalsIgnoreCase(userEmail))) {
+                        isCreator = true;
+                    }
+                }
+                if (!isCreator && sop.getAssignedCreatorId() != null) {
+                    if (uid.equalsIgnoreCase(sop.getAssignedCreatorId())
+                            || (userEmail != null && userEmail.equalsIgnoreCase(sop.getAssignedCreatorId()))) {
+                        isCreator = true;
+                    }
+                }
+                if (!isCreator && sop.getAssignedCreatorIds() != null) {
+                    if (sop.getAssignedCreatorIds().contains(uid)
+                            || (userEmail != null && sop.getAssignedCreatorIds().contains(userEmail))) {
+                        isCreator = true;
+                    }
+                }
+
+                // Check approver match
+                boolean isApprover = false;
+                if (!isApprover && sop.getAssignedApproverId() != null) {
+                    if (uid.equalsIgnoreCase(sop.getAssignedApproverId())
+                            || (userEmail != null && userEmail.equalsIgnoreCase(sop.getAssignedApproverId()))) {
+                        isApprover = true;
+                    }
+                }
+                if (!isApprover && sop.getAssignedApproverIds() != null) {
+                    if (sop.getAssignedApproverIds().contains(uid)
+                            || (userEmail != null && sop.getAssignedApproverIds().contains(userEmail))) {
+                        isApprover = true;
+                    }
+                }
+
+                boolean isMakerOrChecker = (sop.getDefaultMakerIds() != null && (sop.getDefaultMakerIds().contains(uid) || (userEmail != null && sop.getDefaultMakerIds().contains(userEmail))))
+                        || (sop.getDefaultCheckerIds() != null && (sop.getDefaultCheckerIds().contains(uid) || (userEmail != null && sop.getDefaultCheckerIds().contains(userEmail))));
+
+                boolean isDirectlyAssigned = isCreator || isApprover || isMakerOrChecker;
 
                 return categoryAllowed || isDirectlyAssigned;
             })
@@ -106,6 +151,8 @@ public class SopService {
             .isRecurring(isRec)
             .defaultMakerIds(new java.util.ArrayList<>(mPool))
             .defaultCheckerIds(new java.util.ArrayList<>(cPool))
+            .assignedCreatorId(createdBy.getUserId())
+            .assignedCreatorIds(new java.util.ArrayList<>(List.of(createdBy.getUserId())))
             .status(SopStatus.ACTIVE)
             .createdBy(createdBy)
             .build();

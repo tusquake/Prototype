@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { clearSession, getSession, saveSession, USERS } from '../auth/auth';
 import { hasPermission } from '../auth/rbac';
 import NotificationBell from './NotificationBell';
+import { getTasks } from '../services/api';
 
 const NAV_ITEMS = [
   {
@@ -99,7 +101,6 @@ const NAV_ITEMS = [
         <rect x="14" y="14" width="7" height="7" rx="1" />
         <rect x="3" y="14" width="7" height="7" rx="1" />
       </svg>
-
     ),
   },
 ];
@@ -108,10 +109,49 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const session = getSession();
   const currentUser = session?.user ?? USERS[0];
+  const [inboxCount, setInboxCount] = useState(0);
 
   if (!session) {
     saveSession(USERS[0], 'demo-token');
   }
+
+  useEffect(() => {
+    if (currentUser) {
+      getTasks([], currentUser).then(tasks => {
+        if (!Array.isArray(tasks)) return;
+        const currentId = currentUser.id || currentUser.userId || '';
+        const rawName = currentUser.name || '';
+        const cleanName = rawName.split(' (')[0].trim().toLowerCase();
+        const isAdmin = currentUser.role === 'ADMIN' || currentUser.email?.includes('mainak');
+
+        function isMatch(personName, idList) {
+          if (currentId && Array.isArray(idList) && idList.includes(currentId)) return true;
+          if (!personName || !cleanName) return false;
+          const cleanPerson = personName.toLowerCase().trim();
+          return cleanPerson.includes(cleanName) || cleanName.includes(cleanPerson);
+        }
+
+        const pending = tasks.filter(t => {
+          if (t.status === 'APPROVED' || t.status === 'PERMANENTLY_REJECTED') return false;
+          if (isAdmin) return true;
+
+          const isSopCreator = (t.sopCreatedBy && t.sopCreatedBy === currentId) ||
+            (Array.isArray(t.sopAssignedCreatorIds) && t.sopAssignedCreatorIds.includes(currentId));
+          const isSopApprover = Array.isArray(t.sopAssignedApproverIds) && t.sopAssignedApproverIds.includes(currentId);
+
+          const isMakerPending = (t.status === 'OPEN' || t.status === 'REJECTED') &&
+            (isMatch(t.makerName, t.assignedMakerIds) || isMatch(t.maker, t.assignedMakerIds) || isSopCreator || isSopApprover);
+
+          const isCheckerPending = (t.status === 'PENDING_REVIEW') &&
+            (isMatch(t.checkerName, t.assignedCheckerIds) || isMatch(t.checker, t.assignedCheckerIds) || isSopCreator || isSopApprover);
+
+          return isMakerPending || isCheckerPending;
+        });
+
+        setInboxCount(pending.length);
+      }).catch(() => {});
+    }
+  }, [currentUser]);
 
   function handleLogout() {
     clearSession();
@@ -148,7 +188,12 @@ export default function Sidebar() {
             }
           >
             <span className="flex items-center justify-center leading-none">{item.icon}</span>
-            <span>{item.label}</span>
+            <span className="flex-1">{item.label}</span>
+            {item.to === '/inbox' && inboxCount > 0 && (
+              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-500 px-1.5 text-[11px] font-bold text-white shadow-sm">
+                {inboxCount}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

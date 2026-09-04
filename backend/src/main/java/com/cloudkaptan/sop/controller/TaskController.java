@@ -69,6 +69,17 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(null, "Scheduled tasks generated successfully"));
     }
 
+    @PutMapping("/{id}/reassign")
+    public ResponseEntity<ApiResponse<TaskDto>> reassignTask(
+        @PathVariable("id") UUID id,
+        @Valid @RequestBody com.cloudkaptan.sop.dto.TaskReassignRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(
+            taskWorkflowService.reassignTask(id, request),
+            "Task assignment updated successfully"
+        ));
+    }
+
     @RequestMapping(value = "/{id}/action", method = {RequestMethod.PUT, RequestMethod.POST})
     public ResponseEntity<ApiResponse<TaskDto>> executeTaskAction(
         @PathVariable("id") UUID id,

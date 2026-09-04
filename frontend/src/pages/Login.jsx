@@ -152,27 +152,6 @@ export default function Login() {
         <button
           type="button"
           className="px-4 py-[10px] bg-[#f8fafc] text-[#475569] border border-[#e2e8f0] rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-all duration-150 text-left hover:enabled:bg-bg-surface hover:enabled:border-[#1a2b6b] hover:enabled:text-[#1a2b6b] hover:enabled:shadow-[0_2px_6px_rgba(26,43,107,0.08)] disabled:opacity-55 disabled:cursor-not-allowed"
-          onClick={() => handleDemo(loginAsDemoDual)}
-        >
-          Sign in as Maker &amp; Checker (Vivek Raj)
-        </button>
-        <button
-          type="button"
-          className="px-4 py-[10px] bg-[#f8fafc] text-[#475569] border border-[#e2e8f0] rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-all duration-150 text-left hover:enabled:bg-bg-surface hover:enabled:border-[#1a2b6b] hover:enabled:text-[#1a2b6b] hover:enabled:shadow-[0_2px_6px_rgba(26,43,107,0.08)] disabled:opacity-55 disabled:cursor-not-allowed"
-          onClick={() => handleDemo(loginAsDemoChecker)}
-        >
-          Sign in as Checker (Mainak Gupta)
-        </button>
-        <button
-          type="button"
-          className="px-4 py-[10px] bg-[#f8fafc] text-[#475569] border border-[#e2e8f0] rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-all duration-150 text-left hover:enabled:bg-bg-surface hover:enabled:border-[#1a2b6b] hover:enabled:text-[#1a2b6b] hover:enabled:shadow-[0_2px_6px_rgba(26,43,107,0.08)] disabled:opacity-55 disabled:cursor-not-allowed"
-          onClick={() => handleDemo(loginAsDemoMaker)}
-        >
-          Sign in as Maker (Tushar Seth)
-        </button>
-        <button
-          type="button"
-          className="px-4 py-[10px] bg-[#f8fafc] text-[#475569] border border-[#e2e8f0] rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-all duration-150 text-left hover:enabled:bg-bg-surface hover:enabled:border-[#1a2b6b] hover:enabled:text-[#1a2b6b] hover:enabled:shadow-[0_2px_6px_rgba(26,43,107,0.08)] disabled:opacity-55 disabled:cursor-not-allowed"
           onClick={() => handleDemo(loginAsDemoViewer)}
         >
           Sign in as Viewer (Avisek Shaw)

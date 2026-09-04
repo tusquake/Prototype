@@ -45,5 +45,10 @@ public class TaskDto {
     private OffsetDateTime completedAt;
     private OffsetDateTime approvedAt;
     private OffsetDateTime createdAt;
+    private String sopCreatedBy;
+    private java.util.List<String> sopAssignedCreatorIds;
+    private java.util.List<String> sopAssignedApproverIds;
     private java.util.List<TaskEventDto> history;
+    private java.util.List<TaskReassignmentHistoryDto> reassignmentHistory;
+    private java.util.List<TaskDocumentDto> documents;
 }

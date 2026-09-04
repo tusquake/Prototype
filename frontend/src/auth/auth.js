@@ -5,9 +5,9 @@ const GOOGLE_CLIENT_ID = '134019064582-5j9c1gvcl73k2bpp6p927u3d9q7uruoq.apps.goo
 export const USERS = [
   // Admins & existing core users
   { id: 'usr-manoj-042',  name: 'Manoj Agarwal',   email: 'manoj.agarwal@cloudkaptan.com',          role: 'ADMIN',        picture: '' },
-  { id: 'usr-vivek-108',  name: 'Vivek Raj',        email: 'vivek.raj@cloudkaptan.com',              role: 'MAKER_CHECKER', picture: '' },
-  { id: 'usr-mainak-215', name: 'Mainak Gupta',     email: 'mainak.gupta@cloudkaptan.com',           role: 'CHECKER',      picture: '' },
-  { id: 'usr-tushar-304', name: 'Tushar Seth',      email: 'tushar.seth@cloudkaptan.com',            role: 'MAKER',        picture: '' },
+  { id: 'usr-vivek-108',  name: 'Vivek Raj',        email: 'vivek.raj@cloudkaptan.com',              role: 'VIEWER',       picture: '' },
+  { id: 'usr-mainak-215', name: 'Mainak Gupta',     email: 'mainak.gupta@cloudkaptan.com',           role: 'VIEWER',       picture: '' },
+  { id: 'usr-tushar-304', name: 'Tushar Seth',      email: 'tushar.seth@cloudkaptan.com',            role: 'VIEWER',       picture: '' },
   { id: 'usr-avisek-499', name: 'Avisek Shaw',      email: 'avisek.shaw@cloudkaptan.com',            role: 'VIEWER',       picture: '' },
   // 13 new VIEWER users (no access until admin grants permissions)
   { id: 'usr-anirban-001',  name: 'Anirban Paul',          email: 'anirban.paul@cloudkaptan.com',          role: 'VIEWER', picture: '' },

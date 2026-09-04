@@ -16,58 +16,41 @@ export const MOCK_ORGANIZATION_USERS = [
     name: 'Manoj Agarwal',
     email: 'manoj.agarwal@cloudkaptan.com',
     groups: ['fin_sop_admin'],
+    role: 'ADMIN',
   },
   {
     id: 'usr-vivek-108',
     name: 'Vivek Raj',
     email: 'vivek.raj@cloudkaptan.com',
-    groups: [
-      'fin_sop_ck_india_maker',
-      'fin_sop_ck_india_checker',
-      'fin_sop_ck_us_maker',
-      'fin_sop_ck_us_checker',
-      'fin_sop_ck_uk_maker',
-      'fin_sop_ck_uk_checker',
-      'fin_sop_ck_australia_maker',
-      'fin_sop_ck_australia_checker',
-    ],
+    groups: [],
+    role: 'VIEWER',
   },
   {
     id: 'usr-mainak-215',
     name: 'Mainak Gupta',
     email: 'mainak.gupta@cloudkaptan.com',
-    groups: [
-      'fin_sop_ck_india_checker',
-      'fin_sop_ck_us_checker',
-      'fin_sop_ck_uk_checker',
-      'fin_sop_ck_australia_checker',
-    ],
+    groups: [],
+    role: 'VIEWER',
   },
   {
     id: 'usr-tushar-304',
     name: 'Tushar Seth',
     email: 'tushar.seth@cloudkaptan.com',
-    groups: [
-      'fin_sop_ck_india_maker',
-      'fin_sop_ck_us_maker',
-      'fin_sop_ck_uk_maker',
-      'fin_sop_ck_australia_maker',
-    ],
+    groups: [],
+    role: 'VIEWER',
   },
   {
     id: 'usr-prayasa-410',
     name: 'Prayasa Sharma',
     email: 'prayasa.sharma@cloudkaptan.com',
-    groups: [
-      'fin_sop_ck_india_maker',
-      'fin_sop_ck_us_maker',
-    ],
+    groups: [],
+    role: 'VIEWER',
   },
   {
     id: 'usr-avisek-499',
     name: 'Avisek Shaw',
     email: 'avisek.shaw@cloudkaptan.com',
-    groups: ['fin_sop_viewer'],
+    groups: [],
     role: 'VIEWER',
   },
   // 13 new VIEWER users — no access until admin grants permissions
@@ -180,6 +163,23 @@ export function mapTask(dto) {
         ...rawHistory,
       ];
 
+  const rawReassignments = (dto.reassignmentHistory && dto.reassignmentHistory.length > 0)
+    ? dto.reassignmentHistory.map(r => ({
+        id: r.historyId || r.id,
+        historyId: r.historyId || r.id,
+        taskId: r.taskId,
+        actorId: r.reassignedById || r.actorId,
+        actorName: r.reassignedByName || r.actorName || 'Admin User',
+        previousMakerNames: r.previousMakerNames || [],
+        newMakerNames: r.newMakerNames || [],
+        previousCheckerNames: r.previousCheckerNames || [],
+        newCheckerNames: r.newCheckerNames || [],
+        reassignedAt: r.reassignedAt || r.createdAt,
+        workedUntil: r.workedUntil || r.reassignedAt || r.createdAt,
+        reason: r.reason,
+      }))
+    : [];
+
   return {
     id: dto.taskId || dto.id,
     taskId: dto.taskId || dto.id,
@@ -187,7 +187,15 @@ export function mapTask(dto) {
     recordNo: dto.recordNo || dto.record || 'N/A',
     sop: dto.sopTitle || dto.sop || 'N/A',
     sopTitle: dto.sopTitle || dto.sop || 'N/A',
-    entity: dto.entityName || dto.entity || dto.entityCode || 'N/A',
+    sopCreatedBy: dto.sopCreatedBy,
+    sopAssignedCreatorId: dto.sopAssignedCreatorId,
+    sopAssignedCreatorIds: (dto.sopAssignedCreatorIds && dto.sopAssignedCreatorIds.length > 0)
+      ? dto.sopAssignedCreatorIds
+      : (dto.sopAssignedCreatorId ? [dto.sopAssignedCreatorId] : (dto.sopCreatedBy ? [dto.sopCreatedBy] : [])),
+    sopAssignedApproverId: dto.sopAssignedApproverId,
+    sopAssignedApproverIds: (dto.sopAssignedApproverIds && dto.sopAssignedApproverIds.length > 0)
+      ? dto.sopAssignedApproverIds
+      : (dto.sopAssignedApproverId ? [dto.sopAssignedApproverId] : []),
     entityName: dto.entityName || dto.entity || dto.entityCode || 'N/A',
     entityCode: dto.entityCode || dto.entityId,
     period: dto.periodKey || dto.period || 'N/A',
@@ -197,6 +205,7 @@ export function mapTask(dto) {
     makerId: dto.makerId,
     assignedMakers: makerList,
     assignedMakerNames: makerList,
+    assignedMakerIds: dto.assignedMakerIds || [],
     lockedMaker: lockedMaker,
     actualMaker: lockedMaker,
     checker: checkerList.join(', '),
@@ -204,12 +213,14 @@ export function mapTask(dto) {
     checkerId: dto.checkerId,
     assignedCheckers: checkerList,
     assignedCheckerNames: checkerList,
+    assignedCheckerIds: dto.assignedCheckerIds || [],
     lockedChecker: lockedChecker,
     actualChecker: lockedChecker,
     dueDate: dto.dueDate || 'N/A',
     daysOverdue: dto.daysOverdue || 0,
     status: dto.status || 'OPEN',
     history: historyList,
+    reassignmentHistory: rawReassignments,
   };
 }
 
@@ -355,7 +366,8 @@ export async function getDashboardSummary(selectedEntities = [], currentUser = n
 export async function getTasks(selectedEntities = [], currentUser = null) {
   const params = new URLSearchParams();
   if (selectedEntities.length > 0) params.append('entities', selectedEntities.join(','));
-  if (currentUser?.id) params.append('userId', currentUser.id);
+  const targetUid = currentUser?.id || currentUser?.userId;
+  if (targetUid) params.append('userId', targetUid);
   if (currentUser?.role) params.append('userRole', currentUser.role);
   const query = params.toString() ? `?${params.toString()}` : '';
   const list = await fetchJson(`/tasks${query}`).catch(() => null);
@@ -384,7 +396,8 @@ export async function getInboxTasks(selectedEntities = [], status = null, userId
 export async function getSops(selectedEntities = [], currentUser = null) {
   const params = new URLSearchParams();
   if (selectedEntities.length > 0) params.append('entities', selectedEntities.join(','));
-  if (currentUser?.id) params.append('userId', currentUser.id);
+  const targetUid = currentUser?.id || currentUser?.userId;
+  if (targetUid) params.append('userId', targetUid);
   if (currentUser?.role) params.append('userRole', currentUser.role);
   const query = params.toString() ? `?${params.toString()}` : '';
   const list = await fetchJson(`/sops${query}`).catch(() => null);
@@ -625,6 +638,48 @@ export async function rejectTask(taskId, actorId = 'usr-mainak-215', comment = '
     });
   }
   return res || (mock ? mapTask(mock) : null);
+}
+
+export async function reassignTask(taskId, actorId, makerIds = [], checkerIds = [], reason = '') {
+  let id = taskId;
+  if (typeof taskId === 'object' && taskId !== null) {
+    id = taskId.taskId || taskId.id || taskId.recordNo;
+  }
+
+  const res = await fetchJson(`/tasks/${id}/reassign`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      actorId: actorId,
+      makerIds: makerIds,
+      checkerIds: checkerIds,
+      reason: reason,
+    }),
+  }).catch(() => null);
+
+  const mock = MOCK_TASKS.find(t => t.taskId === id || t.id === id || t.recordNo === id);
+  if (mock) {
+    const prevMakers = mock.assignedMakerNames || (mock.makerName ? [mock.makerName] : []);
+    const prevCheckers = mock.assignedCheckerNames || (mock.checkerName ? [mock.checkerName] : []);
+    
+    if (!mock.reassignmentHistory) mock.reassignmentHistory = [];
+    mock.reassignmentHistory.unshift({
+      id: Date.now(),
+      taskId: id,
+      actorId: actorId,
+      actorName: actorId === 'usr-manoj-042' ? 'Manoj Agarwal' : (actorId === 'usr-[#]' ? 'System User' : 'Admin User'),
+      previousMakerNames: prevMakers,
+      newMakerNames: makerIds,
+      previousCheckerNames: prevCheckers,
+      newCheckerNames: checkerIds,
+      workedUntil: new Date().toISOString(),
+      reassignedAt: new Date().toISOString(),
+      reason: reason || 'Task reassignment',
+    });
+    mock.assignedMakerIds = makerIds;
+    mock.assignedCheckerIds = checkerIds;
+  }
+
+  return res ? mapTask(res) : (mock ? mapTask(mock) : null);
 }
 
 export async function updateSop(sopId, sopData) {
@@ -887,14 +942,49 @@ export async function getUsersByPermission(categoryCode, permissionType) {
     const res = await fetchJson(
       `/admin/permissions/category/${encodeURIComponent(categoryCode)}/users?permission=${permissionType}`
     );
-    // Response is a plain List<String> of userIds
     if (Array.isArray(res)) {
-      // Resolve full user objects from our mock user list
       return res.map(uid => MOCK_ORGANIZATION_USERS.find(u => u.id === uid) || { id: uid, name: uid, email: '' });
     }
     return [];
   } catch {
-    // Return empty — no access until admin grants permissions
     return [];
   }
 }
+
+/* ==========================================================================
+   TASK DOCUMENT & GCS ATTACHMENTS API
+   ========================================================================== */
+
+export async function uploadTaskDocument(taskId, file, actorId) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('actorId', actorId);
+
+  const res = await fetch(`${API_BASE}/tasks/${taskId}/documents`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => null);
+    throw new Error(errorJson?.message || `Upload failed: ${res.statusText}`);
+  }
+  return await res.json();
+}
+
+export async function getTaskDocuments(taskId) {
+  const res = await fetchJson(`/tasks/${taskId}/documents`).catch(() => []);
+  return Array.isArray(res) ? res : (res?.data || []);
+}
+
+export async function deleteTaskDocument(taskId, documentId, actorId) {
+  const res = await fetchJson(`/tasks/${taskId}/documents/${documentId}?actorId=${encodeURIComponent(actorId)}`, {
+    method: 'DELETE',
+  });
+  return res;
+}
+
+export function getTaskDocumentDownloadUrl(taskId, documentId, actorId) {
+  return `${API_BASE}/tasks/${taskId}/documents/${documentId}/download?actorId=${encodeURIComponent(actorId)}`;
+}
+

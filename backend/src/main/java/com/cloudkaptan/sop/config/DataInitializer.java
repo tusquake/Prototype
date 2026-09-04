@@ -58,10 +58,10 @@ public class DataInitializer implements CommandLineRunner {
                 log.info("Seeding Initial Users...");
                 userRepository.saveAll(List.of(
                     User.builder().userId("usr-manoj-042").email("manoj.agarwal@cloudkaptan.com").fullName("Manoj Agarwal").role(UserRole.ADMIN).entity(us).isActive(true).build(),
-                    User.builder().userId("usr-vivek-108").email("vivek.raj@cloudkaptan.com").fullName("Vivek Raj").role(UserRole.MAKER_CHECKER).entity(india).isActive(true).build(),
-                    User.builder().userId("usr-mainak-215").email("mainak.gupta@cloudkaptan.com").fullName("Mainak Gupta").role(UserRole.CHECKER).entity(india).isActive(true).build(),
-                    User.builder().userId("usr-tushar-304").email("tushar.seth@cloudkaptan.com").fullName("Tushar Seth").role(UserRole.MAKER).entity(uk).isActive(true).build(),
-                    User.builder().userId("usr-prayasa-410").email("prayasa.sharma@cloudkaptan.com").fullName("Prayasa Sharma").role(UserRole.MAKER).entity(india).isActive(true).build(),
+                    User.builder().userId("usr-vivek-108").email("vivek.raj@cloudkaptan.com").fullName("Vivek Raj").role(UserRole.VIEWER).entity(india).isActive(true).build(),
+                    User.builder().userId("usr-mainak-215").email("mainak.gupta@cloudkaptan.com").fullName("Mainak Gupta").role(UserRole.VIEWER).entity(india).isActive(true).build(),
+                    User.builder().userId("usr-tushar-304").email("tushar.seth@cloudkaptan.com").fullName("Tushar Seth").role(UserRole.VIEWER).entity(uk).isActive(true).build(),
+                    User.builder().userId("usr-prayasa-410").email("prayasa.sharma@cloudkaptan.com").fullName("Prayasa Sharma").role(UserRole.VIEWER).entity(india).isActive(true).build(),
                     User.builder().userId("usr-avisek-499").email("avisek.shaw@cloudkaptan.com").fullName("Avisek Shaw").role(UserRole.VIEWER).entity(india).isActive(true).build()
                 ));
             }

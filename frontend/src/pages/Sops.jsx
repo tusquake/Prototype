@@ -570,8 +570,21 @@ export default function Sops() {
   const filtered = sopList.filter(s => {
     if (!selected.includes(s.entityCode)) return false;
 
-    // Non-admin users: hide raw PENDING_CREATION stubs unless assigned to currentUser
-    if (!isAdmin && s.status === 'PENDING_CREATION' && s.assignedCreatorId !== currentUser.id) return false;
+    // Non-admin users: only show SOPs directly relevant to them
+    if (!isAdmin) {
+      const uid = currentUser?.id || currentUser?.userId || '';
+      const isCreator = s.assignedCreatorId === uid ||
+        (Array.isArray(s.assignedCreatorIds) && s.assignedCreatorIds.includes(uid));
+      const isApprover = s.assignedApproverId === uid ||
+        (Array.isArray(s.assignedApproverIds) && s.assignedApproverIds.includes(uid));
+      const isMakerOrChecker = (Array.isArray(s.defaultMakerIds) && s.defaultMakerIds.includes(uid)) ||
+        (Array.isArray(s.defaultCheckerIds) && s.defaultCheckerIds.includes(uid));
+
+      // Hide PENDING_CREATION stubs unless user is the assigned creator
+      if (s.status === 'PENDING_CREATION' && !isCreator) return false;
+      // Hide PENDING_APPROVAL SOPs unless user is the assigned approver or creator
+      if (s.status === 'PENDING_APPROVAL' && !isApprover && !isCreator) return false;
+    }
 
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase().trim();
@@ -1013,7 +1026,9 @@ export default function Sops() {
                         <td className="px-6 py-3.5 text-[13.5px] align-middle" onClick={e => e.stopPropagation()}>
                           <div className="flex gap-1.5 justify-end">
                             {(sop.status === 'PENDING_CREATION' || sop.status === 'REJECTED') && (
-                              (sop.assignedCreatorId === currentUser.id || currentUser.role === 'ADMIN') && (
+                              (sop.assignedCreatorId === currentUser.id ||
+                                (Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.includes(currentUser.id)) ||
+                                currentUser.role === 'ADMIN') && (
                                 <button
                                   type="button"
                                   className="bg-[#f0f9ff] border border-[#0284c7] text-[#0369a1] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-bold"
@@ -1028,7 +1043,14 @@ export default function Sops() {
                               )
                             )}
                             {sop.status === 'PENDING_APPROVAL' && (
-                              (sop.assignedApproverId === currentUser.id || (currentUser.role === 'ADMIN' && sop.assignedCreatorId !== currentUser.id)) && (
+                              (() => {
+                                const uid = currentUser?.id || currentUser?.userId || '';
+                                const isAssignedApprover = sop.assignedApproverId === uid ||
+                                  (Array.isArray(sop.assignedApproverIds) && sop.assignedApproverIds.includes(uid));
+                                const isCreatorOfThisSop = sop.assignedCreatorId === uid ||
+                                  (Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.includes(uid));
+                                return (isAssignedApprover || (currentUser.role === 'ADMIN' && !isCreatorOfThisSop));
+                              })() && (
                                 <>
                                   <button
                                     type="button"

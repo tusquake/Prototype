@@ -10,7 +10,7 @@ import TaskActionModal from '../components/TaskActionModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { ENTITIES, getTasks, submitTask, approveTask, rejectTask, deleteTask } from '../services/api';
+import { ENTITIES, getTasks, submitTask, approveTask, rejectTask, reassignTask, deleteTask } from '../services/api';
 
 const STATUS_OPTIONS = [
   { value: 'ALL', label: 'All Statuses' },
@@ -146,10 +146,19 @@ export default function Tasks() {
     await loadTasks();
   }
 
-  async function handleModalReject(taskId, actorId, comment) {
-    await rejectTask(taskId, actorId, comment);
-    setToastMsg('Task rejected and sent back to Maker.');
+  async function handleModalReject(taskId, actorId, comment, isPermanent) {
+    await rejectTask(taskId, actorId, comment, isPermanent);
+    setToastMsg(isPermanent ? 'Task permanently rejected.' : 'Task rejected and sent back to Maker.');
     setActiveTask(null);
+    await loadTasks();
+  }
+
+  async function handleModalReassign(taskId, actorId, makerIds, checkerIds, reason) {
+    const updated = await reassignTask(taskId, actorId, makerIds, checkerIds, reason);
+    setToastMsg('Task assignment updated & logged to audit history!');
+    if (updated) {
+      setActiveTask(updated);
+    }
     await loadTasks();
   }
 
@@ -240,7 +249,7 @@ export default function Tasks() {
           <div className="flex items-center justify-between gap-4 w-full max-w-full box-border">
             <div>
               <h2 className="text-[22px] font-bold text-[#1e293b]">Task List</h2>
-              <p className="text-[13.5px] text-text-muted mt-1">Compliance tasks assigned to your Maker/Checker pool.</p>
+              <p className="text-[13.5px] text-text-muted mt-1">Compliance tasks — Maker/Checker pool, SOP Creators &amp; Approvers can view, edit, and reassign.</p>
             </div>
             <EntityPills selectedEntities={selected} onChange={setSelected} />
           </div>
@@ -382,6 +391,27 @@ export default function Tasks() {
                         <td className="px-6 py-3.5 text-[13.5px] align-middle"><StatusBadge status={task.status} /></td>
                         <td className="px-6 py-3.5 text-[13.5px] align-middle" onClick={e => e.stopPropagation()}>
                           <div className="flex gap-1.5 justify-end">
+                            {(() => {
+                              const uid = currentUser?.id || currentUser?.userId || '';
+                              const isSopCreatorOfTask = (task.sopCreatedBy && task.sopCreatedBy === uid) ||
+                                (Array.isArray(task.sopAssignedCreatorIds) && task.sopAssignedCreatorIds.includes(uid));
+                              const isSopApproverOfTask = Array.isArray(task.sopAssignedApproverIds) && task.sopAssignedApproverIds.includes(uid);
+                              const canEditTask = isAdmin || isSopCreatorOfTask || isSopApproverOfTask;
+                              return canEditTask ? (
+                                <button
+                                  type="button"
+                                  title="Edit Task Assignment"
+                                  className="bg-[#eff6ff] border border-[#3b82f6] text-[#1d4ed8] rounded-[6px] px-[10px] py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1 hover:opacity-85 transition-opacity duration-150"
+                                  onClick={() => setActiveTask(task)}
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                  </svg>
+                                  Edit
+                                </button>
+                              ) : null;
+                            })()}
                             <button
                               type="button"
                               title="View & Review Task"
@@ -440,6 +470,7 @@ export default function Tasks() {
         onSubmitTask={handleModalSubmit}
         onApproveTask={handleModalApprove}
         onRejectTask={handleModalReject}
+        onReassignTask={handleModalReassign}
       />
 
       {/* Confirmation Modal for Admin Task Deletion */}
