@@ -54,6 +54,22 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "RATE_LIMIT_AUTH_CAPACITY"
         value = var.rate_limit_auth_capacity
       }
+      env {
+        name  = "GCS_ENABLED"
+        value = "true"
+      }
+      env {
+        name  = "GCS_BUCKET_NAME"
+        value = google_storage_bucket.task_documents.name
+      }
+      env {
+        name  = "GCP_PROJECT_ID"
+        value = var.project_id
+      }
+      env {
+        name  = "STORAGE_TYPE"
+        value = var.gcs_storage_type
+      }
 
       resources {
         limits = {
@@ -78,6 +94,7 @@ resource "google_cloud_run_v2_service" "backend" {
     google_secret_manager_secret_version.db_password_version,
     google_sql_database_instance.postgres,
     google_artifact_registry_repository.backend_repo,
+    google_storage_bucket.task_documents,
   ]
 }
 

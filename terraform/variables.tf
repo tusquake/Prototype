@@ -63,3 +63,16 @@ variable "rate_limit_auth_capacity" {
   type        = string
   default     = "10"
 }
+
+variable "task_documents_bucket_name" {
+  description = "GCS bucket name for task working paper documents & attachments"
+  type        = string
+  default     = "finsop-task-documents-bucket"
+}
+
+variable "gcs_storage_type" {
+  description = "Storage adapter type for task attachments (gcs | local)"
+  type        = string
+  default     = "gcs"
+}
+

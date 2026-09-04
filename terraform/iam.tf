@@ -30,3 +30,10 @@ resource "google_artifact_registry_repository" "backend_repo" {
 
   depends_on = [google_project_service.apis]
 }
+
+resource "google_storage_bucket_iam_member" "backend_task_docs_storage_admin" {
+  bucket = google_storage_bucket.task_documents.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.backend_sa.email}"
+}
+

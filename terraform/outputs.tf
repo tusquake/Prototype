@@ -28,3 +28,9 @@ output "backend_service_account_email" {
   description = "IAM service account email used by Cloud Run"
   value       = google_service_account.backend_sa.email
 }
+
+output "task_documents_bucket_url" {
+  description = "GCS bucket URL for task working paper documents & attachments"
+  value       = "gs://${google_storage_bucket.task_documents.name}"
+}
+
