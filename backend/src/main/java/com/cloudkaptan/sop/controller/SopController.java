@@ -14,9 +14,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 @RestController
 @RequestMapping("/finsop/v1/sops")
 @RequiredArgsConstructor
+@Tag(name = "SOP Governance", description = "Endpoints for Standard Operating Procedures (SOPs) lifecycle, creation, editing, assignment pools, and approval workflows")
 public class SopController {
 
     private final SopService sopService;

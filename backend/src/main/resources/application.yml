@@ -51,3 +51,13 @@ app:
       capacity: ${RATE_LIMIT_AUTH_CAPACITY:10}
       refill-tokens: ${RATE_LIMIT_AUTH_REFILL_TOKENS:10}
       refill-duration-minutes: ${RATE_LIMIT_AUTH_REFILL_DURATION_MINUTES:1}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+

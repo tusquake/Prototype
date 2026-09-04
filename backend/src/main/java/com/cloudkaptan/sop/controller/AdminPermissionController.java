@@ -16,9 +16,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 @RestController
 @RequestMapping(value = {"/finsop/v1/admin/permissions", "/api/v1/admin/permissions"})
 @RequiredArgsConstructor
+@Tag(name = "Access Control & Permissions", description = "Endpoints for process category permissions, role assignments (Creators, Approvers, Makers, Checkers), and access activity logs")
 public class AdminPermissionController {
 
     private final UserCategoryPermissionService categoryPermissionService;
