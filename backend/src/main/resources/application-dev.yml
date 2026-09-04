@@ -1,3 +1,7 @@
+app:
+  messaging:
+    provider: rabbitmq
+
 spring:
   config:
     activate:

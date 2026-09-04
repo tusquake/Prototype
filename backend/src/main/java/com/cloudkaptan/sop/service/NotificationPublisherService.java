@@ -1,12 +1,11 @@
 package com.cloudkaptan.sop.service;
 
-import com.cloudkaptan.sop.config.RabbitMQConfig;
 import com.cloudkaptan.sop.dto.NotificationEventDto;
 import com.cloudkaptan.sop.entity.UserNotification;
 import com.cloudkaptan.sop.repository.UserNotificationRepository;
+import com.cloudkaptan.sop.service.messaging.NotificationEventPublisher;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
@@ -15,7 +14,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class NotificationPublisherService {
 
-    private final RabbitTemplate rabbitTemplate;
+    private final ObjectProvider<NotificationEventPublisher> eventPublisherProvider;
     private final UserNotificationRepository userNotificationRepository;
     private final ObjectProvider<UserNotificationService> userNotificationServiceProvider;
 
@@ -25,15 +24,20 @@ public class NotificationPublisherService {
             return;
         }
 
-        String routingKey = "notification.inapp." + (eventDto.getReferenceEntityType() != null ? eventDto.getReferenceEntityType().toLowerCase() : "general");
+        NotificationEventPublisher publisher = eventPublisherProvider.getIfAvailable();
 
-        try {
-            log.info("Publishing Notification Event to RabbitMQ: routingKey={}, recipient={}, eventType={}",
-                    routingKey, eventDto.getRecipientUserId(), eventDto.getEventType());
-            rabbitTemplate.convertAndSend(RabbitMQConfig.NOTIFICATION_EXCHANGE, routingKey, eventDto);
-        } catch (Exception ex) {
-            log.warn("RabbitMQ unavailable ({}), executing direct DB fallback for notification to {}",
-                    ex.getMessage(), eventDto.getRecipientUserId());
+        if (publisher != null) {
+            try {
+                log.info("Delegating event publish to active messaging provider [{}] for recipient [{}]",
+                        publisher.getProviderName(), eventDto.getRecipientUserId());
+                publisher.publish(eventDto);
+            } catch (Exception ex) {
+                log.warn("Messaging provider [{}] failed ({}), executing DB fallback for notification to {}",
+                        publisher.getProviderName(), ex.getMessage(), eventDto.getRecipientUserId());
+                saveToDatabase(eventDto);
+            }
+        } else {
+            log.info("No external messaging provider configured. Saving notification directly to DB.");
             saveToDatabase(eventDto);
         }
     }

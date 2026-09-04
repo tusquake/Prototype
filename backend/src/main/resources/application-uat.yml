@@ -1,7 +1,25 @@
+app:
+  messaging:
+    provider: pubsub
+
 spring:
   config:
     activate:
       on-profile: uat
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+
+  cloud:
+    gcp:
+      project-id: ${GCP_PROJECT_ID:finance-sop-portal}
+      pubsub:
+        enabled: true
+        topic:
+          notification: ${GCP_PUBSUB_NOTIFICATION_TOPIC:finsop-notification-topic}
+        subscription:
+          notification: ${GCP_PUBSUB_NOTIFICATION_SUB:finsop-notification-sub}
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/finsop_uat_db}
