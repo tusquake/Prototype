@@ -28,6 +28,10 @@ public class RateLimiterService {
         this.rateLimitConfig = rateLimitConfig;
     }
 
+    public boolean isRateLimitingEnabled() {
+        return rateLimitConfig.isEnabled();
+    }
+
     public Bucket resolveStandardBucket(String clientKey) {
         return standardBuckets.get(clientKey, key -> rateLimitConfig.createStandardBucket());
     }

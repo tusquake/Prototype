@@ -42,6 +42,18 @@ resource "google_cloud_run_v2_service" "backend" {
           }
         }
       }
+      env {
+        name  = "RATE_LIMITING_ENABLED"
+        value = var.rate_limiting_enabled
+      }
+      env {
+        name  = "RATE_LIMIT_STANDARD_CAPACITY"
+        value = var.rate_limit_standard_capacity
+      }
+      env {
+        name  = "RATE_LIMIT_AUTH_CAPACITY"
+        value = var.rate_limit_auth_capacity
+      }
 
       resources {
         limits = {

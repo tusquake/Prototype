@@ -1,13 +1,13 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
   servlet:
-    context-path: /
+    context-path: ${CONTEXT_PATH:/}
 
 spring:
   application:
     name: finsop-backend
   profiles:
-    active: local
+    active: ${SPRING_PROFILES_ACTIVE:local}
 
   security:
     oauth2:
@@ -28,3 +28,13 @@ management:
 app:
   cors:
     allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3010,http://localhost:5173,https://storage.googleapis.com}
+  rate-limiting:
+    enabled: ${RATE_LIMITING_ENABLED:true}
+    standard:
+      capacity: ${RATE_LIMIT_STANDARD_CAPACITY:100}
+      refill-tokens: ${RATE_LIMIT_STANDARD_REFILL_TOKENS:100}
+      refill-duration-minutes: ${RATE_LIMIT_STANDARD_REFILL_DURATION_MINUTES:1}
+    auth:
+      capacity: ${RATE_LIMIT_AUTH_CAPACITY:10}
+      refill-tokens: ${RATE_LIMIT_AUTH_REFILL_TOKENS:10}
+      refill-duration-minutes: ${RATE_LIMIT_AUTH_REFILL_DURATION_MINUTES:1}

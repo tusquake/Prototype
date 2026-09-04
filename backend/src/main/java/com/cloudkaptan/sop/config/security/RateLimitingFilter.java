@@ -31,6 +31,12 @@ public class RateLimitingFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
+        // Check if rate limiting is enabled via configuration/environment
+        if (!rateLimiterService.isRateLimitingEnabled()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String path = request.getRequestURI();
 
         // 1. Determine Key: Use User ID from JWT if logged in, otherwise use Client IP

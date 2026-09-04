@@ -45,3 +45,21 @@ variable "backend_image" {
   type        = string
   default     = "asia-south1-docker.pkg.dev/finance-sop-portal/fin-sop-repo/fin-sop-backend"
 }
+
+variable "rate_limiting_enabled" {
+  description = "Enable rate limiting on Cloud Run backend"
+  type        = string
+  default     = "true"
+}
+
+variable "rate_limit_standard_capacity" {
+  description = "Standard rate limit bucket capacity per minute"
+  type        = string
+  default     = "100"
+}
+
+variable "rate_limit_auth_capacity" {
+  description = "Auth rate limit bucket capacity per minute"
+  type        = string
+  default     = "10"
+}
