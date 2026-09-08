@@ -12,6 +12,8 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -44,27 +46,35 @@ public class RowLevelSecurityAspect {
         }
 
         User user = userRepository.findById(currentUserId).orElse(null);
-        String targetId = currentUserId;
         String targetName = (user != null && user.getFullName() != null) ? user.getFullName().toLowerCase().trim() : "";
+
+        // Combine the user's ID with their readable subordinates' IDs
+        List<String> authorizedIds = new ArrayList<>();
+        authorizedIds.add(currentUserId);
+        
+        List<String> readableSubordinates = TenantContext.getContext().getReadableSubordinateIds();
+        if (readableSubordinates != null) {
+            authorizedIds.addAll(readableSubordinates);
+        }
 
         // 2. Intercept and filter Task DTO list transparently
         if (result instanceof List<?> list && !list.isEmpty()) {
             Object firstElement = list.get(0);
 
             if (firstElement instanceof TaskDto) {
-                log.debug("RowLevelSecurityAspect: Filtering Task list for user [{}] via TenantContext", currentUserId);
+                log.debug("RowLevelSecurityAspect: Filtering Task list for user [{}] and downline via TenantContext", currentUserId);
                 @SuppressWarnings("unchecked")
                 List<TaskDto> taskList = (List<TaskDto>) result;
 
                 return taskList.stream().filter(t -> {
-                    boolean makerMatch = (t.getAssignedMakerIds() != null && t.getAssignedMakerIds().contains(targetId))
-                        || (t.getMakerId() != null && t.getMakerId().equals(targetId))
-                        || (t.getActualMakerId() != null && t.getActualMakerId().equals(targetId))
+                    boolean makerMatch = containsAny(t.getAssignedMakerIds(), authorizedIds)
+                        || matchesAny(t.getMakerId(), authorizedIds)
+                        || matchesAny(t.getActualMakerId(), authorizedIds)
                         || (t.getMakerName() != null && t.getMakerName().toLowerCase().contains(targetName));
 
-                    boolean checkerMatch = (t.getAssignedCheckerIds() != null && t.getAssignedCheckerIds().contains(targetId))
-                        || (t.getCheckerId() != null && t.getCheckerId().equals(targetId))
-                        || (t.getActualCheckerId() != null && t.getActualCheckerId().equals(targetId))
+                    boolean checkerMatch = containsAny(t.getAssignedCheckerIds(), authorizedIds)
+                        || matchesAny(t.getCheckerId(), authorizedIds)
+                        || matchesAny(t.getActualCheckerId(), authorizedIds)
                         || (t.getCheckerName() != null && t.getCheckerName().toLowerCase().contains(targetName));
 
                     return makerMatch || checkerMatch;
@@ -73,19 +83,19 @@ public class RowLevelSecurityAspect {
 
             // 3. Intercept and filter SOP DTO list transparently
             if (firstElement instanceof SopDto) {
-                log.debug("RowLevelSecurityAspect: Filtering SOP list for user [{}] via TenantContext", currentUserId);
+                log.debug("RowLevelSecurityAspect: Filtering SOP list for user [{}] and downline via TenantContext", currentUserId);
                 @SuppressWarnings("unchecked")
                 List<SopDto> sopList = (List<SopDto>) result;
 
                 return sopList.stream().filter(s -> {
-                    boolean creatorMatch = (s.getAssignedCreatorId() != null && s.getAssignedCreatorId().equals(targetId))
+                    boolean creatorMatch = matchesAny(s.getAssignedCreatorId(), authorizedIds)
                         || (s.getAssignedCreatorName() != null && s.getAssignedCreatorName().toLowerCase().contains(targetName));
-                    boolean approverMatch = (s.getAssignedApproverId() != null && s.getAssignedApproverId().equals(targetId))
+                    boolean approverMatch = matchesAny(s.getAssignedApproverId(), authorizedIds)
                         || (s.getAssignedApproverName() != null && s.getAssignedApproverName().toLowerCase().contains(targetName));
-                    boolean makerMatch = (s.getDefaultMakerIds() != null && s.getDefaultMakerIds().contains(targetId))
-                        || (s.getDefaultMakerId() != null && s.getDefaultMakerId().equals(targetId));
-                    boolean checkerMatch = (s.getDefaultCheckerIds() != null && s.getDefaultCheckerIds().contains(targetId))
-                        || (s.getDefaultCheckerId() != null && s.getDefaultCheckerId().equals(targetId));
+                    boolean makerMatch = containsAny(s.getDefaultMakerIds(), authorizedIds)
+                        || matchesAny(s.getDefaultMakerId(), authorizedIds);
+                    boolean checkerMatch = containsAny(s.getDefaultCheckerIds(), authorizedIds)
+                        || matchesAny(s.getDefaultCheckerId(), authorizedIds);
 
                     return creatorMatch || approverMatch || makerMatch || checkerMatch;
                 }).toList();
@@ -93,5 +103,17 @@ public class RowLevelSecurityAspect {
         }
 
         return result;
+    }
+
+    // Helper: Returns true if the lists share at least one element
+    private boolean containsAny(List<String> sourceList, List<String> targetIds) {
+        if (sourceList == null || sourceList.isEmpty()) return false;
+        return !Collections.disjoint(sourceList, targetIds);
+    }
+
+    // Helper: Returns true if the single ID is in the target list
+    private boolean matchesAny(String singleId, List<String> targetIds) {
+        if (singleId == null || singleId.isBlank()) return false;
+        return targetIds.contains(singleId);
     }
 }

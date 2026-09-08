@@ -24,7 +24,7 @@ COPY --from=builder /app/target/finsop-backend-1.0.0-SNAPSHOT.jar app.jar
 EXPOSE 8080
 
 # Environment Defaults
-ENV SPRING_PROFILES_ACTIVE=prod \
+ENV SPRING_PROFILES_ACTIVE=local \
     JAVA_OPTS="-Xms256m -Xmx512m"
 
 USER appuser

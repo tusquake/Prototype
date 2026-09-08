@@ -1,12 +1,62 @@
 import { useState, useEffect } from 'react';
-import EntityPills from '../components/EntityPills';
 import StatusBadge from '../components/StatusBadge';
 import TableSkeleton from '../components/TableSkeleton';
 import Pagination from '../components/Pagination';
 import { getSession } from '../auth/auth';
-import { ENTITIES, getDashboardSummary } from '../services/api';
+import { getDashboardSummary } from '../services/api';
+import { useEntity } from '../context/EntityContext';
 
 const PAGE_SIZE = 5;
+
+const METRICS_ARR = [
+  {
+    id: "trackedTasks",
+    title: "Tracked tasks",
+    valueColorClass: "text-[#0284c7]",
+    iconBgClass: "bg-[rgba(2,132,199,0.1)]",
+    iconColorClass: "text-[#0284c7]",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+      <path d="M9 12h6" />
+      <path d="M9 16h6" />
+    </svg>
+  },
+  {
+    id: "approvedThisCycle",
+    title: "Approved this cycle",
+    valueColorClass: "text-[#059669]",
+    iconBgClass: "bg-[rgba(5,150,105,0.1)]",
+    iconColorClass: "text-[#059669]",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
+  },
+  {
+    id: "pendingReview",
+    title: "Pending checker review",
+    valueColorClass: "text-[#2563eb]",
+    iconBgClass: "bg-[rgba(37,99,235,0.1)]",
+    iconColorClass: "text-[#2563eb]",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  },
+  {
+    id: "overdue",
+    title: "Overdue",
+    valueColorClass: "text-[#dc2626]",
+    iconBgClass: "bg-[rgba(220,38,38,0.1)]",
+    iconColorClass: "text-[#dc2626]",
+    icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  },
+]
 
 function MetricCard({ loading, value, label, valueColorClass, iconBgClass, iconColorClass, icon }) {
   return (
@@ -25,10 +75,11 @@ function MetricCard({ loading, value, label, valueColorClass, iconBgClass, iconC
 }
 
 export default function Dashboard() {
-  const [selected, setSelected] = useState(ENTITIES.map(e => e.id));
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+
+  const { selectedEntities } = useEntity();
 
   const session = getSession();
   const currentUser = session?.user;
@@ -36,24 +87,15 @@ export default function Dashboard() {
   useEffect(() => {
     async function loadSummary() {
       setLoading(true);
-      const data = await getDashboardSummary(selected, currentUser);
+      const data = await getDashboardSummary(selectedEntities, currentUser);
       if (data) {
         setSummaryData(data);
       }
       setLoading(false);
     }
     loadSummary();
-  }, [selected, currentUser?.email]);
+  }, [selectedEntities, currentUser?.email]);
 
-  function toggleEntity(id) {
-    setSelected(prev => {
-      if (prev.includes(id)) {
-        if (prev.length === 1) return prev;
-        return prev.filter(x => x !== id);
-      }
-      return [...prev, id];
-    });
-  }
 
   const trackedTasks = summaryData?.metrics?.trackedTasks ?? 0;
   const approvedThisCycle = summaryData?.metrics?.approvedThisCycle ?? 0;
@@ -66,84 +108,27 @@ export default function Dashboard() {
 
 
   return (
-    <main className="ml-[248px] flex-1 min-w-0 bg-bg-base">
-      <header className="w-full bg-[#f8fafc] border-b border-[#cbd5e1] px-8 py-[18px] shadow-sm box-border">
-        <div className="flex items-center justify-between gap-4 w-full max-w-full box-border">
-          <div>
-            <h2 className="text-[22px] font-bold text-[#1e293b]">Overview</h2>
-            <p className="text-[13.5px] text-text-muted mt-1">
-              Compliance monitoring across CK India, US, UK and Australia.
-            </p>
-          </div>
-          <EntityPills selectedEntities={selected} onChange={setSelected} />
-        </div>
-      </header>
 
+    <>
       <div className="p-6 md:px-8 w-full max-w-full box-border">
         {/* Metrics Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-[28px]">
-          <MetricCard
-            loading={loading}
-            value={trackedTasks}
-            label="Tracked tasks"
-            valueColorClass="text-[#0284c7]"
-            iconBgClass="bg-[rgba(2,132,199,0.1)]"
-            iconColorClass="text-[#0284c7]"
-            icon={(
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-                <path d="M9 12h6" />
-                <path d="M9 16h6" />
-              </svg>
-            )}
-          />
 
-          <MetricCard
-            loading={loading}
-            value={approvedThisCycle}
-            label="Approved this cycle"
-            valueColorClass="text-[#059669]"
-            iconBgClass="bg-[rgba(5,150,105,0.1)]"
-            iconColorClass="text-[#059669]"
-            icon={(
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                <polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
-            )}
-          />
+          {METRICS_ARR.map((metric)=>{
+            const value = metric.id === "trackedTasks" ? trackedTasks : metric.id === "approvedThisCycle" ? approvedThisCycle : metric.id === "pendingReview" ? pendingReview : overdue
 
-          <MetricCard
-            loading={loading}
-            value={pendingReview}
-            label="Pending checker review"
-            valueColorClass="text-[#2563eb]"
-            iconBgClass="bg-[rgba(37,99,235,0.1)]"
-            iconColorClass="text-[#2563eb]"
-            icon={(
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-            )}
-          />
-
-          <MetricCard
-            loading={loading}
-            value={overdue}
-            label="Overdue"
-            valueColorClass="text-[#dc2626]"
-            iconBgClass="bg-[rgba(220,38,38,0.1)]"
-            iconColorClass="text-[#dc2626]"
-            icon={(
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-            )}
-          />
+            return (
+              <MetricCard
+              loading={loading}
+              value={value}
+              label={metric.title}
+              valueColorClass={metric.valueColorClass}
+              iconBgClass={metric.iconBgClass}
+              iconColorClass={metric.iconColorClass}
+              icon={metric.icon}
+              />
+            )
+          })}
         </div>
 
         {/* Compliance Scorecard */}
@@ -266,7 +251,8 @@ export default function Dashboard() {
           )}
         </div>
       </div>
-    </main>
+
+    </>
 
   );
 }

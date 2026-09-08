@@ -35,8 +35,8 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           const opts = data.map(c => ({
-            value: c.categoryName || c.categoryCode,
-            label: c.categoryName || c.categoryCode,
+            value:  c.categoryCode  ,
+            label: c.categoryName ,
           }));
           setProcessOptions(opts);
           setAssignForm(prev => ({ ...prev, processCategory: opts[0].value }));
@@ -48,7 +48,7 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
   // Load permitted users whenever processCategory changes
   const loadPermittedUsers = useCallback(async (category) => {
     if (!category) return;
-    setLoadingUsers(true);
+        setLoadingUsers(true);
     setPermittedCreators([]);
     setPermittedApprovers([]);
     setAssignForm(prev => ({ ...prev, assignedCreatorIds: [], assignedApproverIds: [] }));

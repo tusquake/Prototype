@@ -22,6 +22,8 @@ public class TaskDto {
     private UUID sopId;
     private String sopTitle;
     private String sopCode;
+    private String categoryCode;
+    private String categoryName;
     private String periodKey;
     private EntityCode entityCode;
     private String entityName;

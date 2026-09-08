@@ -1,10 +1,12 @@
 package com.cloudkaptan.sop.config;
 
+import com.cloudkaptan.sop.domain.entity.UserHierarchy;
 import com.cloudkaptan.sop.domain.enums.EntityCode;
 import com.cloudkaptan.sop.domain.enums.UserRole;
 import com.cloudkaptan.sop.entity.CorporateEntity;
 import com.cloudkaptan.sop.entity.User;
 import com.cloudkaptan.sop.repository.CorporateEntityRepository;
+import com.cloudkaptan.sop.repository.UserHierarchyRepository;
 import com.cloudkaptan.sop.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private final CorporateEntityRepository entityRepository;
     private final UserRepository userRepository;
+    private final UserHierarchyRepository userHierarchyRepository; // Injected new repository
 
     // 13 new non-admin VIEWER users — org-wide (entity = CK_INDIA as default)
     private static final List<String[]> NEW_VIEWER_USERS = List.of(
@@ -70,6 +73,9 @@ public class DataInitializer implements CommandLineRunner {
         // 3. Seed the 13 new VIEWER users (safe to run every restart — idempotent)
         seedNewViewerUsers();
 
+        // 4. Seed Organizational Hierarchy for Local Testing
+        seedUserHierarchy();
+
         log.info("Master data initialization complete.");
     }
 
@@ -110,4 +116,45 @@ public class DataInitializer implements CommandLineRunner {
             log.info("[DataInitializer] Seeded {} new VIEWER users.", created);
         }
     }
+
+    private void seedUserHierarchy() {
+    if (userHierarchyRepository.count() == 0) {
+        log.info("[DataInitializer] Seeding User Hierarchy with team members...");
+
+        List<UserHierarchy> hierarchy = List.of(
+            // Level 1 -> Level 2: Anirban (Lead) manages Annu and Avisek
+            UserHierarchy.builder()
+                    .managerId("usr-anirban-001") // Anirban Paul
+                    .subordinateId("usr-annu-002") // Annu Shaw
+                    .canReadTasks(true)
+                    .canWriteTasks(true)
+                    .build(),
+
+            UserHierarchy.builder()
+                    .managerId("usr-anirban-001") // Anirban Paul
+                    .subordinateId("usr-avisek2-003") // Avisek Shaw
+                    .canReadTasks(true)
+                    .canWriteTasks(true)
+                    .build(),
+
+            // Level 2 -> Level 3: Annu manages Ayush; Avisek manages Debajyoti
+            UserHierarchy.builder()
+                    .managerId("usr-annu-002") // Annu Shaw
+                    .subordinateId("usr-ayush-004") // Ayush Pandey
+                    .canReadTasks(true)
+                    .canWriteTasks(true)
+                    .build(),
+
+            UserHierarchy.builder()
+                    .managerId("usr-avisek2-003") // Avisek Shaw
+                    .subordinateId("usr-debajyo-005") // Debajyoti Dattagupta
+                    .canReadTasks(true)
+                    .canWriteTasks(true)
+                    .build()
+        );
+
+        userHierarchyRepository.saveAll(hierarchy);
+        log.info("[DataInitializer] Seeded 4 organizational hierarchy relationships.");
+    }
+}
 }

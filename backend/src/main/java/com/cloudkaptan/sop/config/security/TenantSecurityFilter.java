@@ -2,6 +2,7 @@ package com.cloudkaptan.sop.config.security;
 
 import com.cloudkaptan.sop.domain.enums.UserRole;
 import com.cloudkaptan.sop.entity.User;
+import com.cloudkaptan.sop.repository.UserHierarchyRepository;
 import com.cloudkaptan.sop.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,6 +17,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Servlet filter that extracts tenant ID (corporate entity), user ID, and user role from incoming HTTP requests
@@ -28,6 +31,7 @@ import java.io.IOException;
 public class TenantSecurityFilter extends OncePerRequestFilter {
 
     private final UserRepository userRepository;
+    private final UserHierarchyRepository userHierarchyRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -47,10 +51,27 @@ public class TenantSecurityFilter extends OncePerRequestFilter {
                 } catch (Exception ignored) {}
             }
 
+            List<String> readableSubordinates = new ArrayList<>();
+            List<String> writableSubordinates = new ArrayList<>();
+
             if (userId != null && !userId.isBlank()) {
                 User user = userRepository.findById(userId).orElse(null);
                 if (user != null) {
                     userRole = user.getRole();
+                }
+
+                // Execute the Recursive CTE to fetch the downline hierarchy
+                List<UserHierarchyRepository.HierarchyProjection> subordinates = 
+                        userHierarchyRepository.findAllSubordinatesDownline(userId);
+
+                // Populate the in-memory read and write access lists
+                for (UserHierarchyRepository.HierarchyProjection sub : subordinates) {
+                    if (sub.getCanReadTasks()) {
+                        readableSubordinates.add(sub.getSubordinateId());
+                    }
+                    if (sub.getCanWriteTasks()) {
+                        writableSubordinates.add(sub.getSubordinateId());
+                    }
                 }
             }
 
@@ -58,10 +79,13 @@ public class TenantSecurityFilter extends OncePerRequestFilter {
                     .userId(userId)
                     .tenantId(tenantId)
                     .userRole(userRole)
+                    .readableSubordinateIds(readableSubordinates) // Inject read list
+                    .writableSubordinateIds(writableSubordinates) // Inject write list
                     .build();
 
             TenantContext.setContext(context);
-            log.debug("TenantSecurityFilter initialized context: userId={}, tenantId={}, userRole={}", userId, tenantId, userRole);
+            log.debug("TenantSecurityFilter initialized context: userId={}, tenantId={}, userRole={}, readableSubordinates={}, writableSubordinates={}", 
+                      userId, tenantId, userRole, readableSubordinates.size(), writableSubordinates.size());
 
             filterChain.doFilter(request, response);
         } finally {

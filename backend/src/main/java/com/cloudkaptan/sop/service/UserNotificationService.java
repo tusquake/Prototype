@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import jakarta.annotation.PostConstruct;
@@ -18,6 +19,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.HashSet;
 
 @Slf4j
 @Service
@@ -55,10 +57,17 @@ public class UserNotificationService {
         }
     }
 
-    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 25000)
+    @Scheduled(fixedRate = 25000)
     public void sendHeartbeat() {
-        if (emittersMap.isEmpty()) return;
-        emittersMap.forEach((userId, list) -> {
+        if (emittersMap.isEmpty())
+            return;
+
+        // Iterate over a snapshot of keys/entries to avoid concurrent map modification
+        // issues
+        new HashSet<>(emittersMap.entrySet()).forEach(entry -> {
+            String userId = entry.getKey();
+            List<SseEmitter> list = entry.getValue();
+
             for (SseEmitter emitter : list) {
                 try {
                     emitter.send(SseEmitter.event().comment("ping"));
@@ -70,12 +79,14 @@ public class UserNotificationService {
     }
 
     public void pushSseNotification(UserNotification notification) {
-        if (notification == null || notification.getRecipientUserId() == null) return;
+        if (notification == null || notification.getRecipientUserId() == null)
+            return;
         UserNotificationDto dto = mapToDto(notification);
 
         List<SseEmitter> list = emittersMap.get(notification.getRecipientUserId());
         if (list != null && !list.isEmpty()) {
-            log.info("Pushing SSE Real-Time Notification to [{}] (Emitters active: {})", notification.getRecipientUserId(), list.size());
+            log.info("Pushing SSE Real-Time Notification to [{}] (Emitters active: {})",
+                    notification.getRecipientUserId(), list.size());
             for (SseEmitter emitter : list) {
                 try {
                     emitter.send(SseEmitter.event().name("NOTIFICATION").data(dto));
@@ -121,7 +132,8 @@ public class UserNotificationService {
 
     @Transactional
     public void deleteByReferenceEntityId(String referenceEntityId) {
-        if (referenceEntityId == null || referenceEntityId.isBlank()) return;
+        if (referenceEntityId == null || referenceEntityId.isBlank())
+            return;
         log.info("Soft-deleting all obsolete notifications for reference entity ID [{}]", referenceEntityId);
         userNotificationRepository.softDeleteByReferenceEntityId(referenceEntityId);
     }

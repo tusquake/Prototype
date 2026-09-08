@@ -1,15 +1,20 @@
 import { ENTITIES } from '../services/api';
+import { useEntity } from '../context/EntityContext';
 
-export default function EntityPills({ selectedEntities = [], onChange }) {
-  function toggleEntity(id) {
-    if (!onChange) return;
-    if (selectedEntities.includes(id)) {
-      if (selectedEntities.length === 1) return; // Keep at least one selected
-      onChange(selectedEntities.filter(x => x !== id));
-    } else {
-      onChange([...selectedEntities, id]);
-    }
-  }
+export default function EntityPills({ }) {
+
+  const {selectedEntities, toggleEntity} = useEntity()
+
+  
+  // function toggleEntity(id) {
+  //   if (!onChange) return;
+  //   if (selectedEntities.includes(id)) {
+  //     if (selectedEntities.length === 1) return; // Keep at least one selected
+  //     onChange(selectedEntities.filter(x => x !== id));
+  //   } else {
+  //     onChange([...selectedEntities, id]);
+  //   }
+  // }
 
   return (
     <div className="flex flex-wrap items-center gap-2">

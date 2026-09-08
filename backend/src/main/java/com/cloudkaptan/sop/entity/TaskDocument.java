@@ -7,6 +7,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+import com.cloudkaptan.sop.domain.enums.UploadTiming;
+
 @Entity
 @Table(name = "task_documents")
 @Getter
@@ -44,4 +46,9 @@ public class TaskDocument {
     @CreationTimestamp
     @Column(name = "uploaded_at", nullable = false, updatable = false)
     private OffsetDateTime uploadedAt;
+
+    // New field for SLA tracking
+    @Enumerated(EnumType.STRING)
+    @Column(name = "upload_timing", length = 32)
+    private UploadTiming uploadTiming;
 }

@@ -1,7 +1,10 @@
 package com.cloudkaptan.sop.service;
 
+import com.cloudkaptan.sop.config.security.TenantContext;
 import com.cloudkaptan.sop.domain.enums.UserRole;
 import com.cloudkaptan.sop.dto.TaskDocumentDto;
+import com.cloudkaptan.sop.entity.ProcessCategory;
+import com.cloudkaptan.sop.domain.enums.UploadTiming;
 import com.cloudkaptan.sop.entity.Sop;
 import com.cloudkaptan.sop.entity.Task;
 import com.cloudkaptan.sop.entity.TaskDocument;
@@ -17,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -51,7 +57,7 @@ public class TaskDocumentService {
 
         User actor = resolveUser(actorId);
 
-        // RBAC check for upload: Maker, Checker, SOP Creator, SOP Approver, Admin
+        // RBAC check for upload includes Manager hierarchy check
         if (!canUserUploadDocument(task, actor)) {
             throw new IllegalStateException("User " + actor.getUserId() + " is not authorized to upload documents for this task.");
         }
@@ -62,13 +68,36 @@ public class TaskDocumentService {
         }
         originalFilename = originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_");
 
-        String objectPath = "tasks/" + taskId + "/" + UUID.randomUUID() + "_" + originalFilename;
+        // Construct Hierarchical GCS Path
+        Sop sop = task.getSop();
+        String categoryCode = sop.getProcessCategory() != null ? sop.getProcessCategory() : "UNKNOWN_CAT";
+        String sopCode = sop.getSopCode() != null ? sop.getSopCode() : "UNKNOWN_SOP";
+        String taskRecordNo = task.getRecordNo() != null ? task.getRecordNo() : taskId.toString();
+        
+        // Extract Year from periodKey (e.g., 2026-Q3 -> 2026)
+        String year = "UNKNOWN_YEAR";
+        if (task.getPeriodKey() != null && task.getPeriodKey().length() >= 4) {
+            year = task.getPeriodKey().substring(0, 4);
+        }
+
+        // e.g., 2026/TREASURY/TAX-RECON-001/TAX-RECON-001-2026-09/uuid_filename.pdf
+        String objectPath = String.format("%s/%s/%s/%s/%s_%s", 
+                year, categoryCode, sopCode, taskRecordNo, UUID.randomUUID(), originalFilename);
 
         try (InputStream is = file.getInputStream()) {
             storageService.uploadFile(objectPath, is, file.getContentType(), file.getSize());
         } catch (Exception e) {
             log.error("Failed to stream file to storage: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to upload document stream: " + e.getMessage(), e);
+        }
+
+        // Evaluate Document Due Date SLA
+        UploadTiming timing = UploadTiming.ON_TIME;
+        if (task.getDueDate() != null) {
+            LocalDate today = OffsetDateTime.now().atZoneSameInstant(ZoneId.systemDefault()).toLocalDate();
+            if (today.isAfter(task.getDueDate())) {
+                timing = UploadTiming.LATE;
+            }
         }
 
         TaskDocument document = TaskDocument.builder()
@@ -78,6 +107,7 @@ public class TaskDocumentService {
                 .fileSize(file.getSize())
                 .contentType(file.getContentType())
                 .uploadedBy(actor)
+                .uploadTiming(timing)
                 .build();
 
         TaskDocument saved = taskDocumentRepository.save(document);
@@ -100,7 +130,7 @@ public class TaskDocumentService {
 
         User actor = resolveUser(actorId);
 
-        // RBAC check for download: any participant on task or admin
+        // RBAC check for download: any participant, admin, or authorized manager
         if (!canUserAccessTask(task, actor)) {
             throw new IllegalStateException("User " + actor.getUserId() + " is not authorized to access documents for this task.");
         }
@@ -140,7 +170,6 @@ public class TaskDocumentService {
 
         User actor = resolveUser(actorId);
 
-        // RBAC check for deletion: Only Document Uploader and Admin
         boolean isAdmin = actor.getRole() == UserRole.ADMIN;
         boolean isUploader = document.getUploadedBy().getUserId().equalsIgnoreCase(actor.getUserId());
 
@@ -165,41 +194,50 @@ public class TaskDocumentService {
         String userId = actor.getUserId();
         String email = actor.getEmail() != null ? actor.getEmail().toLowerCase() : "";
 
-        // Check assigned makers/checkers or single maker/checker
-        if (task.getMaker() != null && matchesUser(task.getMaker(), userId, email)) return true;
-        if (task.getChecker() != null && matchesUser(task.getChecker(), userId, email)) return true;
+        // Combine actor's own ID with their manager subordinates
+        List<String> authorizedIds = new ArrayList<>();
+        authorizedIds.add(userId);
+        if (!email.isEmpty()) authorizedIds.add(email);
+        
+        TenantContext context = TenantContext.getContext();
+        if (context != null) {
+            if (context.getReadableSubordinateIds() != null) {
+                authorizedIds.addAll(context.getReadableSubordinateIds());
+            }
+            if (context.getWritableSubordinateIds() != null) {
+                authorizedIds.addAll(context.getWritableSubordinateIds());
+            }
+        }
 
-        if (containsMatch(task.getAssignedMakerIds(), userId, email)) return true;
-        if (containsMatch(task.getAssignedCheckerIds(), userId, email)) return true;
+        // Check assigned makers/checkers or single maker/checker
+        if (task.getMaker() != null && matchesAnyUser(task.getMaker(), authorizedIds)) return true;
+        if (task.getChecker() != null && matchesAnyUser(task.getChecker(), authorizedIds)) return true;
+
+        if (containsAnyMatch(task.getAssignedMakerIds(), authorizedIds)) return true;
+        if (containsAnyMatch(task.getAssignedCheckerIds(), authorizedIds)) return true;
 
         // Check SOP creators and approvers
         Sop sop = task.getSop();
         if (sop != null) {
-            if (sop.getCreatedBy() != null && matchesUser(sop.getCreatedBy(), userId, email)) return true;
-            if (sop.getAssignedCreatorId() != null && (sop.getAssignedCreatorId().equalsIgnoreCase(userId) || sop.getAssignedCreatorId().equalsIgnoreCase(email))) return true;
-            if (containsMatch(sop.getAssignedCreatorIds(), userId, email)) return true;
-
-            if (sop.getAssignedApproverId() != null && (sop.getAssignedApproverId().equalsIgnoreCase(userId) || sop.getAssignedApproverId().equalsIgnoreCase(email))) return true;
-            if (containsMatch(sop.getAssignedApproverIds(), userId, email)) return true;
+            if (sop.getCreatedBy() != null && matchesAnyUser(sop.getCreatedBy(), authorizedIds)) return true;
+            if (containsAnyMatch(sop.getAssignedCreatorIds(), authorizedIds)) return true;
+            if (containsAnyMatch(sop.getAssignedApproverIds(), authorizedIds)) return true;
+            if (sop.getAssignedCreatorId() != null && authorizedIds.contains(sop.getAssignedCreatorId())) return true;
+            if (sop.getAssignedApproverId() != null && authorizedIds.contains(sop.getAssignedApproverId())) return true;
         }
 
         return false;
     }
 
-    private boolean matchesUser(User target, String userId, String email) {
+    private boolean matchesAnyUser(User target, List<String> authorizedIds) {
         if (target == null) return false;
-        if (target.getUserId().equalsIgnoreCase(userId)) return true;
-        return target.getEmail() != null && target.getEmail().equalsIgnoreCase(email);
+        if (authorizedIds.contains(target.getUserId())) return true;
+        return target.getEmail() != null && authorizedIds.contains(target.getEmail().toLowerCase());
     }
 
-    private boolean containsMatch(List<String> list, String userId, String email) {
+    private boolean containsAnyMatch(List<String> list, List<String> authorizedIds) {
         if (list == null || list.isEmpty()) return false;
-        for (String item : list) {
-            if (item == null) continue;
-            if (item.equalsIgnoreCase(userId)) return true;
-            if (!email.isEmpty() && item.equalsIgnoreCase(email)) return true;
-        }
-        return false;
+        return !Collections.disjoint(list, authorizedIds);
     }
 
     private User resolveUser(String actorId) {

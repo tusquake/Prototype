@@ -23,19 +23,11 @@ export default function UserPickerModal({
     'Vivek Raj': 'usr-vivek-108',
     'Mainak Gupta': 'usr-mainak-215',
     'Manoj Agarwal': 'usr-manoj-042',
-    'Avisek Shaw': 'usr-avisek-499',
-    'Anirban Paul': 'usr-anirban-001',
-    'Annu Shaw': 'usr-annu-002',
-    'Ayush Pandey': 'usr-ayush-004',
-    'Debajyoti Dattagupta': 'usr-debajyo-005',
-    'Isha Prasad': 'usr-isha-006',
-    'Kingshuk Roy': 'usr-king-007',
-    'Moitrayee Dutta': 'usr-moit-008',
-    'Nishan Mandal': 'usr-nishan-009',
-    'Rounok Das': 'usr-rounok-010',
-    'Sanjeev Kumar': 'usr-sanjeev-011',
-    'Sayantan Ghosh': 'usr-sayant-012',
-    'Shreya Singh': 'usr-shreya-013',
+    'usr-tushar': 'usr-tushar-304',
+    'usr-prayasa': 'usr-prayasa-410',
+    'usr-vivek': 'usr-vivek-108',
+    'usr-mainak': 'usr-mainak-215',
+    'usr-manoj': 'usr-manoj-042',
   };
 
   useEffect(() => {
@@ -85,6 +77,7 @@ export default function UserPickerModal({
     setTempSelected(prev => {
       const selected = isUserSelected(user);
       if (selected) {
+        if (prev.length <= 1) return prev; // Keep at least 1 user selected
         return prev.filter(x => x !== targetId && x !== user.id && x !== user.name && x !== ID_MAP[user.name]);
       }
       return Array.from(new Set([...prev, targetId]));
@@ -92,11 +85,13 @@ export default function UserPickerModal({
   }
 
   function handleSelectAll() {
-    setTempSelected(filteredUsers.map(u => u.id || u.name));
+    setTempSelected(filteredUsers.map(u => u.id));
   }
 
   function handleClearAll() {
-    setTempSelected([]);
+    if (filteredUsers.length > 0) {
+      setTempSelected([filteredUsers[0].id]);
+    }
   }
 
   function handleConfirm() {

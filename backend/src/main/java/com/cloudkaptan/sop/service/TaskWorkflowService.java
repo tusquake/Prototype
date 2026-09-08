@@ -1,6 +1,7 @@
 package com.cloudkaptan.sop.service;
 
 import com.cloudkaptan.sop.config.security.ApplyRowLevelSecurity;
+import com.cloudkaptan.sop.config.security.TenantContext;
 import com.cloudkaptan.sop.domain.enums.EntityCode;
 import com.cloudkaptan.sop.domain.enums.TaskStatus;
 import com.cloudkaptan.sop.domain.state.TaskContext;
@@ -25,6 +26,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.Collections;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +45,7 @@ public class TaskWorkflowService {
     private final com.cloudkaptan.sop.repository.TaskReassignmentHistoryRepository taskReassignmentHistoryRepository;
     private final TaskSchedulerService taskSchedulerService;
     private final com.cloudkaptan.sop.repository.TaskDocumentRepository taskDocumentRepository;
+    private final com.cloudkaptan.sop.repository.ProcessCategoryRepository processCategoryRepository;
 
     @Transactional
     public TaskDto processTaskAction(UUID taskId, com.cloudkaptan.sop.dto.TaskActionRequest request) {
@@ -70,14 +73,39 @@ public class TaskWorkflowService {
         }
 
         User actor = getUserOrThrow(actorId);
-        task.setMaker(actor);
+        
+        // Proxy Submission Logic: Check if actor is an authorized manager
+        TenantContext context = TenantContext.getContext();
+        boolean isAuthorizedManager = false;
+        
+        if (context != null && context.getWritableSubordinateIds() != null && !context.getWritableSubordinateIds().isEmpty()) {
+            List<String> assignedMakerIds = task.getAssignedMakerIds() != null ? task.getAssignedMakerIds() : Collections.emptyList();
+            String existingMakerId = task.getMaker() != null ? task.getMaker().getUserId() : null;
+            
+            // Check if any of the assigned makers are in the actor's writable subordinates list
+            if (!Collections.disjoint(assignedMakerIds, context.getWritableSubordinateIds()) 
+                || (existingMakerId != null && context.getWritableSubordinateIds().contains(existingMakerId))) {
+                isAuthorizedManager = true;
+            }
+        }
+
+        // If the actor is NOT the officially assigned maker, but they ARE an authorized manager,
+        // we leave the task.getMaker() as the original assignee, but log the actor in the event.
+        // If they are just a normal Maker, they claim the task.
+        if (!isAuthorizedManager) {
+            task.setMaker(actor);
+        }
+
         TaskStatus fromStatus = task.getStatus();
 
-        TaskContext context = new TaskContext(task);
-        context.submit(actor, comment);
+        TaskContext taskContext = new TaskContext(task);
+        taskContext.submit(actor, comment);
 
         Task saved = taskRepository.save(task);
         String actionName = (fromStatus == TaskStatus.REJECTED) ? "RESUBMIT" : "SUBMIT";
+        
+        // Note: 'actor' here is the actual person clicking submit (e.g. the Finance Lead),
+        // which guarantees the audit trail correctly logs the proxy submission.
         eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), actionName, comment));
 
         // Clean up obsolete notifications for this task ID across all users
@@ -124,8 +152,8 @@ public class TaskWorkflowService {
         task.setChecker(actor);
         TaskStatus fromStatus = task.getStatus();
 
-        TaskContext context = new TaskContext(task);
-        context.approve(actor, comment);
+        TaskContext taskContext = new TaskContext(task);
+        taskContext.approve(actor, comment);
 
         Task saved = taskRepository.save(task);
         eventPublisher.publishEvent(new TaskStatusChangedEvent(saved, actor, fromStatus, saved.getStatus(), "APPROVE", comment));
@@ -168,14 +196,14 @@ public class TaskWorkflowService {
         task.setChecker(actor);
         TaskStatus fromStatus = task.getStatus();
 
-        TaskContext context = new TaskContext(task);
+        TaskContext taskContext = new TaskContext(task);
         if (Boolean.TRUE.equals(permanentRejection)) {
             if (comment == null || comment.isBlank()) {
                 throw new IllegalArgumentException("Rejection reason is mandatory when rejecting a task.");
             }
             task.setStatus(TaskStatus.PERMANENTLY_REJECTED);
         } else {
-            context.reject(actor, comment);
+            taskContext.reject(actor, comment);
         }
 
         Task saved = taskRepository.save(task);
@@ -591,6 +619,11 @@ public class TaskWorkflowService {
             .sopId(task.getSop().getSopId())
             .sopTitle(task.getSop().getTitle())
             .sopCode(task.getSop().getSopCode())
+            .categoryCode(task.getSop().getProcessCategory())
+            .categoryName(task.getSop().getProcessCategory() != null ? 
+                processCategoryRepository.findByCategoryCode(task.getSop().getProcessCategory())
+                    .map(com.cloudkaptan.sop.entity.ProcessCategory::getCategoryName)
+                    .orElse(task.getSop().getProcessCategory()) : null)
             .periodKey(task.getPeriodKey())
             .entityCode(task.getEntity().getEntityCode())
             .entityName(task.getEntity().getEntityName())

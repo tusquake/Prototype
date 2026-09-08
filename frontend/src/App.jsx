@@ -11,6 +11,7 @@ import { getSession } from './auth/auth';
 import './index.css';
 import AccessControl from './pages/AccessControl';
 import ProcessCategories from './pages/ProcessCategories';
+import { EntityProvider } from './context/EntityContext';
 
 function ProtectedRoute({ children }) {
   const location = useLocation();
@@ -121,6 +122,8 @@ export default function App() {
     },
   ]);
   return (
+    <EntityProvider>
     <RouterProvider router={router} />
+    </EntityProvider>
   );
 }

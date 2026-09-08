@@ -6,8 +6,12 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * ThreadLocal context holder for active tenant (corporate entity), authenticated user, and security role.
+ * ThreadLocal context holder for active tenant (corporate entity), authenticated user, 
+ * security role, and organizational hierarchy access lists.
  */
 @Data
 @Builder
@@ -20,6 +24,13 @@ public class TenantContext {
     private String userId;
     private String tenantId;
     private UserRole userRole;
+
+    // New fields for organizational hierarchy
+    @Builder.Default
+    private List<String> readableSubordinateIds = new ArrayList<>();
+
+    @Builder.Default
+    private List<String> writableSubordinateIds = new ArrayList<>();
 
     public static void setContext(TenantContext context) {
         CONTEXT.set(context);
