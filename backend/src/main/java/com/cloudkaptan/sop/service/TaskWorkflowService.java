@@ -302,8 +302,13 @@ public class TaskWorkflowService {
         final String userEmail = resolvedUser != null ? resolvedUser.getEmail() : null;
         final String userFullName = resolvedUser != null ? resolvedUser.getFullName() : null;
 
-        // NON_ADMIN user: Filter strictly by assigned process categories & direct assignments
+        // NON_ADMIN user: Filter strictly by assigned process categories, direct assignments, or downline subordinate assignments
         List<String> accessibleCategories = categoryPermissionService.getUserAccessibleCategories(uid);
+
+        TenantContext ctx = TenantContext.getContext();
+        List<String> readableSubordinates = (ctx != null && ctx.getReadableSubordinateIds() != null)
+                ? ctx.getReadableSubordinateIds()
+                : Collections.emptyList();
 
         return tasks.stream()
             .filter(task -> {
@@ -345,7 +350,14 @@ public class TaskWorkflowService {
                         || isSopCreator
                         || isSopApprover;
 
-                return categoryAllowed || isDirectlyAssigned;
+                boolean isSubordinateAssigned = !readableSubordinates.isEmpty() && (
+                        (task.getMaker() != null && readableSubordinates.contains(task.getMaker().getUserId()))
+                        || (task.getChecker() != null && readableSubordinates.contains(task.getChecker().getUserId()))
+                        || (task.getAssignedMakerIds() != null && !Collections.disjoint(task.getAssignedMakerIds(), readableSubordinates))
+                        || (task.getAssignedCheckerIds() != null && !Collections.disjoint(task.getAssignedCheckerIds(), readableSubordinates))
+                );
+
+                return categoryAllowed || isDirectlyAssigned || isSubordinateAssigned;
             })
             .map(this::mapToDto)
             .toList();
