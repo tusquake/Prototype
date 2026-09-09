@@ -61,17 +61,23 @@ public class TenantSecurityFilter extends OncePerRequestFilter {
                 }
 
                 // Execute the Recursive CTE to fetch the downline hierarchy
-                List<UserHierarchyRepository.HierarchyProjection> subordinates = 
-                        userHierarchyRepository.findAllSubordinatesDownline(userId);
+                try {
+                    List<UserHierarchyRepository.HierarchyProjection> subordinates = 
+                            userHierarchyRepository.findAllSubordinatesDownline(userId);
 
-                // Populate the in-memory read and write access lists
-                for (UserHierarchyRepository.HierarchyProjection sub : subordinates) {
-                    if (sub.getCanReadTasks()) {
-                        readableSubordinates.add(sub.getSubordinateId());
+                    // Populate the in-memory read and write access lists
+                    if (subordinates != null) {
+                        for (UserHierarchyRepository.HierarchyProjection sub : subordinates) {
+                            if (Boolean.TRUE.equals(sub.getCanReadTasks())) {
+                                readableSubordinates.add(sub.getSubordinateId());
+                            }
+                            if (Boolean.TRUE.equals(sub.getCanWriteTasks())) {
+                                writableSubordinates.add(sub.getSubordinateId());
+                            }
+                        }
                     }
-                    if (sub.getCanWriteTasks()) {
-                        writableSubordinates.add(sub.getSubordinateId());
-                    }
+                } catch (Exception e) {
+                    log.error("Failed to load hierarchy downline for user [{}]: {}", userId, e.getMessage());
                 }
             }
 

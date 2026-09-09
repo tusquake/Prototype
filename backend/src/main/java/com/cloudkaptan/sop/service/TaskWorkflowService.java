@@ -92,7 +92,20 @@ public class TaskWorkflowService {
         // If the actor is NOT the officially assigned maker, but they ARE an authorized manager,
         // we leave the task.getMaker() as the original assignee, but log the actor in the event.
         // If they are just a normal Maker, they claim the task.
-        if (!isAuthorizedManager) {
+        if (isAuthorizedManager) {
+            // If the actor is an authorized manager submitting on behalf of a subordinate,
+            // ensure task.getMaker() is set to the target subordinate (not left null).
+            if (task.getMaker() == null) {
+                List<String> assignedMakerIds = task.getAssignedMakerIds() != null ? task.getAssignedMakerIds() : Collections.emptyList();
+                String targetSubordinateId = assignedMakerIds.stream()
+                        .filter(id -> context.getWritableSubordinateIds().contains(id))
+                        .findFirst()
+                        .orElse(actorId);
+
+                User subordinateUser = userRepository.findById(targetSubordinateId).orElse(actor);
+                task.setMaker(subordinateUser);
+            }
+        } else {
             task.setMaker(actor);
         }
 
