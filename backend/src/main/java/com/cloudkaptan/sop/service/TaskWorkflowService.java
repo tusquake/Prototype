@@ -311,54 +311,6 @@ public class TaskWorkflowService {
                 : Collections.emptyList();
 
         return tasks.stream()
-            .filter(task -> {
-                String cat = task.getSop() != null ? task.getSop().getProcessCategory() : null;
-                boolean categoryAllowed = cat != null && accessibleCategories.contains(cat);
-
-                Sop sop = task.getSop();
-                boolean isSopCreator = false;
-                if (sop != null) {
-                    if (sop.getCreatedBy() != null) {
-                        String cbId = sop.getCreatedBy().getUserId();
-                        String cbEmail = sop.getCreatedBy().getEmail();
-                        if (uid.equalsIgnoreCase(cbId) || (userEmail != null && userEmail.equalsIgnoreCase(cbEmail)) || (cbId != null && cbId.equalsIgnoreCase(userEmail))) {
-                            isSopCreator = true;
-                        }
-                    }
-                    if (sop.getAssignedCreatorId() != null && (uid.equalsIgnoreCase(sop.getAssignedCreatorId()) || (userEmail != null && userEmail.equalsIgnoreCase(sop.getAssignedCreatorId())))) {
-                        isSopCreator = true;
-                    }
-                    if (sop.getAssignedCreatorIds() != null && (sop.getAssignedCreatorIds().contains(uid) || (userEmail != null && sop.getAssignedCreatorIds().contains(userEmail)))) {
-                        isSopCreator = true;
-                    }
-                }
-
-                boolean isSopApprover = false;
-                if (sop != null) {
-                    if (sop.getAssignedApproverId() != null && (uid.equalsIgnoreCase(sop.getAssignedApproverId()) || (userEmail != null && userEmail.equalsIgnoreCase(sop.getAssignedApproverId())))) {
-                        isSopApprover = true;
-                    }
-                    if (sop.getAssignedApproverIds() != null && (sop.getAssignedApproverIds().contains(uid) || (userEmail != null && sop.getAssignedApproverIds().contains(userEmail)))) {
-                        isSopApprover = true;
-                    }
-                }
-
-                boolean isDirectlyAssigned = (task.getMaker() != null && (uid.equalsIgnoreCase(task.getMaker().getUserId()) || (userEmail != null && userEmail.equalsIgnoreCase(task.getMaker().getEmail()))))
-                        || (task.getChecker() != null && (uid.equalsIgnoreCase(task.getChecker().getUserId()) || (userEmail != null && userEmail.equalsIgnoreCase(task.getChecker().getEmail()))))
-                        || (task.getAssignedMakerIds() != null && (task.getAssignedMakerIds().contains(uid) || (userEmail != null && task.getAssignedMakerIds().contains(userEmail)) || (userFullName != null && task.getAssignedMakerIds().contains(userFullName))))
-                        || (task.getAssignedCheckerIds() != null && (task.getAssignedCheckerIds().contains(uid) || (userEmail != null && task.getAssignedCheckerIds().contains(userEmail)) || (userFullName != null && task.getAssignedCheckerIds().contains(userFullName))))
-                        || isSopCreator
-                        || isSopApprover;
-
-                boolean isSubordinateAssigned = !readableSubordinates.isEmpty() && (
-                        (task.getMaker() != null && readableSubordinates.contains(task.getMaker().getUserId()))
-                        || (task.getChecker() != null && readableSubordinates.contains(task.getChecker().getUserId()))
-                        || (task.getAssignedMakerIds() != null && !Collections.disjoint(task.getAssignedMakerIds(), readableSubordinates))
-                        || (task.getAssignedCheckerIds() != null && !Collections.disjoint(task.getAssignedCheckerIds(), readableSubordinates))
-                );
-
-                return categoryAllowed || isDirectlyAssigned || isSubordinateAssigned;
-            })
             .map(this::mapToDto)
             .toList();
     }
