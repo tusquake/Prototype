@@ -98,12 +98,14 @@ export default function Inbox() {
   const checkerTasks = taskList.filter(t => {
     if (t.status !== 'PENDING_REVIEW') return false;
     if (isAdmin) return true;
+    if (t.canUserApprove) return true;
     return isUserMatch(t.checker) || isUserMatch(t.assignedCheckers?.join(', ')) || isUserMatch(t.checkerName);
   });
 
   const makerTasks = taskList.filter(t => {
     if (t.status !== 'OPEN' && t.status !== 'REJECTED') return false;
     if (isAdmin) return true;
+    if (t.canUserSubmit) return true;
     return isUserMatch(t.maker) || isUserMatch(t.assignedMakers?.join(', ')) || isUserMatch(t.makerName);
   });
 

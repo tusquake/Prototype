@@ -28,6 +28,9 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.Collections;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TaskWorkflowService {
@@ -290,29 +293,139 @@ public class TaskWorkflowService {
 
         List<Task> tasks = taskRepository.findTasksByEntities(entities);
 
-        if ("ADMIN".equalsIgnoreCase(userRole) || userId == null || userId.isBlank()) {
+        TenantContext ctx = TenantContext.getContext();
+        String currentUserId = (userId != null && !userId.isBlank()) ? userId.trim() : (ctx != null ? ctx.getUserId() : null);
+        com.cloudkaptan.sop.domain.enums.UserRole role = ctx != null && ctx.getUserRole() != null 
+                ? ctx.getUserRole() 
+                : ("ADMIN".equalsIgnoreCase(userRole) ? com.cloudkaptan.sop.domain.enums.UserRole.ADMIN : com.cloudkaptan.sop.domain.enums.UserRole.VIEWER);
+
+        if (role == com.cloudkaptan.sop.domain.enums.UserRole.ADMIN || currentUserId == null || currentUserId.isBlank()) {
             return tasks.stream().map(this::mapToDto).toList();
         }
 
-        final String uid = userId.trim();
+        final String uid = currentUserId;
         User resolvedUser = userRepository.findById(uid)
                 .or(() -> userRepository.findByEmail(uid))
                 .orElse(null);
 
-        final String userEmail = resolvedUser != null ? resolvedUser.getEmail() : null;
-        final String userFullName = resolvedUser != null ? resolvedUser.getFullName() : null;
+        final String targetUid = resolvedUser != null ? resolvedUser.getUserId() : uid;
 
-        // NON_ADMIN user: Filter strictly by assigned process categories, direct assignments, or downline subordinate assignments
-        List<String> accessibleCategories = categoryPermissionService.getUserAccessibleCategories(uid);
+        List<String> accessibleCategories = categoryPermissionService.getUserAccessibleCategories(targetUid);
 
-        TenantContext ctx = TenantContext.getContext();
         List<String> readableSubordinates = (ctx != null && ctx.getReadableSubordinateIds() != null)
                 ? ctx.getReadableSubordinateIds()
                 : Collections.emptyList();
+        List<String> writableSubordinates = (ctx != null && ctx.getWritableSubordinateIds() != null)
+                ? ctx.getWritableSubordinateIds()
+                : Collections.emptyList();
 
         return tasks.stream()
+            .filter(task -> isUserAuthorizedToViewTask(task, targetUid, accessibleCategories, readableSubordinates, writableSubordinates))
             .map(this::mapToDto)
             .toList();
+    }
+
+    private String resolveToUserId(String rawUserIdentifier) {
+        if (rawUserIdentifier == null || rawUserIdentifier.isBlank()) return null;
+        String trimmed = rawUserIdentifier.trim();
+        return userRepository.findById(trimmed)
+                .or(() -> userRepository.findByEmail(trimmed))
+                .or(() -> userRepository.findByFullName(trimmed))
+                .map(User::getUserId)
+                .orElse(trimmed);
+    }
+
+    private List<String> getTaskMakerIds(Task task) {
+        if (task == null) return List.of();
+        List<String> raw = new java.util.ArrayList<>();
+        if (task.getAssignedMakerIds() != null && !task.getAssignedMakerIds().isEmpty()) {
+            raw.addAll(task.getAssignedMakerIds());
+        }
+        if (task.getSop() != null && task.getSop().getDefaultMakerIds() != null && !task.getSop().getDefaultMakerIds().isEmpty()) {
+            raw.addAll(task.getSop().getDefaultMakerIds());
+        }
+        if (task.getMaker() != null) {
+            if (task.getMaker().getUserId() != null) raw.add(task.getMaker().getUserId());
+            if (task.getMaker().getEmail() != null) raw.add(task.getMaker().getEmail());
+            if (task.getMaker().getFullName() != null) raw.add(task.getMaker().getFullName());
+        }
+
+        List<String> resolved = new java.util.ArrayList<>();
+        for (String item : raw) {
+            if (item != null && !item.isBlank()) {
+                String t = item.trim();
+                resolved.add(t);
+                String r = resolveToUserId(t);
+                if (r != null) resolved.add(r);
+            }
+        }
+        return resolved.stream().filter(Objects::nonNull).distinct().toList();
+    }
+
+    private List<String> getTaskCheckerIds(Task task) {
+        if (task == null) return List.of();
+        List<String> raw = new java.util.ArrayList<>();
+        if (task.getAssignedCheckerIds() != null && !task.getAssignedCheckerIds().isEmpty()) {
+            raw.addAll(task.getAssignedCheckerIds());
+        }
+        if (task.getSop() != null && task.getSop().getDefaultCheckerIds() != null && !task.getSop().getDefaultCheckerIds().isEmpty()) {
+            raw.addAll(task.getSop().getDefaultCheckerIds());
+        }
+        if (task.getChecker() != null) {
+            if (task.getChecker().getUserId() != null) raw.add(task.getChecker().getUserId());
+            if (task.getChecker().getEmail() != null) raw.add(task.getChecker().getEmail());
+            if (task.getChecker().getFullName() != null) raw.add(task.getChecker().getFullName());
+        }
+
+        List<String> resolved = new java.util.ArrayList<>();
+        for (String item : raw) {
+            if (item != null && !item.isBlank()) {
+                String t = item.trim();
+                resolved.add(t);
+                String r = resolveToUserId(t);
+                if (r != null) resolved.add(r);
+            }
+        }
+        return resolved.stream().filter(Objects::nonNull).distinct().toList();
+    }
+
+    private boolean isUserAuthorizedToViewTask(Task task, String userId, List<String> accessibleCategories, List<String> readableSubordinates, List<String> writableSubordinates) {
+        if (userId == null) return false;
+
+        List<String> makers = getTaskMakerIds(task);
+        List<String> checkers = getTaskCheckerIds(task);
+
+        log.info("[isUserAuthorizedToViewTask] task={}, userId={}, makers={}, checkers={}, readableSubs={}, writableSubs={}", 
+                task != null ? task.getRecordNo() : null, userId, makers, checkers, readableSubordinates, writableSubordinates);
+
+        // 1. Assigned Maker / Actual Maker
+        if (makers.contains(userId)) return true;
+
+        // 2. Assigned Checker / Actual Checker
+        if (checkers.contains(userId)) return true;
+
+        // 3. SOP Creator / SOP Approver
+        if (task.getSop() != null) {
+            if (task.getSop().getCreatedBy() != null && userId.equals(task.getSop().getCreatedBy().getUserId())) return true;
+            if (task.getSop().getAssignedCreatorId() != null && userId.equals(task.getSop().getAssignedCreatorId())) return true;
+            if (task.getSop().getAssignedCreatorIds() != null && task.getSop().getAssignedCreatorIds().contains(userId)) return true;
+            if (task.getSop().getAssignedApproverId() != null && userId.equals(task.getSop().getAssignedApproverId())) return true;
+            if (task.getSop().getAssignedApproverIds() != null && task.getSop().getAssignedApproverIds().contains(userId)) return true;
+        }
+
+        // 4. Hierarchy Manager (read or write downline access over maker or checker)
+        if (!readableSubordinates.isEmpty() || !writableSubordinates.isEmpty()) {
+            boolean matchesMaker = makers.stream().anyMatch(m -> readableSubordinates.contains(m) || writableSubordinates.contains(m));
+            boolean matchesChecker = checkers.stream().anyMatch(c -> readableSubordinates.contains(c) || writableSubordinates.contains(c));
+            if (matchesMaker || matchesChecker) return true;
+        }
+
+        // 5. Process Category Access Permission
+        if (task.getSop() != null && task.getSop().getProcessCategory() != null) {
+            if (accessibleCategories.contains(task.getSop().getProcessCategory())) return true;
+        }
+
+        return false;
     }
 
     private Task getTaskOrThrow(UUID taskId) {
@@ -589,6 +702,47 @@ public class TaskWorkflowService {
                         .build())
                 .toList();
 
+        // Dynamic hierarchy permission calculation for the current requesting user
+        TenantContext ctx = TenantContext.getContext();
+        String currentUserId = ctx != null ? ctx.getUserId() : null;
+        com.cloudkaptan.sop.domain.enums.UserRole currentUserRole = ctx != null ? ctx.getUserRole() : null;
+        List<String> writableSubs = (ctx != null && ctx.getWritableSubordinateIds() != null) ? ctx.getWritableSubordinateIds() : List.of();
+        List<String> readableSubs = (ctx != null && ctx.getReadableSubordinateIds() != null) ? ctx.getReadableSubordinateIds() : List.of();
+
+        boolean isAdmin = currentUserRole == com.cloudkaptan.sop.domain.enums.UserRole.ADMIN;
+
+        boolean isAssignedMaker = currentUserId != null && (
+            mIds.contains(currentUserId) ||
+            (task.getMaker() != null && currentUserId.equals(task.getMaker().getUserId()))
+        );
+
+        boolean isManagerWithWriteAccess = currentUserId != null && !writableSubs.isEmpty() && (
+            mIds.stream().anyMatch(writableSubs::contains) ||
+            (task.getMaker() != null && writableSubs.contains(task.getMaker().getUserId()))
+        );
+
+        boolean isSubmittableStatus = task.getStatus() == TaskStatus.OPEN || task.getStatus() == TaskStatus.REJECTED;
+        Boolean canUserSubmit = isSubmittableStatus && (isAssignedMaker || isManagerWithWriteAccess || isAdmin);
+
+        boolean isAssignedChecker = currentUserId != null && (
+            cIds.contains(currentUserId) ||
+            (task.getChecker() != null && currentUserId.equals(task.getChecker().getUserId()))
+        );
+
+        boolean isManagerWithReadOrWriteAccess = currentUserId != null && (
+            mIds.stream().anyMatch(id -> readableSubs.contains(id) || writableSubs.contains(id)) ||
+            cIds.stream().anyMatch(id -> readableSubs.contains(id) || writableSubs.contains(id)) ||
+            (task.getMaker() != null && (readableSubs.contains(task.getMaker().getUserId()) || writableSubs.contains(task.getMaker().getUserId())))
+        );
+
+        boolean isSelfMaker = currentUserId != null && (
+            (task.getMaker() != null && currentUserId.equals(task.getMaker().getUserId())) ||
+            mIds.contains(currentUserId)
+        );
+
+        boolean isApprovableStatus = task.getStatus() == TaskStatus.PENDING_REVIEW;
+        Boolean canUserApprove = isApprovableStatus && (isAssignedChecker || isManagerWithReadOrWriteAccess || isAdmin) && (!isSelfMaker || isAdmin);
+
         return TaskDto.builder()
             .taskId(task.getTaskId())
             .version(task.getVersion())
@@ -625,6 +779,8 @@ public class TaskWorkflowService {
             .sopCreatedBy(task.getSop() != null && task.getSop().getCreatedBy() != null ? task.getSop().getCreatedBy().getUserId() : (task.getSop() != null ? task.getSop().getAssignedCreatorId() : null))
             .sopAssignedCreatorIds(creatorList.stream().filter(Objects::nonNull).distinct().toList())
             .sopAssignedApproverIds(approverList.stream().filter(Objects::nonNull).distinct().toList())
+            .canUserSubmit(canUserSubmit)
+            .canUserApprove(canUserApprove)
             .history(historyList)
             .reassignmentHistory(reassignList)
             .documents(documentList)

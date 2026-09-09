@@ -209,6 +209,8 @@ export function mapTask(dto) {
     dueDate: dto.dueDate || 'N/A',
     daysOverdue: dto.daysOverdue || 0,
     status: dto.status || 'OPEN',
+    canUserSubmit: dto.canUserSubmit,
+    canUserApprove: dto.canUserApprove,
     history: historyList,
   };
 }

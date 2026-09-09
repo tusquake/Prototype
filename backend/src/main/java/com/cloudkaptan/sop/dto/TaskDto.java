@@ -50,6 +50,8 @@ public class TaskDto {
     private String sopCreatedBy;
     private java.util.List<String> sopAssignedCreatorIds;
     private java.util.List<String> sopAssignedApproverIds;
+    private Boolean canUserSubmit;
+    private Boolean canUserApprove;
     private java.util.List<TaskEventDto> history;
     private java.util.List<TaskReassignmentHistoryDto> reassignmentHistory;
     private java.util.List<TaskDocumentDto> documents;

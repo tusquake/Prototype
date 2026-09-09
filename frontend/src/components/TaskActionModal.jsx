@@ -34,47 +34,17 @@ export default function TaskActionModal({
 
   if (!isOpen || !task) return null;
 
-  const currentUserId = currentUser?.id || currentUser?.userId || '';
-  const rawName = currentUser?.name || '';
-  const cleanName = rawName.split(' (')[0].trim().toLowerCase();
-  const userRole = currentUser?.role || 'ADMIN';
-  const isAdmin = userRole === 'ADMIN';
+  // Authorization permissions driven 100% dynamically from the backend API:
+  // - task.canUserSubmit: computed based on maker assignment, write-access reporting hierarchy, and status
+  // - task.canUserApprove: computed based on checker assignment, read/write reporting hierarchy, status, and segregation of duties
+  const canSubmit = task.canUserSubmit !== undefined
+    ? Boolean(task.canUserSubmit)
+    : (task.status === 'OPEN' || task.status === 'REJECTED');
 
-  function isUserMatch(personName, personIdList) {
-    if (currentUserId && Array.isArray(personIdList) && personIdList.includes(currentUserId)) return true;
-    if (!personName) return false;
-    if (!cleanName) return false;
-    const cleanPerson = personName.toLowerCase().trim();
-    return cleanPerson.includes(cleanName) || cleanName.includes(cleanPerson);
-  }
+  const canApproveOrReject = task.canUserApprove !== undefined
+    ? Boolean(task.canUserApprove)
+    : (task.status === 'PENDING_REVIEW');
 
-  const isSopCreator = (task.sopCreatedBy && (task.sopCreatedBy === currentUserId || task.sopCreatedBy === currentUser?.email)) ||
-    (Array.isArray(task.sopAssignedCreatorIds) && task.sopAssignedCreatorIds.includes(currentUserId));
-
-  const isSopApprover = (Array.isArray(task.sopAssignedApproverIds) && task.sopAssignedApproverIds.includes(currentUserId));
-
-  const isAssignedMaker = isUserMatch(task.maker, task.assignedMakerIds) ||
-    isUserMatch(task.assignedMakers?.join(', '), task.assignedMakerIds) ||
-    (Array.isArray(task.assignedMakerIds) && task.assignedMakerIds.includes(currentUserId)) ||
-    isSopCreator ||
-    isSopApprover ||
-    isAdmin;
-
-  const isAssignedChecker = isUserMatch(task.checker, task.assignedCheckerIds) ||
-    isUserMatch(task.assignedCheckers?.join(', '), task.assignedCheckerIds) ||
-    (Array.isArray(task.assignedCheckerIds) && task.assignedCheckerIds.includes(currentUserId)) ||
-    isSopApprover ||
-    isAdmin;
-
-  const isLockedByOtherMaker = task.lockedMaker && !isUserMatch(task.lockedMaker) && !isAdmin && !isSopCreator;
-  const isActionedByOtherChecker = task.lockedChecker && !isUserMatch(task.lockedChecker) && !isAdmin && !isSopApprover;
-
-  // Separation of duties rule: If current non-admin user is the Maker who submitted this task, they cannot approve/reject it.
-  const actualMaker = task.actualMakerId || task.makerId;
-  const isSelfMakerSubmission = actualMaker && currentUserId && actualMaker === currentUserId && !isAdmin;
-
-  const canSubmit = (task.status === 'OPEN' || task.status === 'REJECTED');
-  const canApproveOrReject = task.status === 'PENDING_REVIEW' && !isSelfMakerSubmission;
   const isReadOnly = !canSubmit && !canApproveOrReject;
 
   const isSubmittedOrDone = task.status === 'PENDING_REVIEW' || task.status === 'APPROVED' || task.status === 'REJECTED' || task.status === 'PERMANENTLY_REJECTED';
@@ -330,9 +300,7 @@ export default function TaskActionModal({
                 rows="3"
                 placeholder={
                   isReadOnly
-                    ? (isSelfMakerSubmission
-                      ? 'Read-only: You submitted this task as Maker (Segregation of Duties)'
-                      : 'Read-only viewer mode...')
+                    ? 'Read-only viewer mode...'
                     : canApproveOrReject
                       ? 'Enter approval notes or mandatory rejection reason...'
                       : 'Enter task execution summary, tax deposit reference, or upload comments...'

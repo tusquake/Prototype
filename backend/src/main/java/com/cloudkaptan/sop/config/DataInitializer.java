@@ -2,8 +2,13 @@ package com.cloudkaptan.sop.config;
 
 import com.cloudkaptan.sop.domain.entity.UserHierarchy;
 import com.cloudkaptan.sop.domain.enums.EntityCode;
+import com.cloudkaptan.sop.domain.enums.SopFrequency;
+import com.cloudkaptan.sop.domain.enums.SopStatus;
+import com.cloudkaptan.sop.domain.enums.TaskStatus;
 import com.cloudkaptan.sop.domain.enums.UserRole;
 import com.cloudkaptan.sop.entity.CorporateEntity;
+import com.cloudkaptan.sop.entity.Sop;
+import com.cloudkaptan.sop.entity.Task;
 import com.cloudkaptan.sop.entity.User;
 import com.cloudkaptan.sop.repository.CorporateEntityRepository;
 import com.cloudkaptan.sop.repository.UserHierarchyRepository;
@@ -14,6 +19,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Slf4j
@@ -23,7 +29,9 @@ public class DataInitializer implements CommandLineRunner {
 
     private final CorporateEntityRepository entityRepository;
     private final UserRepository userRepository;
-    private final UserHierarchyRepository userHierarchyRepository; // Injected new repository
+    private final UserHierarchyRepository userHierarchyRepository;
+    private final com.cloudkaptan.sop.repository.SopRepository sopRepository;
+    private final com.cloudkaptan.sop.repository.TaskRepository taskRepository;
 
     // 13 new non-admin VIEWER users — org-wide (entity = CK_INDIA as default)
     private static final List<String[]> NEW_VIEWER_USERS = List.of(
@@ -65,7 +73,7 @@ public class DataInitializer implements CommandLineRunner {
                     User.builder().userId("usr-mainak-215").email("mainak.gupta@cloudkaptan.com").fullName("Mainak Gupta").role(UserRole.VIEWER).entity(india).isActive(true).build(),
                     User.builder().userId("usr-tushar-304").email("tushar.seth@cloudkaptan.com").fullName("Tushar Seth").role(UserRole.VIEWER).entity(uk).isActive(true).build(),
                     User.builder().userId("usr-prayasa-410").email("prayasa.sharma@cloudkaptan.com").fullName("Prayasa Sharma").role(UserRole.VIEWER).entity(india).isActive(true).build(),
-                    User.builder().userId("usr-avisek-499").email("avisek.shaw@cloudkaptan.com").fullName("Avisek Shaw").role(UserRole.VIEWER).entity(india).isActive(true).build()
+                    User.builder().userId("usr-avisek-499").email("avisek.old@cloudkaptan.com").fullName("Avisek Old").role(UserRole.VIEWER).entity(india).isActive(true).build()
                 ));
             }
         }
@@ -118,11 +126,11 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void seedUserHierarchy() {
-    if (userHierarchyRepository.count() == 0) {
-        log.info("[DataInitializer] Seeding User Hierarchy with team members...");
+        log.info("[DataInitializer] Resetting and Seeding User Hierarchy with horizontal Level 2 manager permissions...");
+        userHierarchyRepository.deleteAll();
 
         List<UserHierarchy> hierarchy = List.of(
-            // Level 1 -> Level 2: Anirban (Lead) manages Annu and Avisek
+            // Level 1 Lead -> Level 2 Managers & Level 3 Team Members: Anirban manages everyone with Read & Write access
             UserHierarchy.builder()
                     .managerId("usr-anirban-001") // Anirban Paul
                     .subordinateId("usr-annu-002") // Annu Shaw
@@ -137,24 +145,52 @@ public class DataInitializer implements CommandLineRunner {
                     .canWriteTasks(true)
                     .build(),
 
-            // Level 2 -> Level 3: Annu manages Ayush; Avisek manages Debajyoti
             UserHierarchy.builder()
-                    .managerId("usr-annu-002") // Annu Shaw
+                    .managerId("usr-anirban-001") // Anirban Paul
                     .subordinateId("usr-ayush-004") // Ayush Pandey
                     .canReadTasks(true)
                     .canWriteTasks(true)
                     .build(),
 
             UserHierarchy.builder()
-                    .managerId("usr-avisek2-003") // Avisek Shaw
+                    .managerId("usr-anirban-001") // Anirban Paul
                     .subordinateId("usr-debajyo-005") // Debajyoti Dattagupta
                     .canReadTasks(true)
                     .canWriteTasks(true)
+                    .build(),
+
+            // Level 2 Manager (Annu Shaw) -> Level 3 Team Members (Ayush & Debajyoti) - Read-Only
+            UserHierarchy.builder()
+                    .managerId("usr-annu-002") // Annu Shaw
+                    .subordinateId("usr-ayush-004") // Ayush Pandey
+                    .canReadTasks(true)
+                    .canWriteTasks(false)
+                    .build(),
+
+            UserHierarchy.builder()
+                    .managerId("usr-annu-002") // Annu Shaw
+                    .subordinateId("usr-debajyo-005") // Debajyoti Dattagupta
+                    .canReadTasks(true)
+                    .canWriteTasks(false)
+                    .build(),
+
+            // Level 2 Manager (Avisek Shaw) -> Level 3 Team Members (Ayush & Debajyoti) - Read-Only (Horizontal Hierarchy)
+            UserHierarchy.builder()
+                    .managerId("usr-avisek2-003") // Avisek Shaw
+                    .subordinateId("usr-ayush-004") // Ayush Pandey
+                    .canReadTasks(true)
+                    .canWriteTasks(false)
+                    .build(),
+
+            UserHierarchy.builder()
+                    .managerId("usr-avisek2-003") // Avisek Shaw
+                    .subordinateId("usr-debajyo-005") // Debajyoti Dattagupta
+                    .canReadTasks(true)
+                    .canWriteTasks(false)
                     .build()
         );
 
         userHierarchyRepository.saveAll(hierarchy);
-        log.info("[DataInitializer] Seeded 4 organizational hierarchy relationships.");
+        log.info("[DataInitializer] Seeded 8 organizational hierarchy relationships with horizontal Level 2 manager permissions.");
     }
-}
 }
