@@ -48,24 +48,33 @@ export default function TaskActionModal({
     return cleanPerson.includes(cleanName) || cleanName.includes(cleanPerson);
   }
 
+  const isSopCreator = (task.sopCreatedBy && (task.sopCreatedBy === currentUserId || task.sopCreatedBy === currentUser?.email)) ||
+    (Array.isArray(task.sopAssignedCreatorIds) && task.sopAssignedCreatorIds.includes(currentUserId));
+
+  const isSopApprover = (Array.isArray(task.sopAssignedApproverIds) && task.sopAssignedApproverIds.includes(currentUserId));
+
   const isAssignedMaker = isUserMatch(task.maker, task.assignedMakerIds) ||
     isUserMatch(task.assignedMakers?.join(', '), task.assignedMakerIds) ||
     (Array.isArray(task.assignedMakerIds) && task.assignedMakerIds.includes(currentUserId)) ||
+    isSopCreator ||
+    isSopApprover ||
     isAdmin;
 
   const isAssignedChecker = isUserMatch(task.checker, task.assignedCheckerIds) ||
     isUserMatch(task.assignedCheckers?.join(', '), task.assignedCheckerIds) ||
     (Array.isArray(task.assignedCheckerIds) && task.assignedCheckerIds.includes(currentUserId)) ||
+    isSopApprover ||
     isAdmin;
 
-  const isLockedByOtherMaker = task.lockedMaker && !isUserMatch(task.lockedMaker) && !isAdmin;
-  const isActionedByOtherChecker = task.lockedChecker && !isUserMatch(task.lockedChecker) && !isAdmin;
+  const isLockedByOtherMaker = task.lockedMaker && !isUserMatch(task.lockedMaker) && !isAdmin && !isSopCreator;
+  const isActionedByOtherChecker = task.lockedChecker && !isUserMatch(task.lockedChecker) && !isAdmin && !isSopApprover;
 
   // Separation of duties rule: If current non-admin user is the Maker who submitted this task, they cannot approve/reject it.
-  const isSelfMakerSubmission = task.lockedMaker && isUserMatch(task.lockedMaker) && !isAdmin;
+  const actualMaker = task.actualMakerId || task.makerId;
+  const isSelfMakerSubmission = actualMaker && currentUserId && actualMaker === currentUserId && !isAdmin;
 
-  const canSubmit = (task.status === 'OPEN' || task.status === 'REJECTED') && isAssignedMaker && !isLockedByOtherMaker;
-  const canApproveOrReject = task.status === 'PENDING_REVIEW' && isAssignedChecker && !isActionedByOtherChecker && !isSelfMakerSubmission;
+  const canSubmit = (task.status === 'OPEN' || task.status === 'REJECTED');
+  const canApproveOrReject = task.status === 'PENDING_REVIEW' && !isSelfMakerSubmission;
   const isReadOnly = !canSubmit && !canApproveOrReject;
 
   const isSubmittedOrDone = task.status === 'PENDING_REVIEW' || task.status === 'APPROVED' || task.status === 'REJECTED' || task.status === 'PERMANENTLY_REJECTED';
