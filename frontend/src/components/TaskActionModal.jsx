@@ -3,6 +3,14 @@ import StatusBadge from './StatusBadge';
 import ConfirmationModal from './ConfirmationModal';
 import TaskActivityLogModal from './TaskActivityLogModal';
 import Toast from './Toast';
+import {
+  getTaskDocuments,
+  generateUploadUrl,
+  uploadFileToSignedUrl,
+  confirmTaskDocumentUpload,
+  generateDownloadUrl,
+  deleteTaskDocument,
+} from '../services/api';
 
 export default function TaskActionModal({
   isOpen,
@@ -15,24 +23,151 @@ export default function TaskActionModal({
 }) {
   const [comment, setComment] = useState('');
   const [toastError, setToastError] = useState('');
+  const [toastSuccess, setToastSuccess] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [pendingConfirm, setPendingConfirm] = useState(null); // 'SUBMIT' | 'APPROVE' | 'REJECT'
   const [rejectionMode, setRejectionMode] = useState('resubmit'); // 'resubmit' | 'permanent'
   const [showHistory, setShowHistory] = useState(true);
   const [showActivityLogModal, setShowActivityLogModal] = useState(false);
 
+  // Document management state
+  const [documents, setDocuments] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadProgressMsg, setUploadProgressMsg] = useState('');
+  const [downloadingDocId, setDownloadingDocId] = useState(null);
+  const [deletingDocId, setDeletingDocId] = useState(null);
+
+  async function loadDocuments(targetTaskId) {
+    const tId = targetTaskId || task?.taskId || task?.id;
+    if (!tId) return;
+    setLoadingDocs(true);
+    try {
+      const docs = await getTaskDocuments(tId);
+      setDocuments(docs || []);
+    } catch (err) {
+      console.warn('Failed to fetch task documents:', err);
+    } finally {
+      setLoadingDocs(false);
+    }
+  }
+
   useEffect(() => {
     if (isOpen && task) {
       setComment('');
       setToastError('');
+      setToastSuccess('');
       setPendingConfirm(null);
       setRejectionMode('resubmit');
       setShowHistory(true);
       setShowActivityLogModal(false);
+      setSelectedFile(null);
+      setUploadingFile(false);
+      setUploadProgressMsg('');
+      const tId = task.taskId || task.id;
+      loadDocuments(tId);
     }
   }, [isOpen, task]);
 
   if (!isOpen || !task) return null;
+
+  async function handleFileUpload() {
+    if (!selectedFile) return;
+    const tId = task.taskId || task.id;
+    const actorId = currentUser?.id || currentUser?.userId || 'usr-tushar-304';
+
+    setUploadingFile(true);
+    setToastError('');
+    setToastSuccess('');
+    setUploadProgressMsg('Generating V4 Signed URL...');
+
+    try {
+      // 1. Get 15-min PUT Signed URL from backend
+      const uploadRes = await generateUploadUrl(
+        tId,
+        selectedFile.name,
+        selectedFile.type || 'application/octet-stream',
+        selectedFile.size,
+        actorId
+      );
+
+      if (!uploadRes || !uploadRes.uploadUrl) {
+        throw new Error('Backend failed to issue Signed Upload URL');
+      }
+
+      const { uploadUrl, gcsObjectPath } = uploadRes;
+
+      // 2. Direct upload raw file bytes to GCS / MinIO S3 object storage
+      setUploadProgressMsg('Uploading file directly to Cloud Storage...');
+      await uploadFileToSignedUrl(uploadUrl, selectedFile, selectedFile.type);
+
+      // 3. Confirm upload & save DB metadata + SLA tag
+      setUploadProgressMsg('Saving document metadata & SLA timing...');
+      await confirmTaskDocumentUpload(tId, {
+        fileName: selectedFile.name,
+        gcsObjectPath,
+        fileSize: selectedFile.size,
+        contentType: selectedFile.type || 'application/octet-stream',
+        actorId,
+      });
+
+      setToastSuccess(`File "${selectedFile.name}" uploaded successfully!`);
+      setSelectedFile(null);
+      await loadDocuments(tId);
+    } catch (err) {
+      setToastError(err.message || 'Failed to upload file');
+    } finally {
+      setUploadingFile(false);
+      setUploadProgressMsg('');
+    }
+  }
+
+  async function handleDownload(doc) {
+    const tId = task.taskId || task.id;
+    const actorId = currentUser?.id || currentUser?.userId || 'usr-tushar-304';
+
+    setDownloadingDocId(doc.documentId);
+    setToastError('');
+    try {
+      const downloadRes = await generateDownloadUrl(tId, doc.documentId, actorId);
+      if (downloadRes && downloadRes.downloadUrl) {
+        window.open(downloadRes.downloadUrl, '_blank');
+      } else {
+        throw new Error('Failed to obtain download URL');
+      }
+    } catch (err) {
+      setToastError(err.message || 'Access Denied: You do not have permission to view this document');
+    } finally {
+      setDownloadingDocId(null);
+    }
+  }
+
+  async function handleDeleteDocument(doc) {
+    const tId = task.taskId || task.id;
+    const actorId = currentUser?.id || currentUser?.userId || 'usr-tushar-304';
+
+    setDeletingDocId(doc.documentId);
+    setToastError('');
+    setToastSuccess('');
+    try {
+      await deleteTaskDocument(tId, doc.documentId, actorId);
+      setToastSuccess(`Document "${doc.fileName}" deleted.`);
+      await loadDocuments(tId);
+    } catch (err) {
+      setToastError(err.message || 'Failed to delete document');
+    } finally {
+      setDeletingDocId(null);
+    }
+  }
+
+  function formatFileSize(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
 
   // Authorization permissions driven 100% dynamically from the backend API:
   // - task.canUserSubmit: computed based on maker assignment, write-access reporting hierarchy, and status
@@ -126,6 +261,7 @@ export default function TaskActionModal({
   return (
     <>
       <Toast message={toastError} type="error" duration={4500} onClose={() => setToastError('')} />
+      <Toast message={toastSuccess} type="success" duration={3500} onClose={() => setToastSuccess('')} />
 
       <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-[#091124]/65 p-6 backdrop-blur-md" onClick={onClose}>
         <div
@@ -290,11 +426,194 @@ export default function TaskActionModal({
               </div>
             </div>
 
+            {/* Attached Working Papers & Evidence Documents Section */}
+            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                  </svg>
+                  <span className="text-xs font-bold uppercase tracking-wide text-slate-800">
+                    Attached Working Papers &amp; Evidence Documents
+                  </span>
+                  <span className="rounded-full bg-blue-600 px-2 py-0.25 text-[11px] font-bold text-white">
+                    {documents.length}
+                  </span>
+                </div>
+
+                {!isReadOnly && (
+                  <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-blue-600/30 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 transition-all hover:bg-blue-100">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <span>Attach File</span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={e => {
+                        if (e.target.files && e.target.files[0]) {
+                          setSelectedFile(e.target.files[0]);
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Selected File Upload Action Card */}
+              {selectedFile && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50/70 p-3">
+                  <div className="flex items-center gap-2.5 overflow-hidden">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+                        <polyline points="13 2 13 9 20 9" />
+                      </svg>
+                    </div>
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="truncate text-xs font-bold text-slate-800">{selectedFile.name}</span>
+                      <span className="text-[11px] text-slate-500">{formatFileSize(selectedFile.size)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                      onClick={() => setSelectedFile(null)}
+                      disabled={uploadingFile}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
+                      onClick={handleFileUpload}
+                      disabled={uploadingFile}
+                    >
+                      {uploadingFile ? (
+                        <>
+                          <svg className="h-3.5 w-3.5 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                          </svg>
+                          <span>{uploadProgressMsg || 'Uploading...'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                          </svg>
+                          <span>Upload to Storage</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Document List */}
+              {loadingDocs ? (
+                <div className="py-4 text-center text-xs text-slate-500">Loading attached documents...</div>
+              ) : documents.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-xs text-slate-400">
+                  No documents attached yet. Click "Attach File" to upload working paper evidence directly to Cloud Storage.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {documents.map(doc => (
+                    <div
+                      key={doc.documentId}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-2.5 px-3 transition-all hover:border-slate-300 hover:shadow-sm"
+                    >
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-blue-600">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                          </svg>
+                        </div>
+                        <div className="flex flex-col overflow-hidden">
+                          <span className="truncate text-xs font-semibold text-slate-800" title={doc.fileName}>
+                            {doc.fileName}
+                          </span>
+                          <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                            <span>{formatFileSize(doc.fileSize)}</span>
+                            <span>•</span>
+                            <span>By {doc.uploadedByName || doc.uploadedById || 'User'}</span>
+                            {doc.uploadedAt && (
+                              <>
+                                <span>•</span>
+                                <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* View / Download button */}
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11.5px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-blue-600 transition-all"
+                          onClick={() => handleDownload(doc)}
+                          disabled={downloadingDocId === doc.documentId}
+                          title="Generate Signed URL and view/download file"
+                        >
+                          {downloadingDocId === doc.documentId ? (
+                            <svg className="h-3 w-3 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                          ) : (
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                              <polyline points="7 10 12 15 17 10" />
+                              <line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                          )}
+                          <span>Download</span>
+                        </button>
+
+                        {/* Delete button (if not read-only) */}
+                        {!isReadOnly && (
+                          <button
+                            type="button"
+                            className="flex items-center justify-center rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all"
+                            onClick={() => handleDeleteDocument(doc)}
+                            disabled={deletingDocId === doc.documentId}
+                            title="Delete document attachment"
+                          >
+                            {deletingDocId === doc.documentId ? (
+                              <svg className="h-3.5 w-3.5 animate-spin text-red-600" viewBox="0 0 24 24" fill="none">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                              </svg>
+                            ) : (
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Execution Comments Section */}
             <div className="flex flex-col gap-2">
               <label className="text-xs font-bold uppercase tracking-wide text-slate-800">
                 Execution Notes &amp; Audit Comments
               </label>
+
               <textarea
                 className="min-h-[90px] w-full resize-y rounded-xl border border-slate-300 bg-white p-3 px-3.5 text-[13.5px] text-slate-900 outline-none transition-all focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15 disabled:bg-slate-100 disabled:text-slate-400"
                 rows="3"

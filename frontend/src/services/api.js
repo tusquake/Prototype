@@ -922,3 +922,64 @@ export async function fetchEntities() {
   return ENTITIES;
 }
 
+/**
+ * Task Document Signed URL API Helpers
+ */
+export async function getTaskDocuments(taskId) {
+  if (!taskId) return [];
+  const res = await fetchJson(`/tasks/${taskId}/documents`).catch(() => []);
+  return Array.isArray(res) ? res : (res?.data || []);
+}
+
+export async function generateUploadUrl(taskId, fileName, contentType, fileSize, actorId) {
+  return await fetchJson(`/tasks/${taskId}/documents/generate-upload-url`, {
+    method: 'POST',
+    body: JSON.stringify({
+      taskId,
+      fileName,
+      contentType,
+      fileSize,
+      actorId,
+    }),
+  });
+}
+
+export async function uploadFileToSignedUrl(uploadUrl, file, contentType) {
+  const res = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': contentType || file.type || 'application/octet-stream',
+    },
+    body: file,
+  });
+  if (!res.ok) {
+    throw new Error(`Direct object storage upload failed with HTTP status ${res.status}`);
+  }
+  return true;
+}
+
+export async function confirmTaskDocumentUpload(taskId, payload) {
+  return await fetchJson(`/tasks/${taskId}/documents/confirm-upload`, {
+    method: 'POST',
+    body: JSON.stringify({
+      taskId,
+      fileName: payload.fileName,
+      gcsObjectPath: payload.gcsObjectPath,
+      fileSize: payload.fileSize,
+      contentType: payload.contentType,
+      actorId: payload.actorId,
+    }),
+  });
+}
+
+export async function generateDownloadUrl(taskId, documentId, actorId) {
+  return await fetchJson(`/tasks/${taskId}/documents/${documentId}/generate-download-url?actorId=${encodeURIComponent(actorId)}`);
+}
+
+export async function deleteTaskDocument(taskId, documentId, actorId) {
+  return await fetchJson(`/tasks/${taskId}/documents/${documentId}?actorId=${encodeURIComponent(actorId)}`, {
+    method: 'DELETE',
+  });
+}
+
+
