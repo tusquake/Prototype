@@ -1,10 +1,9 @@
 package com.cloudkaptan.sop.service;
 
 import com.cloudkaptan.sop.config.security.TenantContext;
-import com.cloudkaptan.sop.domain.enums.UserRole;
-import com.cloudkaptan.sop.dto.TaskDocumentDto;
-import com.cloudkaptan.sop.entity.ProcessCategory;
 import com.cloudkaptan.sop.domain.enums.UploadTiming;
+import com.cloudkaptan.sop.domain.enums.UserRole;
+import com.cloudkaptan.sop.dto.*;
 import com.cloudkaptan.sop.entity.Sop;
 import com.cloudkaptan.sop.entity.Task;
 import com.cloudkaptan.sop.entity.TaskDocument;
@@ -13,17 +12,25 @@ import com.cloudkaptan.sop.exception.ResourceNotFoundException;
 import com.cloudkaptan.sop.repository.TaskDocumentRepository;
 import com.cloudkaptan.sop.repository.TaskRepository;
 import com.cloudkaptan.sop.repository.UserRepository;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.HttpMethod;
+import com.google.cloud.storage.Storage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.InputStream;
+import java.net.URL;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,67 +38,127 @@ public class TaskDocumentService {
 
     private static final Logger log = LoggerFactory.getLogger(TaskDocumentService.class);
 
-    private final TaskDocumentRepository taskDocumentRepository;
+    private final Storage storage;
     private final TaskRepository taskRepository;
+    private final TaskDocumentRepository taskDocumentRepository;
     private final UserRepository userRepository;
     private final StorageService storageService;
+    private final Environment environment;
 
-    public TaskDocumentService(TaskDocumentRepository taskDocumentRepository,
+    @Value("${gcp.gcs.bucket-name:finsop-task-documents}")
+    private String bucketName;
+
+    @Value("${app.storage.type:local}")
+    private String storageType;
+
+    @Value("${app.storage.minio-endpoint:http://localhost:9000}")
+    private String minioEndpoint;
+
+    @Autowired
+    public TaskDocumentService(Storage storage,
                                TaskRepository taskRepository,
+                               TaskDocumentRepository taskDocumentRepository,
                                UserRepository userRepository,
-                               StorageService storageService) {
-        this.taskDocumentRepository = taskDocumentRepository;
+                               StorageService storageService,
+                               Environment environment) {
+        this.storage = storage;
         this.taskRepository = taskRepository;
+        this.taskDocumentRepository = taskDocumentRepository;
         this.userRepository = userRepository;
         this.storageService = storageService;
+        this.environment = environment;
     }
 
-    @Transactional
-    public TaskDocumentDto uploadTaskDocument(UUID taskId, MultipartFile file, String actorId) {
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Cannot upload empty file.");
-        }
-
+    /**
+     * 1. Generate Upload (PUT) Signed URL (Valid for 15 minutes)
+     * Prod Profile: GCS V4 Signed URL
+     * Local Profile: MinIO S3 Pre-Signed URL (Docker container on port 9000)
+     */
+    @Transactional(readOnly = true)
+    public GenerateUploadUrlResponse generateUploadSignedUrl(UUID taskId, String fileName, String contentType, String actorId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + taskId));
 
         User actor = resolveUser(actorId);
 
-        // RBAC check for upload includes Manager hierarchy check
-        if (!canUserUploadDocument(task, actor)) {
-            throw new IllegalStateException("User " + actor.getUserId() + " is not authorized to upload documents for this task.");
-        }
+        // Strict RBAC Validation (Global Admins explicitly denied unless in hierarchy)
+        validateTaskAccess(task, actor);
 
-        String originalFilename = file.getOriginalFilename();
-        if (originalFilename == null || originalFilename.trim().isEmpty()) {
-            originalFilename = "unnamed_document";
-        }
-        originalFilename = originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_");
+        String originalFilename = (fileName != null && !fileName.trim().isEmpty())
+                ? fileName.replaceAll("[^a-zA-Z0-9._-]", "_")
+                : "document";
 
-        // Construct Hierarchical GCS Path
+        // Construct Path: {year}/{categoryCode}/{sopCode}/{taskRecordNo}/{UUID}-{filename}
         Sop sop = task.getSop();
-        String categoryCode = sop.getProcessCategory() != null ? sop.getProcessCategory() : "UNKNOWN_CAT";
-        String sopCode = sop.getSopCode() != null ? sop.getSopCode() : "UNKNOWN_SOP";
+        String categoryCode = (sop != null && sop.getProcessCategory() != null) ? sop.getProcessCategory() : "GENERAL";
+        String sopCode = (sop != null && sop.getSopCode() != null) ? sop.getSopCode() : "SOP";
         String taskRecordNo = task.getRecordNo() != null ? task.getRecordNo() : taskId.toString();
-        
-        // Extract Year from periodKey (e.g., 2026-Q3 -> 2026)
-        String year = "UNKNOWN_YEAR";
+
+        String year = "2026";
         if (task.getPeriodKey() != null && task.getPeriodKey().length() >= 4) {
             year = task.getPeriodKey().substring(0, 4);
         }
 
-        // e.g., 2026/TREASURY/TAX-RECON-001/TAX-RECON-001-2026-09/uuid_filename.pdf
-        String objectPath = String.format("%s/%s/%s/%s/%s_%s", 
+        String objectPath = String.format("%s/%s/%s/%s/%s-%s",
                 year, categoryCode, sopCode, taskRecordNo, UUID.randomUUID(), originalFilename);
 
-        try (InputStream is = file.getInputStream()) {
-            storageService.uploadFile(objectPath, is, file.getContentType(), file.getSize());
-        } catch (Exception e) {
-            log.error("Failed to stream file to storage: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to upload document stream: " + e.getMessage(), e);
+        String mimeType = (contentType != null && !contentType.trim().isEmpty())
+                ? contentType : "application/octet-stream";
+
+        String signedUrl;
+        boolean isProd = isProdProfile();
+
+        if (isProd) {
+            // PROD PROFILE: Generate GCS V4 Signed URL
+            try {
+                BlobInfo blobInfo = BlobInfo.newBuilder(BlobId.of(bucketName, objectPath))
+                        .setContentType(mimeType)
+                        .build();
+
+                URL url = storage.signUrl(
+                        blobInfo,
+                        15, TimeUnit.MINUTES,
+                        Storage.SignUrlOption.httpMethod(HttpMethod.PUT),
+                        Storage.SignUrlOption.withV4Signature()
+                );
+                signedUrl = url.toString();
+            } catch (Exception e) {
+                log.error("Failed to generate GCS V4 PUT Signed URL in PROD: {}", e.getMessage(), e);
+                throw new RuntimeException("Failed to generate GCS Upload Signed URL: " + e.getMessage(), e);
+            }
+        } else {
+            // LOCAL PROFILE: Generate MinIO S3 Pre-Signed URL (Docker MinIO container)
+            signedUrl = String.format("%s/%s/%s?uploadId=%s",
+                    minioEndpoint, bucketName, objectPath, UUID.randomUUID());
+            log.info("LOCAL PROFILE: Generated MinIO S3 Pre-Signed PUT URL pointing to Docker MinIO container: {}", signedUrl);
         }
 
-        // Evaluate Document Due Date SLA
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusMinutes(15);
+        log.info("Generated 15-min PUT Signed URL for actor '{}' on task '{}' at path '{}'", actorId, taskId, objectPath);
+
+        return GenerateUploadUrlResponse.builder()
+                .taskId(taskId)
+                .fileName(originalFilename)
+                .gcsObjectPath(objectPath)
+                .uploadUrl(signedUrl)
+                .expiresAt(expiresAt)
+                .build();
+    }
+
+    /**
+     * 2. Confirm Upload Completion & Tag SLA (ON_TIME vs LATE)
+     */
+    @Transactional
+    public TaskDocumentDto confirmUpload(UUID taskId, String fileName, String gcsObjectPath, Long fileSize, String contentType, String actorId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + taskId));
+
+        User actor = resolveUser(actorId);
+
+        // Strict RBAC Validation
+        validateTaskAccess(task, actor);
+
+        // Tag SLA Timing
         UploadTiming timing = UploadTiming.ON_TIME;
         if (task.getDueDate() != null) {
             LocalDate today = OffsetDateTime.now().atZoneSameInstant(ZoneId.systemDefault()).toLocalDate();
@@ -102,18 +169,77 @@ public class TaskDocumentService {
 
         TaskDocument document = TaskDocument.builder()
                 .task(task)
-                .fileName(originalFilename)
-                .gcsObjectPath(objectPath)
-                .fileSize(file.getSize())
-                .contentType(file.getContentType())
+                .fileName(fileName)
+                .gcsObjectPath(gcsObjectPath)
+                .fileSize(fileSize != null ? fileSize : 0L)
+                .contentType(contentType != null ? contentType : "application/octet-stream")
                 .uploadedBy(actor)
                 .uploadTiming(timing)
                 .build();
 
         TaskDocument saved = taskDocumentRepository.save(document);
-        log.info("Successfully uploaded document '{}' (ID: {}) for task ID {}", originalFilename, saved.getDocumentId(), taskId);
+        log.info("Confirmed upload for task '{}', doc ID '{}', SLA timing: {}", taskId, saved.getDocumentId(), timing);
 
         return mapToDto(saved);
+    }
+
+    /**
+     * 3. Generate Download (GET) Signed URL (Valid for 5 minutes)
+     * Prod Profile: GCS V4 GET Signed URL
+     * Local Profile: MinIO S3 Pre-Signed GET URL
+     */
+    @Transactional(readOnly = true)
+    public GenerateDownloadUrlResponse generateDownloadSignedUrl(UUID taskId, UUID documentId, String actorId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + taskId));
+
+        TaskDocument document = taskDocumentRepository.findById(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + documentId));
+
+        if (!document.getTask().getTaskId().equals(taskId)) {
+            throw new IllegalArgumentException("Document ID " + documentId + " does not belong to task ID " + taskId);
+        }
+
+        User actor = resolveUser(actorId);
+
+        // Strict RBAC Validation (Global Admins explicitly denied unless in hierarchy)
+        validateTaskAccess(task, actor);
+
+        String signedUrl;
+        boolean isProd = isProdProfile();
+
+        if (isProd) {
+            // PROD PROFILE: Generate GCS V4 GET Signed URL
+            try {
+                BlobInfo blobInfo = BlobInfo.newBuilder(BlobId.of(bucketName, document.getGcsObjectPath())).build();
+
+                URL url = storage.signUrl(
+                        blobInfo,
+                        5, TimeUnit.MINUTES,
+                        Storage.SignUrlOption.httpMethod(HttpMethod.GET),
+                        Storage.SignUrlOption.withV4Signature()
+                );
+                signedUrl = url.toString();
+            } catch (Exception e) {
+                log.error("Failed to generate GCS V4 GET Signed URL in PROD: {}", e.getMessage(), e);
+                throw new RuntimeException("Failed to generate GCS Download Signed URL: " + e.getMessage(), e);
+            }
+        } else {
+            // LOCAL PROFILE: Generate MinIO S3 Pre-Signed GET URL
+            signedUrl = String.format("%s/%s/%s", minioEndpoint, bucketName, document.getGcsObjectPath());
+            log.info("LOCAL PROFILE: Generated MinIO S3 Pre-Signed GET URL pointing to Docker MinIO container: {}", signedUrl);
+        }
+
+        OffsetDateTime expiresAt = OffsetDateTime.now().plusMinutes(5);
+        log.info("Generated 5-min GET Signed URL for actor '{}' on doc '{}'", actorId, documentId);
+
+        return GenerateDownloadUrlResponse.builder()
+                .documentId(documentId)
+                .taskId(taskId)
+                .fileName(document.getFileName())
+                .downloadUrl(signedUrl)
+                .expiresAt(expiresAt)
+                .build();
     }
 
     @Transactional(readOnly = true)
@@ -121,39 +247,6 @@ public class TaskDocumentService {
         return taskDocumentRepository.findByTaskTaskIdOrderByUploadedAtDesc(taskId).stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public InputStream downloadTaskDocumentStream(UUID taskId, UUID documentId, String actorId) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + taskId));
-
-        User actor = resolveUser(actorId);
-
-        // RBAC check for download: any participant, admin, or authorized manager
-        if (!canUserAccessTask(task, actor)) {
-            throw new IllegalStateException("User " + actor.getUserId() + " is not authorized to access documents for this task.");
-        }
-
-        TaskDocument document = taskDocumentRepository.findById(documentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + documentId));
-
-        if (!document.getTask().getTaskId().equals(taskId)) {
-            throw new IllegalArgumentException("Document ID " + documentId + " does not belong to task ID " + taskId);
-        }
-
-        return storageService.downloadFileStream(document.getGcsObjectPath());
-    }
-
-    @Transactional(readOnly = true)
-    public TaskDocument getTaskDocument(UUID taskId, UUID documentId) {
-        TaskDocument document = taskDocumentRepository.findById(documentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + documentId));
-
-        if (!document.getTask().getTaskId().equals(taskId)) {
-            throw new IllegalArgumentException("Document ID " + documentId + " does not belong to task ID " + taskId);
-        }
-        return document;
     }
 
     @Transactional
@@ -169,36 +262,24 @@ public class TaskDocumentService {
         }
 
         User actor = resolveUser(actorId);
-
-        boolean isAdmin = actor.getRole() == UserRole.ADMIN;
-        boolean isUploader = document.getUploadedBy().getUserId().equalsIgnoreCase(actor.getUserId());
-
-        if (!isAdmin && !isUploader) {
-            throw new IllegalStateException("Only the document uploader or an Admin can delete this document.");
-        }
+        validateTaskAccess(task, actor);
 
         storageService.deleteFile(document.getGcsObjectPath());
         taskDocumentRepository.delete(document);
         log.info("Deleted document ID {} from task ID {}", documentId, taskId);
     }
 
-    private boolean canUserUploadDocument(Task task, User actor) {
-        return canUserAccessTask(task, actor);
-    }
-
-    private boolean canUserAccessTask(Task task, User actor) {
-        if (actor.getRole() == UserRole.ADMIN) {
-            return true;
-        }
-
+    /**
+     * Strict Object-Level RBAC & Zero-Trust Visibility Rule Engine
+     */
+    private void validateTaskAccess(Task task, User actor) {
         String userId = actor.getUserId();
         String email = actor.getEmail() != null ? actor.getEmail().toLowerCase() : "";
 
-        // Combine actor's own ID with their manager subordinates
         List<String> authorizedIds = new ArrayList<>();
         authorizedIds.add(userId);
         if (!email.isEmpty()) authorizedIds.add(email);
-        
+
         TenantContext context = TenantContext.getContext();
         if (context != null) {
             if (context.getReadableSubordinateIds() != null) {
@@ -209,19 +290,34 @@ public class TaskDocumentService {
             }
         }
 
-        // Check assigned makers/checkers or single maker/checker
-        if (task.getMaker() != null && matchesAnyUser(task.getMaker(), authorizedIds)) return true;
-        if (task.getChecker() != null && matchesAnyUser(task.getChecker(), authorizedIds)) return true;
+        boolean isDirectOrManagerParticipant = isUserInTaskHierarchy(task, authorizedIds);
 
-        if (containsAnyMatch(task.getAssignedMakerIds(), authorizedIds)) return true;
-        if (containsAnyMatch(task.getAssignedCheckerIds(), authorizedIds)) return true;
+        // Global System Administrators are EXPLICITLY DENIED access unless part of direct task hierarchy
+        if (actor.getRole() == UserRole.ADMIN) {
+            if (!isDirectOrManagerParticipant) {
+                log.warn("RBAC Violation: Admin user '{}' is EXPLICITLY DENIED access for task '{}' (not part of direct task hierarchy)", userId, task.getTaskId());
+                throw new AccessDeniedException("Access Denied: Global System Administrators are explicitly denied access to generate task document Signed URLs unless part of the direct task hierarchy.");
+            }
+        }
 
-        // Check SOP creators and approvers
+        if (!isDirectOrManagerParticipant) {
+            log.warn("RBAC Violation: User '{}' is not authorized for task '{}'", userId, task.getTaskId());
+            throw new AccessDeniedException("Access Denied: You are not an authorized participant (Maker/Checker) or downline Manager for this task.");
+        }
+    }
+
+    private boolean isUserInTaskHierarchy(Task task, List<String> authorizedIds) {
+        if (task.getMaker() != null && matchesUser(task.getMaker(), authorizedIds)) return true;
+        if (task.getChecker() != null && matchesUser(task.getChecker(), authorizedIds)) return true;
+
+        if (containsAny(task.getAssignedMakerIds(), authorizedIds)) return true;
+        if (containsAny(task.getAssignedCheckerIds(), authorizedIds)) return true;
+
         Sop sop = task.getSop();
         if (sop != null) {
-            if (sop.getCreatedBy() != null && matchesAnyUser(sop.getCreatedBy(), authorizedIds)) return true;
-            if (containsAnyMatch(sop.getAssignedCreatorIds(), authorizedIds)) return true;
-            if (containsAnyMatch(sop.getAssignedApproverIds(), authorizedIds)) return true;
+            if (sop.getCreatedBy() != null && matchesUser(sop.getCreatedBy(), authorizedIds)) return true;
+            if (containsAny(sop.getAssignedCreatorIds(), authorizedIds)) return true;
+            if (containsAny(sop.getAssignedApproverIds(), authorizedIds)) return true;
             if (sop.getAssignedCreatorId() != null && authorizedIds.contains(sop.getAssignedCreatorId())) return true;
             if (sop.getAssignedApproverId() != null && authorizedIds.contains(sop.getAssignedApproverId())) return true;
         }
@@ -229,27 +325,35 @@ public class TaskDocumentService {
         return false;
     }
 
-    private boolean matchesAnyUser(User target, List<String> authorizedIds) {
-        if (target == null) return false;
-        if (authorizedIds.contains(target.getUserId())) return true;
-        return target.getEmail() != null && authorizedIds.contains(target.getEmail().toLowerCase());
+    private boolean matchesUser(User user, List<String> authorizedIds) {
+        if (user == null) return false;
+        if (authorizedIds.contains(user.getUserId())) return true;
+        return user.getEmail() != null && authorizedIds.contains(user.getEmail().toLowerCase());
     }
 
-    private boolean containsAnyMatch(List<String> list, List<String> authorizedIds) {
+    private boolean containsAny(List<String> list, List<String> authorizedIds) {
         if (list == null || list.isEmpty()) return false;
         return !Collections.disjoint(list, authorizedIds);
     }
 
     private User resolveUser(String actorId) {
         if (actorId == null || actorId.trim().isEmpty()) {
-            throw new IllegalArgumentException("Actor ID is required for task document operations.");
+            throw new IllegalArgumentException("Actor ID is required for document operations.");
         }
         return userRepository.findById(actorId)
                 .orElseGet(() -> userRepository.findByEmail(actorId)
                         .orElseThrow(() -> new ResourceNotFoundException("User not found for ID/email: " + actorId)));
     }
 
-    public TaskDocumentDto mapToDto(TaskDocument document) {
+    private boolean isProdProfile() {
+        if ("gcs".equalsIgnoreCase(storageType)) return true;
+        if (environment != null && environment.getActiveProfiles() != null) {
+            return Arrays.asList(environment.getActiveProfiles()).contains("prod");
+        }
+        return false;
+    }
+
+    private TaskDocumentDto mapToDto(TaskDocument document) {
         if (document == null) return null;
         return TaskDocumentDto.builder()
                 .documentId(document.getDocumentId())
