@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import UserPickerModal from './UserPickerModal';
-import { assignSop, getProcessCategories, getUsersByPermission } from '../services/api';
+import { assignSop, getProcessCategories, getUsersByPermission, fetchEntities } from '../services/api';
 
 
-const ENTITY_OPTIONS = [
+const DEFAULT_ENTITY_OPTIONS = [
   { value: 'CK_INDIA', label: 'CK India' },
   { value: 'CK_US', label: 'CK US' },
   { value: 'CK_UK', label: 'CK UK' },
@@ -12,6 +12,7 @@ const ENTITY_OPTIONS = [
 
 export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
   const [processOptions, setProcessOptions] = useState([]);
+  const [entityOptions, setEntityOptions] = useState(DEFAULT_ENTITY_OPTIONS);
   const [assignForm, setAssignForm] = useState({
     sopCode: '',
     entityCode: 'CK_INDIA',
@@ -19,6 +20,18 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
     assignedCreatorIds: [],
     assignedApproverIds: [],
   });
+
+  useEffect(() => {
+    fetchEntities().then(data => {
+      if (Array.isArray(data) && data.length > 0) {
+        setEntityOptions(data.map(e => ({
+          value: e.entityCode || e.id,
+          label: e.entityName || e.label || e.entityCode
+        })));
+      }
+    });
+  }, []);
+
   const [showCreatorPicker, setShowCreatorPicker] = useState(false);
   const [showApproverPicker, setShowApproverPicker] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -199,7 +212,8 @@ export default function AssignSOPModal({ isOpen, onClose, onSuccess }) {
                   onChange={e => setAssignForm(prev => ({ ...prev, entityCode: e.target.value }))}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[13.5px] text-slate-900 outline-none transition focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 >
-                  {ENTITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  {entityOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+
                 </select>
               </div>
 

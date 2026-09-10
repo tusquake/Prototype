@@ -56,26 +56,34 @@ public class DataInitializer implements CommandLineRunner {
     public void run(String... args) {
         log.info("Checking & Initializing master data for FinSOP...");
 
-        // 1. Seed Corporate Entities if empty
-        if (entityRepository.count() == 0) {
-            log.info("Seeding Corporate Entities...");
-            CorporateEntity india = entityRepository.save(CorporateEntity.builder().entityCode(EntityCode.CK_INDIA).entityName("CK India").build());
-            CorporateEntity us    = entityRepository.save(CorporateEntity.builder().entityCode(EntityCode.CK_US).entityName("CK US").build());
-            CorporateEntity uk    = entityRepository.save(CorporateEntity.builder().entityCode(EntityCode.CK_UK).entityName("CK UK").build());
-            CorporateEntity au    = entityRepository.save(CorporateEntity.builder().entityCode(EntityCode.CK_AUSTRALIA).entityName("CK Australia").build());
-
-            // 2. Seed core users
-            if (userRepository.count() == 0) {
-                log.info("Seeding Initial Users...");
-                userRepository.saveAll(List.of(
-                    User.builder().userId("usr-manoj-042").email("manoj.agarwal@cloudkaptan.com").fullName("Manoj Agarwal").role(UserRole.ADMIN).entity(us).isActive(true).build(),
-                    User.builder().userId("usr-vivek-108").email("vivek.raj@cloudkaptan.com").fullName("Vivek Raj").role(UserRole.VIEWER).entity(india).isActive(true).build(),
-                    User.builder().userId("usr-mainak-215").email("mainak.gupta@cloudkaptan.com").fullName("Mainak Gupta").role(UserRole.VIEWER).entity(india).isActive(true).build(),
-                    User.builder().userId("usr-tushar-304").email("tushar.seth@cloudkaptan.com").fullName("Tushar Seth").role(UserRole.VIEWER).entity(uk).isActive(true).build(),
-                    User.builder().userId("usr-prayasa-410").email("prayasa.sharma@cloudkaptan.com").fullName("Prayasa Sharma").role(UserRole.VIEWER).entity(india).isActive(true).build(),
-                    User.builder().userId("usr-avisek-499").email("avisek.old@cloudkaptan.com").fullName("Avisek Old").role(UserRole.VIEWER).entity(india).isActive(true).build()
-                ));
+        // 1. Seed Corporate Entities
+        for (EntityCode code : EntityCode.values()) {
+            if (!entityRepository.existsById(code)) {
+                String name = switch (code) {
+                    case CK_INDIA -> "CK India";
+                    case CK_US -> "CK US";
+                    case CK_UK -> "CK UK";
+                    case CK_AUSTRALIA -> "CK Australia";
+                };
+                entityRepository.save(CorporateEntity.builder().entityCode(code).entityName(name).build());
             }
+        }
+
+        CorporateEntity india = entityRepository.findById(EntityCode.CK_INDIA).orElse(null);
+        CorporateEntity us    = entityRepository.findById(EntityCode.CK_US).orElse(null);
+        CorporateEntity uk    = entityRepository.findById(EntityCode.CK_UK).orElse(null);
+
+        // 2. Seed core users
+        if (userRepository.count() == 0) {
+            log.info("Seeding Initial Users...");
+            userRepository.saveAll(List.of(
+                User.builder().userId("usr-manoj-042").email("manoj.agarwal@cloudkaptan.com").fullName("Manoj Agarwal").role(UserRole.ADMIN).entity(us).isActive(true).build(),
+                User.builder().userId("usr-vivek-108").email("vivek.raj@cloudkaptan.com").fullName("Vivek Raj").role(UserRole.VIEWER).entity(india).isActive(true).build(),
+                User.builder().userId("usr-mainak-215").email("mainak.gupta@cloudkaptan.com").fullName("Mainak Gupta").role(UserRole.VIEWER).entity(india).isActive(true).build(),
+                User.builder().userId("usr-tushar-304").email("tushar.seth@cloudkaptan.com").fullName("Tushar Seth").role(UserRole.VIEWER).entity(uk).isActive(true).build(),
+                User.builder().userId("usr-prayasa-410").email("prayasa.sharma@cloudkaptan.com").fullName("Prayasa Sharma").role(UserRole.VIEWER).entity(india).isActive(true).build(),
+                User.builder().userId("usr-avisek-499").email("avisek.old@cloudkaptan.com").fullName("Avisek Old").role(UserRole.VIEWER).entity(india).isActive(true).build()
+            ));
         }
 
         // 3. Seed the 13 new VIEWER users (safe to run every restart — idempotent)
@@ -86,6 +94,7 @@ public class DataInitializer implements CommandLineRunner {
 
         log.info("Master data initialization complete.");
     }
+
 
     private void seedNewViewerUsers() {
         CorporateEntity india = entityRepository.findById(EntityCode.CK_INDIA)

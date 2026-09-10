@@ -900,3 +900,25 @@ export async function getUsersByPermission(categoryCode, permissionType) {
     return [];
   }
 }
+
+/**
+ * Fetches corporate entities from backend GET /finsop/v1/entities API.
+ * Falls back to ENTITIES constant if backend is unreachable.
+ */
+export async function fetchEntities() {
+  try {
+    const res = await fetchJson('/entities').catch(() => null);
+    if (Array.isArray(res) && res.length > 0) {
+      return res.map(e => ({
+        id: e.entityCode || e.id,
+        label: e.entityName || e.label || e.entityCode,
+        entityCode: e.entityCode || e.id,
+        entityName: e.entityName || e.label,
+      }));
+    }
+  } catch (err) {
+    console.warn('Failed to fetch entities from backend, falling back to static ENTITIES:', err);
+  }
+  return ENTITIES;
+}
+
