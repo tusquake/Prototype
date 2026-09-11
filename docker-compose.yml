@@ -59,10 +59,9 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: finsop_rabbit
       SPRING_RABBITMQ_PASSWORD: finsop_rabbit_pass
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_PUBLIC_ENDPOINT: http://localhost:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadminpassword
+      LOCAL_STORAGE_DIR: /app/storage_uploads
+    volumes:
+      - backend_uploads:/app/storage_uploads
     ports:
       - "8080:8080"
     healthcheck:
@@ -84,27 +83,9 @@ services:
     ports:
       - "3010:80"
 
-  # MinIO S3 Object Storage Container (Local Cloud Storage Alternative)
-  minio:
-    image: minio/minio:RELEASE.2024-01-18T22-51-28Z
-    container_name: finsop-minio
-    restart: always
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadminpassword
-      MINIO_SERVER_URL: "http://localhost:9000"
-      MINIO_BROWSER_REDIRECT_URL: "http://localhost:9001"
-      MINIO_API_CORS_ALLOW_ORIGIN: "*"
-    command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
-
 volumes:
   postgres_data:
     driver: local
-  minio_data:
+  backend_uploads:
     driver: local
 

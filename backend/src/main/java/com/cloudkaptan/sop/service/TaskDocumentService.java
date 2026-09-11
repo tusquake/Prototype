@@ -16,17 +16,9 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.HttpMethod;
 import com.google.cloud.storage.Storage;
-import io.minio.BucketExistsArgs;
-import io.minio.GetPresignedObjectUrlArgs;
-import io.minio.MakeBucketArgs;
-import io.minio.MinioClient;
-import io.minio.RemoveObjectArgs;
-import io.minio.SetBucketPolicyArgs;
-import io.minio.http.Method;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.security.access.AccessDeniedException;
@@ -34,6 +26,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -47,11 +41,10 @@ public class TaskDocumentService {
     private static final Logger log = LoggerFactory.getLogger(TaskDocumentService.class);
 
     private final Storage storage;
-    private final MinioClient minioClient;
-    private final MinioClient publicMinioClient;
     private final TaskRepository taskRepository;
     private final TaskDocumentRepository taskDocumentRepository;
     private final UserRepository userRepository;
+    private final StorageService storageService;
     private final Environment environment;
 
     @Value("${gcp.gcs.bucket-name:finsop-task-documents}")
@@ -60,26 +53,21 @@ public class TaskDocumentService {
     @Value("${app.storage.type:local}")
     private String storageType;
 
-    @Value("${app.storage.minio-endpoint:http://127.0.0.1:9000}")
-    private String minioEndpoint;
-
-    @Value("${app.storage.minio-public-endpoint:http://localhost:9000}")
-    private String minioPublicEndpoint;
+    @Value("${server.port:8080}")
+    private String serverPort;
 
     @Autowired
     public TaskDocumentService(Storage storage,
-                               MinioClient minioClient,
-                               @Qualifier("publicMinioClient") MinioClient publicMinioClient,
                                TaskRepository taskRepository,
                                TaskDocumentRepository taskDocumentRepository,
                                UserRepository userRepository,
+                               StorageService storageService,
                                Environment environment) {
         this.storage = storage;
-        this.minioClient = minioClient;
-        this.publicMinioClient = publicMinioClient;
         this.taskRepository = taskRepository;
         this.taskDocumentRepository = taskDocumentRepository;
         this.userRepository = userRepository;
+        this.storageService = storageService;
         this.environment = environment;
     }
 
@@ -141,26 +129,15 @@ public class TaskDocumentService {
                 throw new RuntimeException("Failed to generate GCS Upload Signed URL: " + e.getMessage(), e);
             }
         } else {
-            // LOCAL PROFILE: Generate MinIO S3 V4 Pre-Signed PUT URL (Docker MinIO container)
+            // LOCAL PROFILE: Generate Local Backend Direct Upload Endpoint
             try {
-                ensureMinioBucketExists();
-
-                Map<String, String> extraHeaders = new HashMap<>();
-                extraHeaders.put("Content-Type", mimeType);
-
-                signedUrl = publicMinioClient.getPresignedObjectUrl(
-                        GetPresignedObjectUrlArgs.builder()
-                                .method(Method.PUT)
-                                .bucket(bucketName)
-                                .object(objectPath)
-                                .extraHeaders(extraHeaders)
-                                .expiry(15, TimeUnit.MINUTES)
-                                .build()
-                );
-                log.info("LOCAL PROFILE: Generated Public MinIO S3 V4 Pre-Signed PUT URL with Content-Type '{}': {}", mimeType, signedUrl);
+                String encodedPath = URLEncoder.encode(objectPath, StandardCharsets.UTF_8);
+                signedUrl = String.format("http://localhost:%s/finsop/v1/tasks/%s/documents/local-upload?objectPath=%s",
+                        serverPort, taskId, encodedPath);
+                log.info("LOCAL PROFILE: Generated Local Backend Direct Upload Endpoint: {}", signedUrl);
             } catch (Exception e) {
-                log.error("Failed to generate MinIO S3 Pre-Signed PUT URL: {}", e.getMessage(), e);
-                throw new RuntimeException("Failed to generate MinIO Upload Pre-Signed URL: " + e.getMessage(), e);
+                log.error("Failed to generate Local Upload Endpoint: {}", e.getMessage(), e);
+                throw new RuntimeException("Failed to generate Local Upload Endpoint: " + e.getMessage(), e);
             }
         }
 
@@ -217,7 +194,7 @@ public class TaskDocumentService {
     /**
      * 3. Generate Download (GET) Signed URL (Valid for 5 minutes)
      * Prod Profile: GCS V4 GET Signed URL
-     * Local Profile: MinIO S3 Pre-Signed GET URL
+     * Local Profile: Direct Local Stream Download Endpoint
      */
     @Transactional(readOnly = true)
     public GenerateDownloadUrlResponse generateDownloadSignedUrl(UUID taskId, UUID documentId, String actorId) {
@@ -256,20 +233,15 @@ public class TaskDocumentService {
                 throw new RuntimeException("Failed to generate GCS Download Signed URL: " + e.getMessage(), e);
             }
         } else {
-            // LOCAL PROFILE: Generate MinIO S3 V4 Pre-Signed GET URL (Docker MinIO container)
+            // LOCAL PROFILE: Generate Local Backend Direct Download Endpoint
             try {
-                signedUrl = publicMinioClient.getPresignedObjectUrl(
-                        GetPresignedObjectUrlArgs.builder()
-                                .method(Method.GET)
-                                .bucket(bucketName)
-                                .object(document.getGcsObjectPath())
-                                .expiry(5, TimeUnit.MINUTES)
-                                .build()
-                );
-                log.info("LOCAL PROFILE: Generated Public MinIO S3 V4 Pre-Signed GET URL: {}", signedUrl);
+                String encodedPath = URLEncoder.encode(document.getGcsObjectPath(), StandardCharsets.UTF_8);
+                signedUrl = String.format("http://localhost:%s/finsop/v1/tasks/%s/documents/local-download?objectPath=%s",
+                        serverPort, taskId, encodedPath);
+                log.info("LOCAL PROFILE: Generated Local Backend Direct Download Endpoint: {}", signedUrl);
             } catch (Exception e) {
-                log.error("Failed to generate MinIO S3 Pre-Signed GET URL: {}", e.getMessage(), e);
-                throw new RuntimeException("Failed to generate MinIO Download Pre-Signed URL: " + e.getMessage(), e);
+                log.error("Failed to generate Local Download Endpoint: {}", e.getMessage(), e);
+                throw new RuntimeException("Failed to generate Local Download Endpoint: " + e.getMessage(), e);
             }
         }
 
@@ -310,16 +282,7 @@ public class TaskDocumentService {
         if (isProdProfile()) {
             storage.delete(BlobId.of(bucketName, document.getGcsObjectPath()));
         } else {
-            try {
-                minioClient.removeObject(
-                        RemoveObjectArgs.builder()
-                                .bucket(bucketName)
-                                .object(document.getGcsObjectPath())
-                                .build()
-                );
-            } catch (Exception e) {
-                log.warn("Could not delete MinIO object '{}': {}", document.getGcsObjectPath(), e.getMessage());
-            }
+            storageService.deleteFile(document.getGcsObjectPath());
         }
 
         taskDocumentRepository.delete(document);
@@ -467,60 +430,11 @@ public class TaskDocumentService {
                 .build();
     }
 
-    private void ensureMinioBucketExists() {
-        try {
-            boolean bucketExists = minioClient.bucketExists(
-                    BucketExistsArgs.builder().bucket(bucketName).build()
-            );
-            if (!bucketExists) {
-                minioClient.makeBucket(
-                        MakeBucketArgs.builder().bucket(bucketName).build()
-                );
-                log.info("Created missing MinIO S3 bucket '{}'", bucketName);
-            }
-
-            // Set public read-write policy on MinIO bucket so local browser PUT requests are never blocked by 403
-            String policyJson = String.format("{\n" +
-                    "  \"Version\": \"2012-10-17\",\n" +
-                    "  \"Statement\": [\n" +
-                    "    {\n" +
-                    "      \"Effect\": \"Allow\",\n" +
-                    "      \"Principal\": \"*\",\n" +
-                    "      \"Action\": [\"s3:GetObject\", \"s3:PutObject\", \"s3:DeleteObject\"],\n" +
-                    "      \"Resource\": [\"arn:aws:s3:::%s/*\"]\n" +
-                    "    }\n" +
-                    "  ]\n" +
-                    "}", bucketName);
-
-            minioClient.setBucketPolicy(
-                    SetBucketPolicyArgs.builder()
-                            .bucket(bucketName)
-                            .config(policyJson)
-                            .build()
-            );
-        } catch (Exception e) {
-            log.warn("MinIO bucket policy setup warning: {}", e.getMessage());
-        }
+    public void uploadLocalFile(String objectPath, java.io.InputStream inputStream, String contentType, long contentLength) {
+        storageService.uploadFile(objectPath, inputStream, contentType, contentLength);
     }
 
-    private String toPublicSignedUrl(String rawUrl) {
-        if (rawUrl == null) return null;
-        if (minioPublicEndpoint == null || minioPublicEndpoint.trim().isEmpty()) {
-            return rawUrl;
-        }
-
-        String internalBase = cleanUrl(minioEndpoint);
-        String publicBase = cleanUrl(minioPublicEndpoint);
-
-        if (!internalBase.isEmpty() && !publicBase.isEmpty() && !internalBase.equalsIgnoreCase(publicBase)) {
-            return rawUrl.replace(internalBase, publicBase);
-        }
-        return rawUrl;
-    }
-
-    private String cleanUrl(String url) {
-        if (url == null) return "";
-        String trimmed = url.trim();
-        return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
+    public java.io.InputStream downloadLocalFileStream(String objectPath) {
+        return storageService.downloadFileStream(objectPath);
     }
 }
