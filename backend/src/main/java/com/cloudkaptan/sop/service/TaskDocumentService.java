@@ -58,7 +58,7 @@ public class TaskDocumentService {
     @Value("${app.storage.type:local}")
     private String storageType;
 
-    @Value("${app.storage.minio-endpoint:http://localhost:9000}")
+    @Value("${app.storage.minio-endpoint:http://127.0.0.1:9000}")
     private String minioEndpoint;
 
     @Autowired

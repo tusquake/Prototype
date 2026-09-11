@@ -12,7 +12,7 @@ public class MinioConfig {
 
     private static final Logger log = LoggerFactory.getLogger(MinioConfig.class);
 
-    @Value("${app.storage.minio-endpoint:http://localhost:9000}")
+    @Value("${app.storage.minio-endpoint:http://127.0.0.1:9000}")
     private String minioEndpoint;
 
     @Value("${app.storage.minio-access-key:minioadmin}")
