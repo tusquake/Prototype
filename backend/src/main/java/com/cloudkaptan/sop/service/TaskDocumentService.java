@@ -16,6 +16,12 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.HttpMethod;
 import com.google.cloud.storage.Storage;
+import io.minio.BucketExistsArgs;
+import io.minio.GetPresignedObjectUrlArgs;
+import io.minio.MakeBucketArgs;
+import io.minio.MinioClient;
+import io.minio.RemoveObjectArgs;
+import io.minio.http.Method;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,10 +45,10 @@ public class TaskDocumentService {
     private static final Logger log = LoggerFactory.getLogger(TaskDocumentService.class);
 
     private final Storage storage;
+    private final MinioClient minioClient;
     private final TaskRepository taskRepository;
     private final TaskDocumentRepository taskDocumentRepository;
     private final UserRepository userRepository;
-    private final StorageService storageService;
     private final Environment environment;
 
     @Value("${gcp.gcs.bucket-name:finsop-task-documents}")
@@ -56,16 +62,16 @@ public class TaskDocumentService {
 
     @Autowired
     public TaskDocumentService(Storage storage,
+                               MinioClient minioClient,
                                TaskRepository taskRepository,
                                TaskDocumentRepository taskDocumentRepository,
                                UserRepository userRepository,
-                               StorageService storageService,
                                Environment environment) {
         this.storage = storage;
+        this.minioClient = minioClient;
         this.taskRepository = taskRepository;
         this.taskDocumentRepository = taskDocumentRepository;
         this.userRepository = userRepository;
-        this.storageService = storageService;
         this.environment = environment;
     }
 
@@ -127,9 +133,31 @@ public class TaskDocumentService {
                 throw new RuntimeException("Failed to generate GCS Upload Signed URL: " + e.getMessage(), e);
             }
         } else {
-            // LOCAL PROFILE: Generate MinIO S3 Direct PUT URL (Docker MinIO container)
-            signedUrl = String.format("%s/%s/%s", minioEndpoint, bucketName, objectPath);
-            log.info("LOCAL PROFILE: Generated MinIO S3 PUT URL pointing to Docker MinIO container: {}", signedUrl);
+            // LOCAL PROFILE: Generate MinIO S3 V4 Pre-Signed PUT URL (Docker MinIO container)
+            try {
+                boolean bucketExists = minioClient.bucketExists(
+                        BucketExistsArgs.builder().bucket(bucketName).build()
+                );
+                if (!bucketExists) {
+                    minioClient.makeBucket(
+                            MakeBucketArgs.builder().bucket(bucketName).build()
+                    );
+                    log.info("Created missing MinIO S3 bucket '{}'", bucketName);
+                }
+
+                signedUrl = minioClient.getPresignedObjectUrl(
+                        GetPresignedObjectUrlArgs.builder()
+                                .method(Method.PUT)
+                                .bucket(bucketName)
+                                .object(objectPath)
+                                .expiry(15, TimeUnit.MINUTES)
+                                .build()
+                );
+                log.info("LOCAL PROFILE: Generated MinIO S3 V4 Pre-Signed PUT URL: {}", signedUrl);
+            } catch (Exception e) {
+                log.error("Failed to generate MinIO S3 Pre-Signed PUT URL: {}", e.getMessage(), e);
+                throw new RuntimeException("Failed to generate MinIO Upload Pre-Signed URL: " + e.getMessage(), e);
+            }
         }
 
         OffsetDateTime expiresAt = OffsetDateTime.now().plusMinutes(15);
@@ -224,9 +252,21 @@ public class TaskDocumentService {
                 throw new RuntimeException("Failed to generate GCS Download Signed URL: " + e.getMessage(), e);
             }
         } else {
-            // LOCAL PROFILE: Generate MinIO S3 Pre-Signed GET URL
-            signedUrl = String.format("%s/%s/%s", minioEndpoint, bucketName, document.getGcsObjectPath());
-            log.info("LOCAL PROFILE: Generated MinIO S3 Pre-Signed GET URL pointing to Docker MinIO container: {}", signedUrl);
+            // LOCAL PROFILE: Generate MinIO S3 V4 Pre-Signed GET URL (Docker MinIO container)
+            try {
+                signedUrl = minioClient.getPresignedObjectUrl(
+                        GetPresignedObjectUrlArgs.builder()
+                                .method(Method.GET)
+                                .bucket(bucketName)
+                                .object(document.getGcsObjectPath())
+                                .expiry(5, TimeUnit.MINUTES)
+                                .build()
+                );
+                log.info("LOCAL PROFILE: Generated MinIO S3 V4 Pre-Signed GET URL: {}", signedUrl);
+            } catch (Exception e) {
+                log.error("Failed to generate MinIO S3 Pre-Signed GET URL: {}", e.getMessage(), e);
+                throw new RuntimeException("Failed to generate MinIO Download Pre-Signed URL: " + e.getMessage(), e);
+            }
         }
 
         OffsetDateTime expiresAt = OffsetDateTime.now().plusMinutes(5);
@@ -263,7 +303,21 @@ public class TaskDocumentService {
         User actor = resolveUser(actorId);
         validateTaskAccess(task, actor);
 
-        storageService.deleteFile(document.getGcsObjectPath());
+        if (isProdProfile()) {
+            storage.delete(BlobId.of(bucketName, document.getGcsObjectPath()));
+        } else {
+            try {
+                minioClient.removeObject(
+                        RemoveObjectArgs.builder()
+                                .bucket(bucketName)
+                                .object(document.getGcsObjectPath())
+                                .build()
+                );
+            } catch (Exception e) {
+                log.warn("Could not delete MinIO object '{}': {}", document.getGcsObjectPath(), e.getMessage());
+            }
+        }
+
         taskDocumentRepository.delete(document);
         log.info("Deleted document ID {} from task ID {}", documentId, taskId);
     }
