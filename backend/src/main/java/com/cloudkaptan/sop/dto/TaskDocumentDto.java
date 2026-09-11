@@ -22,4 +22,9 @@ public class TaskDocumentDto {
     private String uploadedById;
     private String uploadedByName;
     private OffsetDateTime uploadedAt;
+    private com.cloudkaptan.sop.domain.enums.DocumentStatus status;
+    private String rejectionReason;
+    private String actionedById;
+    private String actionedByName;
+    private OffsetDateTime actionedAt;
 }

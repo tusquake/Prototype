@@ -91,5 +91,21 @@ public class TaskDocumentController {
         taskDocumentService.deleteTaskDocument(taskId, documentId, actorId);
         return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(null));
     }
+
+    @PutMapping("/{documentId}/action")
+    @Operation(summary = "Approve or reject individual task document", description = "Checker/Approver approves or rejects an attached document. Rejection requires a mandatory comment. Resubmissions reset status to PENDING_REVIEW.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Document review status updated successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid review action or missing mandatory rejection comment"),
+        @ApiResponse(responseCode = "403", description = "Access denied — User not authorized in task hierarchy")
+    })
+    public ResponseEntity<com.cloudkaptan.sop.dto.ApiResponse<TaskDocumentDto>> actionDocument(
+            @Parameter(description = "Task UUID") @PathVariable("taskId") UUID taskId,
+            @Parameter(description = "Document UUID") @PathVariable("documentId") UUID documentId,
+            @Valid @RequestBody ActionTaskDocumentRequest request) {
+        TaskDocumentDto dto = taskDocumentService.actionTaskDocument(
+                taskId, documentId, request.getAction(), request.getComment(), request.getActorId());
+        return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(dto));
+    }
 }
 

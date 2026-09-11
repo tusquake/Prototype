@@ -10,6 +10,7 @@ import {
   confirmTaskDocumentUpload,
   generateDownloadUrl,
   deleteTaskDocument,
+  actionTaskDocument,
 } from '../services/api';
 
 export default function TaskActionModal({
@@ -38,6 +39,9 @@ export default function TaskActionModal({
   const [uploadProgressMsg, setUploadProgressMsg] = useState('');
   const [downloadingDocId, setDownloadingDocId] = useState(null);
   const [deletingDocId, setDeletingDocId] = useState(null);
+  const [actioningDocId, setActioningDocId] = useState(null);
+  const [rejectingDoc, setRejectingDoc] = useState(null);
+  const [docRejectionReason, setDocRejectionReason] = useState('');
 
   async function loadDocuments(targetTaskId) {
     const tId = targetTaskId || task?.taskId || task?.id;
@@ -161,6 +165,25 @@ export default function TaskActionModal({
     }
   }
 
+  async function handleDocumentAction(doc, action, reasonComment) {
+    const tId = task.taskId || task.id;
+    const actorId = currentUser?.id || currentUser?.userId || 'usr-tushar-304';
+    setActioningDocId(doc.documentId);
+    setToastError('');
+    setToastSuccess('');
+    try {
+      await actionTaskDocument(tId, doc.documentId, action, reasonComment, actorId);
+      setToastSuccess(`Document "${doc.fileName}" ${action === 'APPROVE' ? 'approved ✓' : 'rejected ✕'}`);
+      setRejectingDoc(null);
+      setDocRejectionReason('');
+      await loadDocuments(tId);
+    } catch (err) {
+      setToastError(err.message || `Failed to ${action.toLowerCase()} document`);
+    } finally {
+      setActioningDocId(null);
+    }
+  }
+
   function formatFileSize(bytes) {
     if (!bytes || bytes === 0) return '0 B';
     const k = 1024;
@@ -181,6 +204,8 @@ export default function TaskActionModal({
     : (task.status === 'PENDING_REVIEW');
 
   const isReadOnly = !canSubmit && !canApproveOrReject;
+
+  const hasUnapprovedDocs = documents.length > 0 && documents.some(d => d.status !== 'APPROVED');
 
   const isSubmittedOrDone = task.status === 'PENDING_REVIEW' || task.status === 'APPROVED' || task.status === 'REJECTED' || task.status === 'PERMANENTLY_REJECTED';
 
@@ -204,6 +229,10 @@ export default function TaskActionModal({
 
   function triggerConfirm(actionType) {
     setToastError('');
+    if (actionType === 'APPROVE' && hasUnapprovedDocs) {
+      setToastError('Task cannot be approved until all attached evidence documents are individually approved (✓) by the Checker.');
+      return;
+    }
     if (actionType === 'REJECT' && !comment.trim()) {
       setToastError('Please provide a mandatory reason for rejection.');
       return;
@@ -516,6 +545,20 @@ export default function TaskActionModal({
                 </div>
               )}
 
+              {/* Task Approval Gating Warning Callout */}
+              {canApproveOrReject && hasUnapprovedDocs && (
+                <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-xs">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-amber-600">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  <div>
+                    <strong className="font-bold text-amber-950">Document Review Gating:</strong> All attached evidence documents must be individually reviewed and marked as Approved (<span className="font-bold text-emerald-700">✓</span>) by the Checker before this compliance task can be approved.
+                  </div>
+                </div>
+              )}
+
               {/* Document List */}
               {loadingDocs ? (
                 <div className="py-4 text-center text-xs text-slate-500">Loading attached documents...</div>
@@ -528,80 +571,143 @@ export default function TaskActionModal({
                   {documents.map(doc => (
                     <div
                       key={doc.documentId}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-2.5 px-3 transition-all hover:border-slate-300 hover:shadow-sm"
+                      className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-2.5 px-3 transition-all hover:border-slate-300 hover:shadow-sm"
                     >
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-blue-600">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                          </svg>
-                        </div>
-                        <div className="flex flex-col overflow-hidden">
-                          <span className="truncate text-xs font-semibold text-slate-800" title={doc.fileName}>
-                            {doc.fileName}
-                          </span>
-                          <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                            <span>{formatFileSize(doc.fileSize)}</span>
-                            <span>•</span>
-                            <span>By {doc.uploadedByName || doc.uploadedById || 'User'}</span>
-                            {doc.uploadedAt && (
-                              <>
-                                <span>•</span>
-                                <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
-                              </>
-                            )}
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-blue-600">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                              <polyline points="14 2 14 8 20 8" />
+                            </svg>
+                          </div>
+                          <div className="flex flex-col overflow-hidden">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-xs font-semibold text-slate-800" title={doc.fileName}>
+                                {doc.fileName}
+                              </span>
+                              {/* Document Review Status Badge */}
+                              {doc.status === 'APPROVED' ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10.5px] font-bold text-emerald-800" title={doc.actionedByName ? `Approved by ${doc.actionedByName}` : 'Approved'}>
+                                  ✓ Approved
+                                </span>
+                              ) : doc.status === 'REJECTED' ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10.5px] font-bold text-rose-800" title={doc.rejectionReason ? `Reason: ${doc.rejectionReason}` : 'Rejected'}>
+                                  ✕ Rejected
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">
+                                  Pending Review
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                              <span>{formatFileSize(doc.fileSize)}</span>
+                              <span>•</span>
+                              <span>By {doc.uploadedByName || doc.uploadedById || 'User'}</span>
+                              {doc.uploadedAt && (
+                                <>
+                                  <span>•</span>
+                                  <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {/* View / Download button */}
-                        <button
-                          type="button"
-                          className="flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11.5px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-blue-600 transition-all"
-                          onClick={() => handleDownload(doc)}
-                          disabled={downloadingDocId === doc.documentId}
-                          title="Generate Signed URL and view/download file"
-                        >
-                          {downloadingDocId === doc.documentId ? (
-                            <svg className="h-3 w-3 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                            </svg>
-                          ) : (
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                              <polyline points="7 10 12 15 17 10" />
-                              <line x1="12" y1="15" x2="12" y2="3" />
-                            </svg>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {/* Checker Approve (✓) / Reject (✕) Actions */}
+                          {canApproveOrReject && (
+                            <div className="flex items-center gap-1.5 border-r border-slate-200 pr-2 mr-1">
+                              <button
+                                type="button"
+                                className={`flex h-7 px-2 items-center justify-center gap-1 rounded-md text-xs font-bold transition-all ${
+                                  doc.status === 'APPROVED'
+                                    ? 'bg-emerald-600 text-white shadow-xs'
+                                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-300'
+                                }`}
+                                onClick={() => handleDocumentAction(doc, 'APPROVE')}
+                                disabled={actioningDocId === doc.documentId}
+                                title="Approve Document (✓)"
+                              >
+                                <span>✓</span>
+                                <span className="text-[11px]">Approve</span>
+                              </button>
+                              <button
+                                type="button"
+                                className={`flex h-7 px-2 items-center justify-center gap-1 rounded-md text-xs font-bold transition-all ${
+                                  doc.status === 'REJECTED'
+                                    ? 'bg-rose-600 text-white shadow-xs'
+                                    : 'bg-rose-50 text-rose-700 hover:bg-rose-600 hover:text-white border border-rose-300'
+                                }`}
+                                onClick={() => {
+                                  setRejectingDoc(doc);
+                                  setDocRejectionReason('');
+                                }}
+                                disabled={actioningDocId === doc.documentId}
+                                title="Reject Document (✕)"
+                              >
+                                <span>✕</span>
+                                <span className="text-[11px]">Reject</span>
+                              </button>
+                            </div>
                           )}
-                          <span>Download</span>
-                        </button>
 
-                        {/* Delete button (if not read-only) */}
-                        {!isReadOnly && (
+                          {/* View / Download button */}
                           <button
                             type="button"
-                            className="flex items-center justify-center rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all"
-                            onClick={() => handleDeleteDocument(doc)}
-                            disabled={deletingDocId === doc.documentId}
-                            title="Delete document attachment"
+                            className="flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11.5px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-blue-600 transition-all"
+                            onClick={() => handleDownload(doc)}
+                            disabled={downloadingDocId === doc.documentId}
+                            title="Generate Signed URL and view/download file"
                           >
-                            {deletingDocId === doc.documentId ? (
-                              <svg className="h-3.5 w-3.5 animate-spin text-red-600" viewBox="0 0 24 24" fill="none">
+                            {downloadingDocId === doc.documentId ? (
+                              <svg className="h-3 w-3 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                               </svg>
                             ) : (
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
                               </svg>
                             )}
+                            <span>Download</span>
                           </button>
-                        )}
+
+                          {/* Delete button (if not read-only) */}
+                          {!isReadOnly && (
+                            <button
+                              type="button"
+                              className="flex items-center justify-center rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all"
+                              onClick={() => handleDeleteDocument(doc)}
+                              disabled={deletingDocId === doc.documentId}
+                              title="Delete document attachment"
+                            >
+                              {deletingDocId === doc.documentId ? (
+                                <svg className="h-3.5 w-3.5 animate-spin text-red-600" viewBox="0 0 24 24" fill="none">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                              ) : (
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                </svg>
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Rejection Note Display */}
+                      {doc.status === 'REJECTED' && doc.rejectionReason && (
+                        <div className="flex items-start gap-1.5 rounded-md bg-rose-50 p-2 text-[11.5px] text-rose-800 border border-rose-200">
+                          <strong className="shrink-0 font-bold">Rejection Reason:</strong>
+                          <span>{doc.rejectionReason}</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -768,6 +874,42 @@ export default function TaskActionModal({
               </div>
             </div>
           )}
+        </ConfirmationModal>
+      )}
+
+      {/* Document Rejection Reason Modal */}
+      {rejectingDoc && (
+        <ConfirmationModal
+          isOpen={!!rejectingDoc}
+          title={`Reject Attachment: ${rejectingDoc.fileName}`}
+          message="Please specify the exact reason for rejecting this evidence document:"
+          confirmText="Reject Document"
+          confirmVariant="danger"
+          submitting={actioningDocId === rejectingDoc.documentId}
+          onConfirm={() => {
+            if (!docRejectionReason.trim()) {
+              setToastError('Please enter a mandatory rejection reason for the document.');
+              return;
+            }
+            handleDocumentAction(rejectingDoc, 'REJECT', docRejectionReason);
+          }}
+          onClose={() => {
+            setRejectingDoc(null);
+            setDocRejectionReason('');
+          }}
+        >
+          <div className="w-full my-3 text-left">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+              Rejection Feedback for Maker
+            </label>
+            <textarea
+              className="w-full rounded-xl border border-slate-300 bg-white p-3 text-xs outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/15"
+              rows="3"
+              placeholder="Provide specific notes (e.g., 'Bank stamp missing on page 2', 'Invalid date range')..."
+              value={docRejectionReason}
+              onChange={e => setDocRejectionReason(e.target.value)}
+            />
+          </div>
         </ConfirmationModal>
       )}
     </>

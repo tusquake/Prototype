@@ -982,4 +982,16 @@ export async function deleteTaskDocument(taskId, documentId, actorId) {
   });
 }
 
+export async function actionTaskDocument(taskId, documentId, action, comment, actorId) {
+  return await fetchJson(`/tasks/${taskId}/documents/${documentId}/action`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      action,
+      comment,
+      actorId,
+    }),
+  });
+}
+
+
 

@@ -352,6 +352,43 @@ public class TaskDocumentService {
         return false;
     }
 
+    @Transactional
+    public TaskDocumentDto actionTaskDocument(UUID taskId, UUID documentId, String action, String comment, String actorId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + taskId));
+
+        TaskDocument document = taskDocumentRepository.findById(documentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + documentId));
+
+        if (!document.getTask().getTaskId().equals(taskId)) {
+            throw new IllegalArgumentException("Document ID " + documentId + " does not belong to task ID " + taskId);
+        }
+
+        User actor = resolveUser(actorId);
+        validateTaskAccess(task, actor);
+
+        if ("APPROVE".equalsIgnoreCase(action)) {
+            document.setStatus(com.cloudkaptan.sop.domain.enums.DocumentStatus.APPROVED);
+            document.setRejectionReason(null);
+        } else if ("REJECT".equalsIgnoreCase(action)) {
+            if (comment == null || comment.trim().isEmpty()) {
+                throw new IllegalArgumentException("Mandatory rejection reason required for document rejection.");
+            }
+            document.setStatus(com.cloudkaptan.sop.domain.enums.DocumentStatus.REJECTED);
+            document.setRejectionReason(comment);
+        } else {
+            throw new IllegalArgumentException("Invalid document review action: " + action + ". Allowed values: APPROVE, REJECT.");
+        }
+
+        document.setActionedById(actor.getUserId());
+        document.setActionedByName(actor.getFullName());
+        document.setActionedAt(OffsetDateTime.now());
+
+        TaskDocument saved = taskDocumentRepository.save(document);
+        log.info("Document ID {} on task ID {} was {} by actor '{}'", documentId, taskId, action, actorId);
+        return mapToDto(saved);
+    }
+
     private TaskDocumentDto mapToDto(TaskDocument document) {
         if (document == null) return null;
         return TaskDocumentDto.builder()
@@ -364,6 +401,11 @@ public class TaskDocumentService {
                 .uploadedById(document.getUploadedBy() != null ? document.getUploadedBy().getUserId() : null)
                 .uploadedByName(document.getUploadedBy() != null ? document.getUploadedBy().getFullName() : null)
                 .uploadedAt(document.getUploadedAt())
+                .status(document.getStatus() != null ? document.getStatus() : com.cloudkaptan.sop.domain.enums.DocumentStatus.PENDING_REVIEW)
+                .rejectionReason(document.getRejectionReason())
+                .actionedById(document.getActionedById())
+                .actionedByName(document.getActionedByName())
+                .actionedAt(document.getActionedAt())
                 .build();
     }
 }

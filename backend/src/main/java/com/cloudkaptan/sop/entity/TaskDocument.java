@@ -51,4 +51,22 @@ public class TaskDocument {
     @Enumerated(EnumType.STRING)
     @Column(name = "upload_timing", length = 32)
     private UploadTiming uploadTiming;
+
+    // Per-document review fields
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 30, nullable = false)
+    private com.cloudkaptan.sop.domain.enums.DocumentStatus status = com.cloudkaptan.sop.domain.enums.DocumentStatus.PENDING_REVIEW;
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
+    @Column(name = "actioned_by_id", length = 64)
+    private String actionedById;
+
+    @Column(name = "actioned_by_name", length = 255)
+    private String actionedByName;
+
+    @Column(name = "actioned_at")
+    private OffsetDateTime actionedAt;
 }
