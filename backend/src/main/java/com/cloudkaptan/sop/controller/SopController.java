@@ -5,6 +5,10 @@ import com.cloudkaptan.sop.dto.ApiResponse;
 import com.cloudkaptan.sop.dto.CreateSopRequest;
 import com.cloudkaptan.sop.dto.SopDto;
 import com.cloudkaptan.sop.service.SopService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,9 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/finsop/v1/sops")
@@ -26,23 +28,37 @@ public class SopController {
     private final SopService sopService;
 
     @GetMapping
+    @Operation(summary = "Get SOPs for user / entity", description = "Retrieves SOPs filtered by corporate entity codes, user ID, and role context.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Successfully retrieved SOPs")
+    })
     public ResponseEntity<ApiResponse<List<SopDto>>> getSops(
-        @RequestParam(name = "entities", required = false) List<EntityCode> entities,
-        @RequestParam(name = "userId", required = false) String userId,
-        @RequestParam(name = "userRole", required = false) String userRole
+        @Parameter(description = "Corporate entity codes filter") @RequestParam(name = "entities", required = false) List<EntityCode> entities,
+        @Parameter(description = "User ID") @RequestParam(name = "userId", required = false) String userId,
+        @Parameter(description = "User role") @RequestParam(name = "userRole", required = false) String userRole
     ) {
         return ResponseEntity.ok(ApiResponse.success(sopService.getSopsForUser(entities, userId, userRole)));
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get SOP by ID", description = "Retrieves full details of an SOP including version number, history timeline, assigned creators, approvers, makers, and checkers.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Successfully retrieved SOP details"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "SOP not found")
+    })
     public ResponseEntity<ApiResponse<SopDto>> getSopById(
-        @PathVariable("id") java.util.UUID id
+        @Parameter(description = "SOP UUID") @PathVariable("id") UUID id
     ) {
         return ResponseEntity.ok(ApiResponse.success(sopService.getSopById(id)));
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
+    @Operation(summary = "Create SOP specification", description = "Creates a new SOP master record with designated creator, approver, default makers, and checkers.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "SOP created successfully"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request payload")
+    })
     public ResponseEntity<ApiResponse<SopDto>> createSop(
         @Valid @RequestBody CreateSopRequest request
     ) {
@@ -52,8 +68,12 @@ public class SopController {
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Update SOP specification", description = "Updates an existing SOP procedure and resubmits it for approval.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "SOP updated successfully")
+    })
     public ResponseEntity<ApiResponse<SopDto>> updateSop(
-        @PathVariable("id") java.util.UUID id,
+        @Parameter(description = "SOP UUID") @PathVariable("id") UUID id,
         @Valid @RequestBody CreateSopRequest request
     ) {
         SopDto updated = sopService.updateSop(id, request);
@@ -62,6 +82,10 @@ public class SopController {
 
     @PostMapping("/assign")
     @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
+    @Operation(summary = "Assign SOP to Creator & Approver", description = "Assigns an SOP code to a designated Creator and Approver to initiate governance drafting.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "SOP assigned successfully")
+    })
     public ResponseEntity<ApiResponse<SopDto>> assignSop(
         @Valid @RequestBody com.cloudkaptan.sop.dto.AssignSopRequest request
     ) {
@@ -71,8 +95,12 @@ public class SopController {
     }
 
     @PutMapping("/{id}/submit")
+    @Operation(summary = "Submit SOP draft for approval", description = "Creator submits completed SOP draft for assigned Approver review.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "SOP draft submitted for approval successfully")
+    })
     public ResponseEntity<ApiResponse<SopDto>> submitSop(
-        @PathVariable("id") java.util.UUID id,
+        @Parameter(description = "SOP UUID") @PathVariable("id") UUID id,
         @Valid @RequestBody com.cloudkaptan.sop.dto.SubmitSopRequest request
     ) {
         SopDto submitted = sopService.submitSop(id, request);
@@ -80,8 +108,12 @@ public class SopController {
     }
 
     @PutMapping("/{id}/action")
+    @Operation(summary = "Approve or reject SOP draft", description = "Approver approves SOP draft (activating it for task scheduling) or rejects it back to Creator with feedback.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "SOP action processed successfully")
+    })
     public ResponseEntity<ApiResponse<SopDto>> actionSop(
-        @PathVariable("id") java.util.UUID id,
+        @Parameter(description = "SOP UUID") @PathVariable("id") UUID id,
         @Valid @RequestBody com.cloudkaptan.sop.dto.SopActionRequest request
     ) {
         SopDto updated = sopService.actionSop(id, request);
@@ -93,10 +125,15 @@ public class SopController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
+    @Operation(summary = "Delete SOP", description = "Deletes an SOP record. Restricted to Admin users.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "SOP deleted successfully")
+    })
     public ResponseEntity<ApiResponse<Void>> deleteSop(
-        @PathVariable("id") java.util.UUID id
+        @Parameter(description = "SOP UUID") @PathVariable("id") UUID id
     ) {
         sopService.deleteSop(id);
         return ResponseEntity.ok(ApiResponse.success(null, "SOP deleted successfully"));
     }
 }
+
