@@ -39,6 +39,7 @@ app:
   storage:
     type: ${STORAGE_TYPE:local}
     local-dir: ${LOCAL_STORAGE_DIR:./storage_uploads}
+    minio-endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
   cors:
     allowed-origins: ${ALLOWED_ORIGINS:http://localhost:3010,http://localhost:5173,https://storage.googleapis.com}
   rate-limiting:

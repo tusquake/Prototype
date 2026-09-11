@@ -127,10 +127,9 @@ public class TaskDocumentService {
                 throw new RuntimeException("Failed to generate GCS Upload Signed URL: " + e.getMessage(), e);
             }
         } else {
-            // LOCAL PROFILE: Generate MinIO S3 Pre-Signed URL (Docker MinIO container)
-            signedUrl = String.format("%s/%s/%s?uploadId=%s",
-                    minioEndpoint, bucketName, objectPath, UUID.randomUUID());
-            log.info("LOCAL PROFILE: Generated MinIO S3 Pre-Signed PUT URL pointing to Docker MinIO container: {}", signedUrl);
+            // LOCAL PROFILE: Generate MinIO S3 Direct PUT URL (Docker MinIO container)
+            signedUrl = String.format("%s/%s/%s", minioEndpoint, bucketName, objectPath);
+            log.info("LOCAL PROFILE: Generated MinIO S3 PUT URL pointing to Docker MinIO container: {}", signedUrl);
         }
 
         OffsetDateTime expiresAt = OffsetDateTime.now().plusMinutes(15);
