@@ -141,16 +141,20 @@ public class TaskDocumentService {
             try {
                 ensureMinioBucketExists();
 
+                Map<String, String> extraHeaders = new HashMap<>();
+                extraHeaders.put("Content-Type", mimeType);
+
                 String rawUrl = minioClient.getPresignedObjectUrl(
                         GetPresignedObjectUrlArgs.builder()
                                 .method(Method.PUT)
                                 .bucket(bucketName)
                                 .object(objectPath)
+                                .extraHeaders(extraHeaders)
                                 .expiry(15, TimeUnit.MINUTES)
                                 .build()
                 );
                 signedUrl = toPublicSignedUrl(rawUrl);
-                log.info("LOCAL PROFILE: Generated MinIO S3 V4 Pre-Signed PUT URL: {}", signedUrl);
+                log.info("LOCAL PROFILE: Generated MinIO S3 V4 Pre-Signed PUT URL with Content-Type '{}': {}", mimeType, signedUrl);
             } catch (Exception e) {
                 log.error("Failed to generate MinIO S3 Pre-Signed PUT URL: {}", e.getMessage(), e);
                 throw new RuntimeException("Failed to generate MinIO Upload Pre-Signed URL: " + e.getMessage(), e);
