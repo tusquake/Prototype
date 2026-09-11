@@ -21,6 +21,7 @@ import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.RemoveObjectArgs;
+import io.minio.SetBucketPolicyArgs;
 import io.minio.http.Method;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -135,15 +136,7 @@ public class TaskDocumentService {
         } else {
             // LOCAL PROFILE: Generate MinIO S3 V4 Pre-Signed PUT URL (Docker MinIO container)
             try {
-                boolean bucketExists = minioClient.bucketExists(
-                        BucketExistsArgs.builder().bucket(bucketName).build()
-                );
-                if (!bucketExists) {
-                    minioClient.makeBucket(
-                            MakeBucketArgs.builder().bucket(bucketName).build()
-                    );
-                    log.info("Created missing MinIO S3 bucket '{}'", bucketName);
-                }
+                ensureMinioBucketExists();
 
                 signedUrl = minioClient.getPresignedObjectUrl(
                         GetPresignedObjectUrlArgs.builder()
@@ -461,5 +454,41 @@ public class TaskDocumentService {
                 .actionedByName(document.getActionedByName())
                 .actionedAt(document.getActionedAt())
                 .build();
+    }
+
+    private void ensureMinioBucketExists() {
+        try {
+            boolean bucketExists = minioClient.bucketExists(
+                    BucketExistsArgs.builder().bucket(bucketName).build()
+            );
+            if (!bucketExists) {
+                minioClient.makeBucket(
+                        MakeBucketArgs.builder().bucket(bucketName).build()
+                );
+                log.info("Created missing MinIO S3 bucket '{}'", bucketName);
+            }
+
+            // Set public read-write policy on MinIO bucket so local browser PUT requests are never blocked by 403
+            String policyJson = String.format("{\n" +
+                    "  \"Version\": \"2012-10-17\",\n" +
+                    "  \"Statement\": [\n" +
+                    "    {\n" +
+                    "      \"Effect\": \"Allow\",\n" +
+                    "      \"Principal\": \"*\",\n" +
+                    "      \"Action\": [\"s3:GetObject\", \"s3:PutObject\", \"s3:DeleteObject\"],\n" +
+                    "      \"Resource\": [\"arn:aws:s3:::%s/*\"]\n" +
+                    "    }\n" +
+                    "  ]\n" +
+                    "}", bucketName);
+
+            minioClient.setBucketPolicy(
+                    SetBucketPolicyArgs.builder()
+                            .bucket(bucketName)
+                            .config(policyJson)
+                            .build()
+            );
+        } catch (Exception e) {
+            log.warn("MinIO bucket policy setup warning: {}", e.getMessage());
+        }
     }
 }
