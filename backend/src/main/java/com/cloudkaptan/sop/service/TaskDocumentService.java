@@ -61,6 +61,9 @@ public class TaskDocumentService {
     @Value("${app.storage.minio-endpoint:http://127.0.0.1:9000}")
     private String minioEndpoint;
 
+    @Value("${app.storage.minio-public-endpoint:http://localhost:9000}")
+    private String minioPublicEndpoint;
+
     @Autowired
     public TaskDocumentService(Storage storage,
                                MinioClient minioClient,
@@ -138,7 +141,7 @@ public class TaskDocumentService {
             try {
                 ensureMinioBucketExists();
 
-                signedUrl = minioClient.getPresignedObjectUrl(
+                String rawUrl = minioClient.getPresignedObjectUrl(
                         GetPresignedObjectUrlArgs.builder()
                                 .method(Method.PUT)
                                 .bucket(bucketName)
@@ -146,6 +149,7 @@ public class TaskDocumentService {
                                 .expiry(15, TimeUnit.MINUTES)
                                 .build()
                 );
+                signedUrl = toPublicSignedUrl(rawUrl);
                 log.info("LOCAL PROFILE: Generated MinIO S3 V4 Pre-Signed PUT URL: {}", signedUrl);
             } catch (Exception e) {
                 log.error("Failed to generate MinIO S3 Pre-Signed PUT URL: {}", e.getMessage(), e);
@@ -247,7 +251,7 @@ public class TaskDocumentService {
         } else {
             // LOCAL PROFILE: Generate MinIO S3 V4 Pre-Signed GET URL (Docker MinIO container)
             try {
-                signedUrl = minioClient.getPresignedObjectUrl(
+                String rawUrl = minioClient.getPresignedObjectUrl(
                         GetPresignedObjectUrlArgs.builder()
                                 .method(Method.GET)
                                 .bucket(bucketName)
@@ -255,6 +259,7 @@ public class TaskDocumentService {
                                 .expiry(5, TimeUnit.MINUTES)
                                 .build()
                 );
+                signedUrl = toPublicSignedUrl(rawUrl);
                 log.info("LOCAL PROFILE: Generated MinIO S3 V4 Pre-Signed GET URL: {}", signedUrl);
             } catch (Exception e) {
                 log.error("Failed to generate MinIO S3 Pre-Signed GET URL: {}", e.getMessage(), e);
@@ -490,5 +495,26 @@ public class TaskDocumentService {
         } catch (Exception e) {
             log.warn("MinIO bucket policy setup warning: {}", e.getMessage());
         }
+    }
+
+    private String toPublicSignedUrl(String rawUrl) {
+        if (rawUrl == null) return null;
+        if (minioPublicEndpoint == null || minioPublicEndpoint.trim().isEmpty()) {
+            return rawUrl;
+        }
+
+        String internalBase = cleanUrl(minioEndpoint);
+        String publicBase = cleanUrl(minioPublicEndpoint);
+
+        if (!internalBase.isEmpty() && !publicBase.isEmpty() && !internalBase.equalsIgnoreCase(publicBase)) {
+            return rawUrl.replace(internalBase, publicBase);
+        }
+        return rawUrl;
+    }
+
+    private String cleanUrl(String url) {
+        if (url == null) return "";
+        String trimmed = url.trim();
+        return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
     }
 }
