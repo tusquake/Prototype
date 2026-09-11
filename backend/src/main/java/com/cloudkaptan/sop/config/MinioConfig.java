@@ -15,23 +15,42 @@ public class MinioConfig {
     @Value("${app.storage.minio-endpoint:http://127.0.0.1:9000}")
     private String minioEndpoint;
 
+    @Value("${app.storage.minio-public-endpoint:http://localhost:9000}")
+    private String minioPublicEndpoint;
+
     @Value("${app.storage.minio-access-key:minioadmin}")
     private String accessKey;
 
-    @Value("${app.storage.minio-secret-key:minioadmin}")
+    @Value("${app.storage.minio-secret-key:minioadminpassword}")
     private String secretKey;
 
     @Bean
     public MinioClient minioClient() {
         try {
-            log.info("Initializing MinIO S3 Client connecting to endpoint '{}'", minioEndpoint);
+            log.info("Initializing Internal MinIO S3 Client connecting to endpoint '{}'", minioEndpoint);
             return MinioClient.builder()
                     .endpoint(minioEndpoint)
                     .credentials(accessKey, secretKey)
                     .build();
         } catch (Exception e) {
-            log.error("Failed to initialize MinIO S3 client: {}", e.getMessage(), e);
+            log.error("Failed to initialize internal MinIO S3 client: {}", e.getMessage(), e);
             throw new RuntimeException("MinIO initialization failed", e);
+        }
+    }
+
+    @Bean(name = "publicMinioClient")
+    public MinioClient publicMinioClient() {
+        try {
+            String pubEndpoint = (minioPublicEndpoint != null && !minioPublicEndpoint.trim().isEmpty())
+                    ? minioPublicEndpoint.trim() : minioEndpoint;
+            log.info("Initializing Public MinIO S3 Presigning Client for browser endpoint '{}'", pubEndpoint);
+            return MinioClient.builder()
+                    .endpoint(pubEndpoint)
+                    .credentials(accessKey, secretKey)
+                    .build();
+        } catch (Exception e) {
+            log.error("Failed to initialize public MinIO S3 client: {}", e.getMessage(), e);
+            throw new RuntimeException("Public MinIO initialization failed", e);
         }
     }
 }

@@ -26,6 +26,7 @@ import io.minio.http.Method;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.security.access.AccessDeniedException;
@@ -47,6 +48,7 @@ public class TaskDocumentService {
 
     private final Storage storage;
     private final MinioClient minioClient;
+    private final MinioClient publicMinioClient;
     private final TaskRepository taskRepository;
     private final TaskDocumentRepository taskDocumentRepository;
     private final UserRepository userRepository;
@@ -67,12 +69,14 @@ public class TaskDocumentService {
     @Autowired
     public TaskDocumentService(Storage storage,
                                MinioClient minioClient,
+                               @Qualifier("publicMinioClient") MinioClient publicMinioClient,
                                TaskRepository taskRepository,
                                TaskDocumentRepository taskDocumentRepository,
                                UserRepository userRepository,
                                Environment environment) {
         this.storage = storage;
         this.minioClient = minioClient;
+        this.publicMinioClient = publicMinioClient;
         this.taskRepository = taskRepository;
         this.taskDocumentRepository = taskDocumentRepository;
         this.userRepository = userRepository;
@@ -144,7 +148,7 @@ public class TaskDocumentService {
                 Map<String, String> extraHeaders = new HashMap<>();
                 extraHeaders.put("Content-Type", mimeType);
 
-                String rawUrl = minioClient.getPresignedObjectUrl(
+                signedUrl = publicMinioClient.getPresignedObjectUrl(
                         GetPresignedObjectUrlArgs.builder()
                                 .method(Method.PUT)
                                 .bucket(bucketName)
@@ -153,8 +157,7 @@ public class TaskDocumentService {
                                 .expiry(15, TimeUnit.MINUTES)
                                 .build()
                 );
-                signedUrl = toPublicSignedUrl(rawUrl);
-                log.info("LOCAL PROFILE: Generated MinIO S3 V4 Pre-Signed PUT URL with Content-Type '{}': {}", mimeType, signedUrl);
+                log.info("LOCAL PROFILE: Generated Public MinIO S3 V4 Pre-Signed PUT URL with Content-Type '{}': {}", mimeType, signedUrl);
             } catch (Exception e) {
                 log.error("Failed to generate MinIO S3 Pre-Signed PUT URL: {}", e.getMessage(), e);
                 throw new RuntimeException("Failed to generate MinIO Upload Pre-Signed URL: " + e.getMessage(), e);
@@ -255,7 +258,7 @@ public class TaskDocumentService {
         } else {
             // LOCAL PROFILE: Generate MinIO S3 V4 Pre-Signed GET URL (Docker MinIO container)
             try {
-                String rawUrl = minioClient.getPresignedObjectUrl(
+                signedUrl = publicMinioClient.getPresignedObjectUrl(
                         GetPresignedObjectUrlArgs.builder()
                                 .method(Method.GET)
                                 .bucket(bucketName)
@@ -263,8 +266,7 @@ public class TaskDocumentService {
                                 .expiry(5, TimeUnit.MINUTES)
                                 .build()
                 );
-                signedUrl = toPublicSignedUrl(rawUrl);
-                log.info("LOCAL PROFILE: Generated MinIO S3 V4 Pre-Signed GET URL: {}", signedUrl);
+                log.info("LOCAL PROFILE: Generated Public MinIO S3 V4 Pre-Signed GET URL: {}", signedUrl);
             } catch (Exception e) {
                 log.error("Failed to generate MinIO S3 Pre-Signed GET URL: {}", e.getMessage(), e);
                 throw new RuntimeException("Failed to generate MinIO Download Pre-Signed URL: " + e.getMessage(), e);
