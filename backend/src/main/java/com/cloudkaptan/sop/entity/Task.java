@@ -14,7 +14,8 @@ import java.util.UUID;
 @Table(
     name = "tasks",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uq_sop_period", columnNames = {"sop_id", "period_key"})
+        @UniqueConstraint(name = "uq_sop_period", columnNames = {"sop_id", "period_key"}),
+        @UniqueConstraint(name = "uq_sop_version_period", columnNames = {"sop_version_id", "period_key"})
     }
 )
 @Getter
@@ -39,6 +40,10 @@ public class Task {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "sop_id", nullable = false)
     private Sop sop;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sop_version_id")
+    private SopVersion sopVersion;
 
     @Column(name = "period_key", length = 32, nullable = false)
     private String periodKey;

@@ -9,6 +9,7 @@ import com.cloudkaptan.sop.entity.Task;
 import com.cloudkaptan.sop.entity.AuditLog;
 import com.cloudkaptan.sop.repository.AuditLogRepository;
 import com.cloudkaptan.sop.repository.SopRepository;
+import com.cloudkaptan.sop.repository.SopVersionRepository;
 import com.cloudkaptan.sop.repository.TaskRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +27,7 @@ import java.util.UUID;
 public class TaskSchedulerService {
 
     private final SopRepository sopRepository;
+    private final SopVersionRepository sopVersionRepository;
     private final TaskRepository taskRepository;
     private final RecurrenceStrategyFactory recurrenceStrategyFactory;
     private final AuditLogRepository auditLogRepository;
@@ -36,26 +38,37 @@ public class TaskSchedulerService {
     public void generateScheduledTasks() {
         log.info("Executing scheduled task generation engine...");
         LocalDate today = LocalDate.now();
-        List<Sop> activeSops = sopRepository.findByStatus(SopStatus.ACTIVE);
+        List<com.cloudkaptan.sop.entity.SopVersion> activeVersions = sopVersionRepository.findActiveRunningVersions();
 
         int generatedCount = 0;
-        for (Sop sop : activeSops) {
+        for (com.cloudkaptan.sop.entity.SopVersion version : activeVersions) {
             try {
+                Sop sop = version.getSop();
+
+                // Future Start Date Guard: Do NOT create tasks before startDateTime arrives
+                if (version.getStartDateTime() != null && version.getStartDateTime().isAfter(java.time.OffsetDateTime.now())) {
+                    log.info("Skipping task generation for SOP [{}] - startDateTime [{}] is in the future.",
+                            sop.getSopCode(), version.getStartDateTime());
+                    continue;
+                }
+
                 LocalDate entityToday = (sop.getEntity() != null && sop.getEntity().getEntityCode() != null)
                     ? sop.getEntity().getEntityCode().getCurrentLocalDate()
                     : today;
 
-                RecurrenceStrategy strategy = recurrenceStrategyFactory.getStrategy(sop.getFrequency());
+                RecurrenceStrategy strategy = recurrenceStrategyFactory.getStrategy(version.getFrequency());
                 String periodKey = strategy.calculatePeriodKey(entityToday);
 
                 // Non-recurring SOP guard: generate task only once across all periods
-                if (Boolean.FALSE.equals(sop.getIsRecurring()) && taskRepository.existsBySop_SopId(sop.getSopId())) {
+                if (Boolean.FALSE.equals(version.getIsRecurring()) && taskRepository.existsBySop_SopId(sop.getSopId())) {
                     log.info("Skipping task generation for non-recurring SOP [{}] - task already generated.", sop.getSopCode());
                     continue;
                 }
 
                 if (!taskRepository.existsBySop_SopIdAndPeriodKey(sop.getSopId(), periodKey)) {
-                    LocalDate dueDate = strategy.calculateDueDate(today, sop.getDueDayOffset());
+                    LocalDate dueDate = (version.getDueDateTime() != null)
+                        ? version.getDueDateTime().toLocalDate()
+                        : strategy.calculateDueDate(today, sop.getDueDayOffset());
                     String recordNo = String.format("%s-%s", sop.getSopCode(), periodKey);
 
                     Task task = Task.builder()
@@ -98,7 +111,7 @@ public class TaskSchedulerService {
                     log.info("Generated Task [{}] for SOP [{}] and Period [{}]", recordNo, sop.getSopCode(), periodKey);
                 }
             } catch (Exception e) {
-                log.error("Failed to generate task for SOP [{}]: {}", sop.getSopCode(), e.getMessage(), e);
+                log.error("Failed to generate task for SOP Version [{}]: {}", version.getVersionId(), e.getMessage(), e);
             }
         }
         log.info("Scheduled task generation completed. Idempotently created [{}] new tasks.", generatedCount);

@@ -11,6 +11,13 @@ const FREQ_OPTIONS = [
   { value: 'DAILY', label: 'Daily' },
 ];
 
+const formatForDateTimeLocal = (dateStr) => {
+  const d = dateStr ? new Date(dateStr) : new Date();
+  if (isNaN(d.getTime())) return new Date().toISOString().slice(0, 16);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const INITIAL_FORM = {
   sopCode: '',
   title: '',
@@ -18,6 +25,8 @@ const INITIAL_FORM = {
   processCategory: 'Tax Compliance',
   entityCode: 'CK_INDIA',
   frequency: 'MONTHLY',
+  startDateTime: formatForDateTimeLocal(new Date()),
+  dueDateTime: formatForDateTimeLocal(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
   dueDayOffset: 15,
   isRecurring: false,
   defaultMakerIds: [],
@@ -350,14 +359,24 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
                 </div>
 
                 <div className="flex flex-col gap-1.5 min-w-0">
-                  <label className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">DUE DAY OFFSET *</label>
+                  <label className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">START DATE & TIME *</label>
                   <input
-                    type="number"
-                    name="dueDayOffset"
-                    value={formData.dueDayOffset}
+                    type="datetime-local"
+                    name="startDateTime"
+                    value={formData.startDateTime || ''}
                     onChange={handleInputChange}
-                    min={1}
-                    max={31}
+                    required
+                    className="w-full p-[10px_14px] rounded-[8px] border border-[#cbd5e1] bg-bg-surface text-[13.5px] text-text-primary outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5 min-w-0">
+                  <label className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">DUE DATE & TIME *</label>
+                  <input
+                    type="datetime-local"
+                    name="dueDateTime"
+                    value={formData.dueDateTime || ''}
+                    onChange={handleInputChange}
                     required
                     className="w-full p-[10px_14px] rounded-[8px] border border-[#cbd5e1] bg-bg-surface text-[13.5px] text-text-primary outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
                   />

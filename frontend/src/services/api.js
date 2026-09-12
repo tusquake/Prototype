@@ -253,6 +253,8 @@ export function mapSop(dto) {
     entity: dto.entityName || dto.entity || dto.entityCode || 'N/A',
     entityCode: dto.entityCode || dto.entityId,
     frequency: dto.frequency || 'MONTHLY',
+    startDateTime: dto.startDateTime || dto.startDate || new Date().toISOString(),
+    dueDateTime: dto.dueDateTime || dto.dueDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     dueDay: dto.dueDayOffset ?? dto.dueDay ?? 1,
     dueDayOffset: dto.dueDayOffset ?? dto.dueDay ?? 1,
     isRecurring: dto.isRecurring !== undefined ? !!dto.isRecurring : false,

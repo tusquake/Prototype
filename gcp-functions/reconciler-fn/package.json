@@ -1,0 +1,11 @@
+{
+  "name": "reconciler-fn",
+  "version": "1.0.0",
+  "description": "GCP Cloud Function 6-Hour Sparse Reconciliation Safety Net",
+  "main": "index.js",
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.3.0",
+    "pg": "^8.11.3",
+    "uuid": "^9.0.1"
+  }
+}

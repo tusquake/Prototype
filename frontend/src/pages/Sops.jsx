@@ -88,6 +88,8 @@ const INITIAL_FORM = {
   processCategory: 'Tax Compliance',
   entityCode: 'CK_INDIA',
   frequency: 'MONTHLY',
+  startDateTime: new Date().toISOString().slice(0, 16),
+  dueDateTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
   dueDayOffset: 15,
   isRecurring: false,
   defaultMakerIds: ['usr-tushar-304', 'usr-prayasa-410'],
