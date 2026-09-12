@@ -69,4 +69,11 @@ public class TaskDocument {
 
     @Column(name = "actioned_at")
     private OffsetDateTime actionedAt;
+
+    @Builder.Default
+    @Column(name = "is_resubmission", nullable = false)
+    private Boolean isResubmission = false;
+
+    @Column(name = "replaced_document_id")
+    private UUID replacedDocumentId;
 }

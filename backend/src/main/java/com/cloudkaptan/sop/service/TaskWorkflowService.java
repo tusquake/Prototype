@@ -708,6 +708,13 @@ public class TaskWorkflowService {
                         .uploadedById(doc.getUploadedBy() != null ? doc.getUploadedBy().getUserId() : null)
                         .uploadedByName(doc.getUploadedBy() != null ? doc.getUploadedBy().getFullName() : null)
                         .uploadedAt(doc.getUploadedAt())
+                        .status(doc.getStatus() != null ? doc.getStatus() : com.cloudkaptan.sop.domain.enums.DocumentStatus.PENDING_REVIEW)
+                        .rejectionReason(doc.getRejectionReason())
+                        .actionedById(doc.getActionedById())
+                        .actionedByName(doc.getActionedByName())
+                        .actionedAt(doc.getActionedAt())
+                        .isResubmission(Boolean.TRUE.equals(doc.getIsResubmission()))
+                        .replacedDocumentId(doc.getReplacedDocumentId())
                         .build())
                 .toList();
 

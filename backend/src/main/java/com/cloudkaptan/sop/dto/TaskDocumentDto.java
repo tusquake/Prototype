@@ -27,4 +27,6 @@ public class TaskDocumentDto {
     private String actionedById;
     private String actionedByName;
     private OffsetDateTime actionedAt;
+    private Boolean isResubmission;
+    private UUID replacedDocumentId;
 }

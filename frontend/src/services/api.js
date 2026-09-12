@@ -975,6 +975,8 @@ export async function confirmTaskDocumentUpload(taskId, payload) {
       fileSize: payload.fileSize,
       contentType: payload.contentType,
       actorId: payload.actorId,
+      isResubmission: payload.isResubmission,
+      replacedDocumentId: payload.replacedDocumentId,
     }),
   });
 }

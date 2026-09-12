@@ -34,7 +34,6 @@ export default function TaskActionModal({
   // Document management state
   const [documents, setDocuments] = useState([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [uploadProgressMsg, setUploadProgressMsg] = useState('');
   const [downloadingDocId, setDownloadingDocId] = useState(null);
@@ -42,6 +41,7 @@ export default function TaskActionModal({
   const [actioningDocId, setActioningDocId] = useState(null);
   const [rejectingDoc, setRejectingDoc] = useState(null);
   const [docRejectionReason, setDocRejectionReason] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
 
   async function loadDocuments(targetTaskId) {
     const tId = targetTaskId || task?.taskId || task?.id;
@@ -66,9 +66,9 @@ export default function TaskActionModal({
       setRejectionMode('resubmit');
       setShowHistory(true);
       setShowActivityLogModal(false);
-      setSelectedFile(null);
       setUploadingFile(false);
       setUploadProgressMsg('');
+      setIsDragging(false);
       const tId = task.taskId || task.id;
       loadDocuments(tId);
     }
@@ -76,54 +76,103 @@ export default function TaskActionModal({
 
   if (!isOpen || !task) return null;
 
-  async function handleFileUpload() {
-    if (!selectedFile) return;
+  async function handleAutoUploadFiles(files) {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
     const tId = task.taskId || task.id;
     const actorId = currentUser?.id || currentUser?.userId || 'usr-tushar-304';
+    const isTaskRejected = task.status === 'REJECTED';
 
     setUploadingFile(true);
     setToastError('');
     setToastSuccess('');
-    setUploadProgressMsg('Generating V4 Signed URL...');
 
-    try {
-      // 1. Get 15-min PUT Signed URL from backend
-      const uploadRes = await generateUploadUrl(
-        tId,
-        selectedFile.name,
-        selectedFile.type || 'application/octet-stream',
-        selectedFile.size,
-        actorId
-      );
+    let successCount = 0;
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i];
+      setUploadProgressMsg(`Uploading file ${i + 1} of ${fileArray.length}: "${file.name}"...`);
+      try {
+        const uploadRes = await generateUploadUrl(
+          tId,
+          file.name,
+          file.type || 'application/octet-stream',
+          file.size,
+          actorId
+        );
 
-      if (!uploadRes || !uploadRes.uploadUrl) {
-        throw new Error('Backend failed to issue Signed Upload URL');
+        if (!uploadRes || !uploadRes.uploadUrl) {
+          throw new Error(`Failed to generate upload URL for ${file.name}`);
+        }
+
+        const { uploadUrl, gcsObjectPath } = uploadRes;
+        await uploadFileToSignedUrl(uploadUrl, file, file.type);
+
+        await confirmTaskDocumentUpload(tId, {
+          fileName: file.name,
+          gcsObjectPath,
+          fileSize: file.size,
+          contentType: file.type || 'application/octet-stream',
+          actorId,
+          isResubmission: isTaskRejected,
+        });
+
+        successCount++;
+      } catch (err) {
+        console.error(`Failed to upload ${file.name}:`, err);
+        setToastError(`Failed to upload ${file.name}: ${err.message}`);
       }
+    }
 
-      const { uploadUrl, gcsObjectPath } = uploadRes;
-
-      // 2. Direct upload raw file bytes to GCS / MinIO S3 object storage
-      setUploadProgressMsg('Uploading file directly to Cloud Storage...');
-      await uploadFileToSignedUrl(uploadUrl, selectedFile, selectedFile.type);
-
-      // 3. Confirm upload & save DB metadata + SLA tag
-      setUploadProgressMsg('Saving document metadata & SLA timing...');
-      await confirmTaskDocumentUpload(tId, {
-        fileName: selectedFile.name,
-        gcsObjectPath,
-        fileSize: selectedFile.size,
-        contentType: selectedFile.type || 'application/octet-stream',
-        actorId,
-      });
-
-      setToastSuccess(`File "${selectedFile.name}" uploaded successfully!`);
-      setSelectedFile(null);
+    if (successCount > 0) {
+      setToastSuccess(`Successfully uploaded ${successCount} document${successCount > 1 ? 's' : ''}!`);
       await loadDocuments(tId);
+    }
+    setUploadingFile(false);
+    setUploadProgressMsg('');
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isReadOnly && !uploadingFile) {
+      setIsDragging(true);
+    }
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (isReadOnly || uploadingFile) return;
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleAutoUploadFiles(e.dataTransfer.files);
+    }
+  }
+
+  async function handleViewDocument(doc) {
+    const tId = task.taskId || task.id;
+    const actorId = currentUser?.id || currentUser?.userId || 'usr-tushar-304';
+
+    setDownloadingDocId(doc.documentId);
+    setToastError('');
+    try {
+      const downloadRes = await generateDownloadUrl(tId, doc.documentId, actorId);
+      if (downloadRes && downloadRes.downloadUrl) {
+        window.open(downloadRes.downloadUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        throw new Error('Failed to obtain view URL');
+      }
     } catch (err) {
-      setToastError(err.message || 'Failed to upload file');
+      setToastError(err.message || 'Access Denied: You do not have permission to view this document');
     } finally {
-      setUploadingFile(false);
-      setUploadProgressMsg('');
+      setDownloadingDocId(null);
     }
   }
 
@@ -136,12 +185,17 @@ export default function TaskActionModal({
     try {
       const downloadRes = await generateDownloadUrl(tId, doc.documentId, actorId);
       if (downloadRes && downloadRes.downloadUrl) {
-        window.open(downloadRes.downloadUrl, '_blank');
+        const link = document.createElement('a');
+        link.href = downloadRes.downloadUrl;
+        link.download = doc.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       } else {
         throw new Error('Failed to obtain download URL');
       }
     } catch (err) {
-      setToastError(err.message || 'Access Denied: You do not have permission to view this document');
+      setToastError(err.message || 'Access Denied: You do not have permission to download this document');
     } finally {
       setDownloadingDocId(null);
     }
@@ -455,8 +509,30 @@ export default function TaskActionModal({
               </div>
             </div>
 
-            {/* Attached Working Papers & Evidence Documents Section */}
-            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            {/* Attached Working Papers & Evidence Documents Section with Drag & Drop */}
+            <div
+              className={`relative flex flex-col gap-3 rounded-xl border p-4 transition-all ${
+                isDragging
+                  ? 'border-blue-500 bg-blue-50/80 ring-4 ring-blue-500/20 shadow-md'
+                  : 'border-slate-200 bg-slate-50'
+              }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              {/* Drag Overlay Notice */}
+              {isDragging && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-xl bg-blue-600/90 text-white backdrop-blur-xs animate-[fadeIn_0.15s_ease-in-out]">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span className="mt-2 text-sm font-bold">Drop files here to upload instantly to Cloud Storage</span>
+                  <span className="text-xs text-white/80">Supports multiple document attachments</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -470,20 +546,23 @@ export default function TaskActionModal({
                   </span>
                 </div>
 
-                {!isReadOnly && (
-                  <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-blue-600/30 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 transition-all hover:bg-blue-100">
+                {!isReadOnly && !canApproveOrReject && (
+                  <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-blue-600/30 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 transition-all hover:bg-blue-100 disabled:opacity-50">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                       <polyline points="17 8 12 3 7 8" />
                       <line x1="12" y1="3" x2="12" y2="15" />
                     </svg>
-                    <span>Attach File</span>
+                    <span>{uploadingFile ? 'Uploading...' : 'Attach File(s)'}</span>
                     <input
                       type="file"
+                      multiple
                       className="hidden"
+                      disabled={uploadingFile}
                       onChange={e => {
-                        if (e.target.files && e.target.files[0]) {
-                          setSelectedFile(e.target.files[0]);
+                        if (e.target.files && e.target.files.length > 0) {
+                          handleAutoUploadFiles(e.target.files);
+                          e.target.value = '';
                         }
                       }}
                     />
@@ -491,56 +570,29 @@ export default function TaskActionModal({
                 )}
               </div>
 
-              {/* Selected File Upload Action Card */}
-              {selectedFile && (
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50/70 p-3">
-                  <div className="flex items-center gap-2.5 overflow-hidden">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-blue-600 text-white">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
-                        <polyline points="13 2 13 9 20 9" />
-                      </svg>
-                    </div>
-                    <div className="flex flex-col overflow-hidden">
-                      <span className="truncate text-xs font-bold text-slate-800">{selectedFile.name}</span>
-                      <span className="text-[11px] text-slate-500">{formatFileSize(selectedFile.size)}</span>
-                    </div>
+              {/* Real-time Upload Progress Indicator */}
+              {uploadingFile && (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-300 bg-blue-50 p-3 shadow-xs">
+                  <div className="flex items-center gap-2.5">
+                    <svg className="h-4 w-4 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                    <span className="text-xs font-semibold text-blue-900">{uploadProgressMsg || 'Uploading file to storage...'}</span>
                   </div>
+                </div>
+              )}
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-100"
-                      onClick={() => setSelectedFile(null)}
-                      disabled={uploadingFile}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
-                      onClick={handleFileUpload}
-                      disabled={uploadingFile}
-                    >
-                      {uploadingFile ? (
-                        <>
-                          <svg className="h-3.5 w-3.5 animate-spin text-white" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                          </svg>
-                          <span>{uploadProgressMsg || 'Uploading...'}</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="17 8 12 3 7 8" />
-                            <line x1="12" y1="3" x2="12" y2="15" />
-                          </svg>
-                          <span>Upload to Storage</span>
-                        </>
-                      )}
-                    </button>
+              {/* Task Revision Mode Alert Callout */}
+              {task.status === 'REJECTED' && (
+                <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50/90 p-3 text-xs text-amber-900 shadow-xs">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-amber-600">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  <div>
+                    <strong className="font-bold text-amber-950">Task Re-submission Mode:</strong> This task was returned for revision by the Checker. You can drag and drop or attach new evidence documents in place of rejected attachments. Newly uploaded documents will be tagged as <span className="font-bold text-indigo-700">Re-submitted</span>.
                   </div>
                 </div>
               )}
@@ -563,8 +615,20 @@ export default function TaskActionModal({
               {loadingDocs ? (
                 <div className="py-4 text-center text-xs text-slate-500">Loading attached documents...</div>
               ) : documents.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center text-xs text-slate-400">
-                  No documents attached yet. Click "Attach File" to upload working paper evidence directly to Cloud Storage.
+                <div
+                  className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 p-6 text-center transition-all hover:border-blue-400 hover:bg-blue-50/40 cursor-pointer"
+                  onClick={() => {
+                    const el = document.querySelector('input[type="file"][multiple]');
+                    if (el) el.click();
+                  }}
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="mb-2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span className="text-xs font-semibold text-slate-700">No documents attached yet</span>
+                  <span className="text-[11px] text-slate-500 mt-0.5">Drag &amp; drop evidence files here or click to browse</span>
                 </div>
               ) : (
                 <div className="flex flex-col gap-2">
@@ -586,21 +650,42 @@ export default function TaskActionModal({
                               <span className="truncate text-xs font-semibold text-slate-800" title={doc.fileName}>
                                 {doc.fileName}
                               </span>
-                              {/* Document Review Status Badge */}
+
+                              {/* Document Review Status Badges */}
                               {doc.status === 'APPROVED' ? (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10.5px] font-bold text-emerald-800" title={doc.actionedByName ? `Approved by ${doc.actionedByName}` : 'Approved'}>
-                                  ✓ Approved
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="20 6 9 17 4 12" />
+                                  </svg>
+                                  <span>Approved</span>
                                 </span>
                               ) : doc.status === 'REJECTED' ? (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10.5px] font-bold text-rose-800" title={doc.rejectionReason ? `Reason: ${doc.rejectionReason}` : 'Rejected'}>
-                                  ✕ Rejected
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                  </svg>
+                                  <span>Rejected</span>
+                                </span>
+                              ) : doc.isResubmission ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10.5px] font-bold text-indigo-800" title="Re-submitted evidence file in place of rejected document">
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="23 4 23 10 17 10" />
+                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                                  </svg>
+                                  <span>Re-submitted</span>
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">
-                                  Pending Review
+                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <polyline points="12 6 12 12 16 14" />
+                                  </svg>
+                                  <span>Pending Review</span>
                                 </span>
                               )}
                             </div>
+
                             <div className="flex items-center gap-2 text-[11px] text-slate-500">
                               <span>{formatFileSize(doc.fileSize)}</span>
                               <span>•</span>
@@ -653,31 +738,39 @@ export default function TaskActionModal({
                             </div>
                           )}
 
-                          {/* View / Download button */}
+                          {/* View Button (Eye Icon) */}
                           <button
                             type="button"
-                            className="flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11.5px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-blue-600 transition-all"
+                            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11.5px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-all"
+                            onClick={() => handleViewDocument(doc)}
+                            disabled={downloadingDocId === doc.documentId}
+                            title="View document directly in browser tab"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                            <span>View</span>
+                          </button>
+
+                          {/* Download Button (Arrow Icon) */}
+                          <button
+                            type="button"
+                            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11.5px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-all"
                             onClick={() => handleDownload(doc)}
                             disabled={downloadingDocId === doc.documentId}
-                            title="Generate Signed URL and view/download file"
+                            title="Download document file attachment"
                           >
-                            {downloadingDocId === doc.documentId ? (
-                              <svg className="h-3 w-3 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                              </svg>
-                            ) : (
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="7 10 12 15 17 10" />
-                                <line x1="12" y1="15" x2="12" y2="3" />
-                              </svg>
-                            )}
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                              <polyline points="7 10 12 15 17 10" />
+                              <line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
                             <span>Download</span>
                           </button>
 
-                          {/* Delete button (if not read-only) */}
-                          {!isReadOnly && (
+                          {/* Delete button (Strictly denied for Approvers / Checkers) */}
+                          {!canApproveOrReject && (!isReadOnly || task.status === 'REJECTED') && doc.status !== 'APPROVED' && (
                             <button
                               type="button"
                               className="flex items-center justify-center rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all"

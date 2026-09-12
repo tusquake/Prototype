@@ -46,6 +46,9 @@ public class TaskDocumentService {
     private final UserRepository userRepository;
     private final StorageService storageService;
     private final Environment environment;
+    private final com.cloudkaptan.sop.repository.AuditLogRepository auditLogRepository;
+    private final com.cloudkaptan.sop.repository.TaskEventRepository taskEventRepository;
+    private final com.cloudkaptan.sop.repository.TaskCommentRepository taskCommentRepository;
 
     @Value("${gcp.gcs.bucket-name:finsop-task-documents}")
     private String bucketName;
@@ -62,13 +65,19 @@ public class TaskDocumentService {
                                TaskDocumentRepository taskDocumentRepository,
                                UserRepository userRepository,
                                StorageService storageService,
-                               Environment environment) {
+                               Environment environment,
+                               com.cloudkaptan.sop.repository.AuditLogRepository auditLogRepository,
+                               com.cloudkaptan.sop.repository.TaskEventRepository taskEventRepository,
+                               com.cloudkaptan.sop.repository.TaskCommentRepository taskCommentRepository) {
         this.storage = storage;
         this.taskRepository = taskRepository;
         this.taskDocumentRepository = taskDocumentRepository;
         this.userRepository = userRepository;
         this.storageService = storageService;
         this.environment = environment;
+        this.auditLogRepository = auditLogRepository;
+        this.taskEventRepository = taskEventRepository;
+        this.taskCommentRepository = taskCommentRepository;
     }
 
     /**
@@ -158,6 +167,11 @@ public class TaskDocumentService {
      */
     @Transactional
     public TaskDocumentDto confirmUpload(UUID taskId, String fileName, String gcsObjectPath, Long fileSize, String contentType, String actorId) {
+        return confirmUpload(taskId, fileName, gcsObjectPath, fileSize, contentType, actorId, false, null);
+    }
+
+    @Transactional
+    public TaskDocumentDto confirmUpload(UUID taskId, String fileName, String gcsObjectPath, Long fileSize, String contentType, String actorId, Boolean isResubmission, UUID replacedDocumentId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + taskId));
 
@@ -165,6 +179,15 @@ public class TaskDocumentService {
 
         // Strict RBAC Validation
         validateTaskAccess(task, actor);
+
+        // Submission Lock Validation: Cannot upload if task is pending review or completed/locked
+        if (task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.PENDING_REVIEW || 
+            task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.APPROVED || 
+            task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.PERMANENTLY_REJECTED) {
+            throw new AccessDeniedException("Task evidence documents cannot be uploaded while task is submitted, approved, or locked.");
+        }
+
+        boolean resubmit = Boolean.TRUE.equals(isResubmission) || task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.REJECTED;
 
         // Tag SLA Timing
         UploadTiming timing = UploadTiming.ON_TIME;
@@ -183,10 +206,39 @@ public class TaskDocumentService {
                 .contentType(contentType != null ? contentType : "application/octet-stream")
                 .uploadedBy(actor)
                 .uploadTiming(timing)
+                .isResubmission(resubmit)
+                .replacedDocumentId(replacedDocumentId)
+                .status(com.cloudkaptan.sop.domain.enums.DocumentStatus.PENDING_REVIEW)
                 .build();
 
         TaskDocument saved = taskDocumentRepository.save(document);
-        log.info("Confirmed upload for task '{}', doc ID '{}', SLA timing: {}", taskId, saved.getDocumentId(), timing);
+        log.info("Confirmed upload for task '{}', doc ID '{}', SLA timing: {}, resubmit: {}", taskId, saved.getDocumentId(), timing, resubmit);
+
+        // Save Task-Level Audit Logs & Activity History
+        String action = resubmit ? "DOCUMENT_RESUBMITTED" : "DOCUMENT_UPLOADED";
+        String taskRecordNo = task.getRecordNo() != null ? task.getRecordNo() : taskId.toString();
+
+        auditLogRepository.save(com.cloudkaptan.sop.entity.AuditLog.builder()
+                .actorId(actor.getUserId())
+                .action(action)
+                .entityType("TASK")
+                .entityId(taskRecordNo)
+                .correlationId(UUID.randomUUID().toString())
+                .build());
+
+        taskEventRepository.save(com.cloudkaptan.sop.entity.TaskEvent.builder()
+                .task(task)
+                .actor(actor)
+                .action(action)
+                .fromStatus(task.getStatus())
+                .toStatus(task.getStatus())
+                .build());
+
+        taskCommentRepository.save(com.cloudkaptan.sop.entity.TaskComment.builder()
+                .task(task)
+                .author(actor)
+                .commentText("Uploaded evidence file: " + fileName + (resubmit ? " (Re-submitted in place of rejected document)" : ""))
+                .build());
 
         return mapToDto(saved);
     }
@@ -279,6 +331,32 @@ public class TaskDocumentService {
         User actor = resolveUser(actorId);
         validateTaskAccess(task, actor);
 
+        // Approver Restriction: Approvers/Checkers CANNOT delete documents!
+        List<String> checkerIds = (task.getAssignedCheckerIds() != null && !task.getAssignedCheckerIds().isEmpty())
+                ? task.getAssignedCheckerIds()
+                : (task.getChecker() != null ? List.of(task.getChecker().getUserId()) : List.of());
+
+        boolean isAssignedChecker = checkerIds.contains(actor.getUserId()) || (actor.getEmail() != null && checkerIds.contains(actor.getEmail()));
+        boolean isMaker = (task.getMaker() != null && actor.getUserId().equals(task.getMaker().getUserId()))
+                || (task.getAssignedMakerIds() != null && task.getAssignedMakerIds().contains(actor.getUserId()))
+                || (document.getUploadedBy() != null && actor.getUserId().equals(document.getUploadedBy().getUserId()));
+
+        if (isAssignedChecker && !isMaker) {
+            throw new AccessDeniedException("Access Denied: Approvers cannot delete task evidence documents. Approvers can only view, approve, or reject documents.");
+        }
+
+        // Submission Lock Check: Cannot delete docs when task is submitted/pending review or completed
+        if (task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.PENDING_REVIEW ||
+            task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.APPROVED ||
+            task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.PERMANENTLY_REJECTED) {
+            throw new AccessDeniedException("Task documents cannot be deleted while task is submitted or locked.");
+        }
+
+        // If task is REJECTED, Maker can only delete REJECTED docs (approved docs stay protected)
+        if (task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.REJECTED && document.getStatus() == com.cloudkaptan.sop.domain.enums.DocumentStatus.APPROVED) {
+            throw new AccessDeniedException("Approved evidence documents cannot be deleted during task revision.");
+        }
+
         if (isProdProfile()) {
             storage.delete(BlobId.of(bucketName, document.getGcsObjectPath()));
         } else {
@@ -287,6 +365,31 @@ public class TaskDocumentService {
 
         taskDocumentRepository.delete(document);
         log.info("Deleted document ID {} from task ID {}", documentId, taskId);
+
+        // Save Task-Level Audit Logs & Activity History
+        String taskRecordNo = task.getRecordNo() != null ? task.getRecordNo() : taskId.toString();
+
+        auditLogRepository.save(com.cloudkaptan.sop.entity.AuditLog.builder()
+                .actorId(actor.getUserId())
+                .action("DOCUMENT_DELETED")
+                .entityType("TASK")
+                .entityId(taskRecordNo)
+                .correlationId(UUID.randomUUID().toString())
+                .build());
+
+        taskEventRepository.save(com.cloudkaptan.sop.entity.TaskEvent.builder()
+                .task(task)
+                .actor(actor)
+                .action("DOCUMENT_DELETED")
+                .fromStatus(task.getStatus())
+                .toStatus(task.getStatus())
+                .build());
+
+        taskCommentRepository.save(com.cloudkaptan.sop.entity.TaskComment.builder()
+                .task(task)
+                .author(actor)
+                .commentText("Deleted evidence file: " + document.getFileName())
+                .build());
     }
 
     /**
@@ -389,16 +492,45 @@ public class TaskDocumentService {
         validateTaskAccess(task, actor);
 
         com.cloudkaptan.sop.domain.state.document.DocumentContext documentContext = new com.cloudkaptan.sop.domain.state.document.DocumentContext(document);
+        String eventAction;
         if ("APPROVE".equalsIgnoreCase(action)) {
             documentContext.approve(actor);
+            eventAction = "DOCUMENT_APPROVED";
         } else if ("REJECT".equalsIgnoreCase(action)) {
             documentContext.reject(actor, comment);
+            eventAction = "DOCUMENT_REJECTED";
         } else {
             throw new IllegalArgumentException("Invalid document review action: " + action + ". Allowed values: APPROVE, REJECT.");
         }
 
         TaskDocument saved = taskDocumentRepository.save(document);
         log.info("Document ID {} on task ID {} was {} by actor '{}'", documentId, taskId, action, actorId);
+
+        // Save Task-Level Audit Logs & Activity History
+        String taskRecordNo = task.getRecordNo() != null ? task.getRecordNo() : taskId.toString();
+
+        auditLogRepository.save(com.cloudkaptan.sop.entity.AuditLog.builder()
+                .actorId(actor.getUserId())
+                .action(eventAction)
+                .entityType("TASK")
+                .entityId(taskRecordNo)
+                .correlationId(UUID.randomUUID().toString())
+                .build());
+
+        taskEventRepository.save(com.cloudkaptan.sop.entity.TaskEvent.builder()
+                .task(task)
+                .actor(actor)
+                .action(eventAction)
+                .fromStatus(task.getStatus())
+                .toStatus(task.getStatus())
+                .build());
+
+        taskCommentRepository.save(com.cloudkaptan.sop.entity.TaskComment.builder()
+                .task(task)
+                .author(actor)
+                .commentText(("APPROVE".equalsIgnoreCase(action) ? "Approved" : "Rejected") + " evidence file: " + document.getFileName() + (comment != null && !comment.isBlank() ? ". Reason: " + comment : ""))
+                .build());
+
         return mapToDto(saved);
     }
 
@@ -419,6 +551,8 @@ public class TaskDocumentService {
                 .actionedById(document.getActionedById())
                 .actionedByName(document.getActionedByName())
                 .actionedAt(document.getActionedAt())
+                .isResubmission(Boolean.TRUE.equals(document.getIsResubmission()))
+                .replacedDocumentId(document.getReplacedDocumentId())
                 .build();
     }
 

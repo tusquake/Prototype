@@ -29,4 +29,8 @@ public class ConfirmUploadRequest {
 
     @NotBlank(message = "actorId is required")
     private String actorId;
+
+    private Boolean isResubmission;
+
+    private UUID replacedDocumentId;
 }
