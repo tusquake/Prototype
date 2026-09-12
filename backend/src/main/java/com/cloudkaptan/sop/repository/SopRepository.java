@@ -25,9 +25,4 @@ public interface SopRepository extends JpaRepository<Sop, UUID> {
     @Query("SELECT s FROM Sop s WHERE (:entities IS NULL OR s.entity.entityCode IN :entities)")
     List<Sop> findByEntityIn(@Param("entities") List<EntityCode> entities);
 
-    @Query("SELECT s FROM Sop s WHERE s.isRunning = true AND s.versionStatus = 'APPROVED'")
-    List<Sop> findActiveRunningSops();
-
-    @Query("SELECT s FROM Sop s WHERE s.isRunning = true AND s.versionStatus = 'APPROVED' AND s.nextExpectedExecutionAt IS NOT NULL AND s.nextExpectedExecutionAt < :graceCutoff")
-    List<Sop> findBrokenChains(@Param("graceCutoff") java.time.OffsetDateTime graceCutoff);
 }
