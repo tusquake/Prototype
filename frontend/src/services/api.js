@@ -71,19 +71,19 @@ export const MOCK_ORGANIZATION_USERS = [
     role: 'VIEWER',
   },
   // 13 new VIEWER users — no access until admin grants permissions
-  { id: 'usr-anirban-001',  name: 'Anirban Paul',          email: 'anirban.paul@cloudkaptan.com',          groups: [], role: 'VIEWER' },
-  { id: 'usr-annu-002',     name: 'Annu Shaw',             email: 'annu.shaw@cloudkaptan.com',             groups: [], role: 'VIEWER' },
-  { id: 'usr-avisek2-003',  name: 'Avisek Shaw',           email: 'avisek.shaw@cloudkaptan.com',           groups: [], role: 'VIEWER' },
-  { id: 'usr-ayush-004',    name: 'Ayush Pandey',          email: 'ayush.pandey@cloudkaptan.com',          groups: [], role: 'VIEWER' },
-  { id: 'usr-debajyo-005',  name: 'Debajyoti Dattagupta',  email: 'debajyoti.dattagupta@cloudkaptan.com',  groups: [], role: 'VIEWER' },
-  { id: 'usr-isha-006',     name: 'Isha Prasad',           email: 'isha.prasad@cloudkaptan.com',           groups: [], role: 'VIEWER' },
-  { id: 'usr-king-007',     name: 'Kingshuk Roy',          email: 'kingshuk.roy@cloudkaptan.com',          groups: [], role: 'VIEWER' },
-  { id: 'usr-moit-008',     name: 'Moitrayee Dutta',       email: 'moitrayee.dutta@cloudkaptan.com',       groups: [], role: 'VIEWER' },
-  { id: 'usr-nishan-009',   name: 'Nishan Mandal',         email: 'nishan.mandal@cloudkaptan.com',         groups: [], role: 'VIEWER' },
-  { id: 'usr-rounok-010',   name: 'Rounok Das',            email: 'rounok.das@cloudkaptan.com',            groups: [], role: 'VIEWER' },
-  { id: 'usr-sanjeev-011',  name: 'Sanjeev Kumar',         email: 'sanjeev.kumar@cloudkaptan.com',         groups: [], role: 'VIEWER' },
-  { id: 'usr-sayant-012',   name: 'Sayantan Ghosh',        email: 'sayantan.ghosh@cloudkaptan.com',        groups: [], role: 'VIEWER' },
-  { id: 'usr-shreya-013',   name: 'Shreya Singh',          email: 'shreya.singh@cloudkaptan.com',          groups: [], role: 'VIEWER' },
+  { id: 'usr-anirban-001', name: 'Anirban Paul', email: 'anirban.paul@cloudkaptan.com', groups: [], role: 'VIEWER' },
+  { id: 'usr-annu-002', name: 'Annu Shaw', email: 'annu.shaw@cloudkaptan.com', groups: [], role: 'VIEWER' },
+  { id: 'usr-avisek2-003', name: 'Avisek Shaw', email: 'avisek.shaw@cloudkaptan.com', groups: [], role: 'VIEWER' },
+  { id: 'usr-ayush-004', name: 'Ayush Pandey', email: 'ayush.pandey@cloudkaptan.com', groups: [], role: 'VIEWER' },
+  { id: 'usr-debajyo-005', name: 'Debajyoti Dattagupta', email: 'debajyoti.dattagupta@cloudkaptan.com', groups: [], role: 'VIEWER' },
+  { id: 'usr-isha-006', name: 'Isha Prasad', email: 'isha.prasad@cloudkaptan.com', groups: [], role: 'VIEWER' },
+  { id: 'usr-king-007', name: 'Kingshuk Roy', email: 'kingshuk.roy@cloudkaptan.com', groups: [], role: 'VIEWER' },
+  { id: 'usr-moit-008', name: 'Moitrayee Dutta', email: 'moitrayee.dutta@cloudkaptan.com', groups: [], role: 'VIEWER' },
+  { id: 'usr-nishan-009', name: 'Nishan Mandal', email: 'nishan.mandal@cloudkaptan.com', groups: [], role: 'VIEWER' },
+  { id: 'usr-rounok-010', name: 'Rounok Das', email: 'rounok.das@cloudkaptan.com', groups: [], role: 'VIEWER' },
+  { id: 'usr-sanjeev-011', name: 'Sanjeev Kumar', email: 'sanjeev.kumar@cloudkaptan.com', groups: [], role: 'VIEWER' },
+  { id: 'usr-sayant-012', name: 'Sayantan Ghosh', email: 'sayantan.ghosh@cloudkaptan.com', groups: [], role: 'VIEWER' },
+  { id: 'usr-shreya-013', name: 'Shreya Singh', email: 'shreya.singh@cloudkaptan.com', groups: [], role: 'VIEWER' },
 ];
 
 export const MOCK_AUDIT_LOGS = [];
@@ -97,7 +97,7 @@ export async function fetchJson(endpoint, options = {}) {
         const parsed = JSON.parse(rawUser);
         sessionUser = parsed?.user ? parsed.user : parsed;
       }
-    } catch {}
+    } catch { }
 
     const authHeaders = {};
     if (sessionUser) {
@@ -153,32 +153,32 @@ export function mapTask(dto) {
 
   const rawHistory = (dto.history && dto.history.length > 0)
     ? dto.history.map(h => ({
-        eventId: h.eventId,
-        actorId: h.actorId,
-        actorName: h.actorName,
-        action: h.action,
-        fromStatus: h.fromStatus,
-        toStatus: h.toStatus,
-        comment: h.comment,
-        timestamp: h.timestamp,
-      }))
+      eventId: h.eventId,
+      actorId: h.actorId,
+      actorName: h.actorName,
+      action: h.action,
+      fromStatus: h.fromStatus,
+      toStatus: h.toStatus,
+      comment: h.comment,
+      timestamp: h.timestamp,
+    }))
     : [];
 
   const hasCreate = rawHistory.some(h => (h.action || '').toUpperCase().includes('CREATE'));
   const historyList = hasCreate
     ? rawHistory
     : [
-        {
-          eventId: 0,
-          action: 'CREATE_TASK',
-          actorName: 'System Scheduler',
-          fromStatus: null,
-          toStatus: 'OPEN',
-          comment: 'Compliance task cycle created automatically',
-          timestamp: dto.createdAt || new Date().toISOString(),
-        },
-        ...rawHistory,
-      ];
+      {
+        eventId: 0,
+        action: 'CREATE_TASK',
+        actorName: 'System Scheduler',
+        fromStatus: null,
+        toStatus: 'OPEN',
+        comment: 'Compliance task cycle created automatically',
+        timestamp: dto.createdAt || new Date().toISOString(),
+      },
+      ...rawHistory,
+    ];
 
   return {
     id: dto.taskId || dto.id,
@@ -228,16 +228,16 @@ export function mapSop(dto) {
 
   const rawHistory = (dto.history && dto.history.length > 0)
     ? dto.history.map(h => ({
-        eventId: h.eventId,
-        actorId: h.actorId,
-        actorName: h.actorName,
-        actorRole: h.actorRole,
-        action: h.action,
-        fromStatus: h.fromStatus,
-        toStatus: h.toStatus,
-        comment: h.comment,
-        timestamp: h.timestamp,
-      }))
+      eventId: h.eventId,
+      actorId: h.actorId,
+      actorName: h.actorName,
+      actorRole: h.actorRole,
+      action: h.action,
+      fromStatus: h.fromStatus,
+      toStatus: h.toStatus,
+      comment: h.comment,
+      timestamp: h.timestamp,
+    }))
     : [];
 
   return {
@@ -464,7 +464,7 @@ export async function getUsers(entityCode = null, targetRole = null) {
   const query = params.toString() ? `?${params.toString()}` : '';
 
   const res = await fetchJson(`/access/users${query}`).catch(() => null);
-  
+
   let allUsers = (Array.isArray(res) && res.length > 0) ? res.map(u => ({
     id: u.userId || u.id,
     name: u.fullName || u.name,
@@ -945,13 +945,18 @@ export async function generateUploadUrl(taskId, fileName, contentType, fileSize,
 }
 
 export async function uploadFileToSignedUrl(uploadUrl, file, contentType) {
+  const headers = {};
+
+  if (contentType || file.type) {
+    headers['Content-Type'] = contentType || file.type;
+  }
+
   const res = await fetch(uploadUrl, {
     method: 'PUT',
-    headers: {
-      'Content-Type': contentType || file.type || 'application/octet-stream',
-    },
+    headers: headers,
     body: file,
   });
+
   if (!res.ok) {
     throw new Error(`Direct object storage upload failed with HTTP status ${res.status}`);
   }

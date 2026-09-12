@@ -46,6 +46,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/h2-console/**", "/actuator/**", "/error").permitAll()
                 .requestMatchers("/finsop/v1/**").permitAll()
+                .requestMatchers("/finsop/v1/tasks/*/documents/local-upload").permitAll()
+                .requestMatchers("/finsop/v1/tasks/*/documents/local-download").permitAll()
                 .anyRequest().authenticated()
             )
             // 1. Set local dev authentication context first

@@ -59,9 +59,7 @@ services:
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: finsop_rabbit
       SPRING_RABBITMQ_PASSWORD: finsop_rabbit_pass
-      LOCAL_STORAGE_DIR: /app/storage_uploads
-    volumes:
-      - backend_uploads:/app/storage_uploads
+      LOCAL_STORAGE_DIR: /tmp/storage_uploads  # <-- CHANGED TO /tmp/storage_uploads
     ports:
       - "8080:8080"
     healthcheck:

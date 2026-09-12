@@ -9,9 +9,18 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,6 +29,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Tag(name = "Task Documents & Signed URL Storage", description = "Serverless-optimized Signed URL generation, direct upload confirmation, listing, and deletion with strict RBAC")
 public class TaskDocumentController {
+
+    private static final Logger log = LoggerFactory.getLogger(TaskDocumentController.class);
 
     private final TaskDocumentService taskDocumentService;
 
@@ -108,16 +119,19 @@ public class TaskDocumentController {
         return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(dto));
     }
 
-    @PutMapping("/local-upload")
+    @PutMapping(value = "/local-upload", consumes = MediaType.ALL_VALUE)
     @Operation(summary = "Local development direct storage upload handler", description = "Receives direct stream upload in local profile mode and saves file to local storage directory.")
     public ResponseEntity<Void> handleLocalStorageUpload(
             @Parameter(description = "Object Path") @RequestParam("objectPath") String objectPath,
             @RequestHeader(value = "Content-Type", required = false) String contentType,
-            jakarta.servlet.http.HttpServletRequest request) {
+            @RequestBody byte[] fileBytes) {
         try {
-            taskDocumentService.uploadLocalFile(objectPath, request.getInputStream(), contentType, request.getContentLengthLong());
+            String decodedPath = URLDecoder.decode(objectPath, StandardCharsets.UTF_8);
+            ByteArrayInputStream is = new ByteArrayInputStream(fileBytes);
+            taskDocumentService.uploadLocalFile(decodedPath, is, contentType, fileBytes.length);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
+            log.error("Local upload failed for objectPath '{}': {}", objectPath, e.getMessage(), e);
             return ResponseEntity.status(500).build();
         }
     }
@@ -127,14 +141,16 @@ public class TaskDocumentController {
     public ResponseEntity<org.springframework.core.io.Resource> handleLocalStorageDownload(
             @Parameter(description = "Object Path") @RequestParam("objectPath") String objectPath) {
         try {
-            java.io.InputStream is = taskDocumentService.downloadLocalFileStream(objectPath);
+            String decodedPath = URLDecoder.decode(objectPath, StandardCharsets.UTF_8);
+            InputStream is = taskDocumentService.downloadLocalFileStream(decodedPath);
             org.springframework.core.io.InputStreamResource resource = new org.springframework.core.io.InputStreamResource(is);
-            String filename = java.nio.file.Paths.get(objectPath).getFileName().toString();
+            String filename = Paths.get(decodedPath).getFileName().toString();
             return ResponseEntity.ok()
-                    .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
-                    .contentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
                     .body(resource);
         } catch (Exception e) {
+            log.error("Local download failed for objectPath '{}': {}", objectPath, e.getMessage(), e);
             return ResponseEntity.notFound().build();
         }
     }
