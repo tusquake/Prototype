@@ -71,9 +71,14 @@ public class TaskDocument {
     private OffsetDateTime actionedAt;
 
     @Builder.Default
-    @Column(name = "is_resubmission", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("false")
+    @Column(name = "is_resubmission", columnDefinition = "BOOLEAN DEFAULT FALSE")
     private Boolean isResubmission = false;
 
     @Column(name = "replaced_document_id")
     private UUID replacedDocumentId;
+
+    public Boolean getIsResubmission() {
+        return Boolean.TRUE.equals(this.isResubmission);
+    }
 }
