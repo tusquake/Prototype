@@ -388,22 +388,14 @@ public class TaskDocumentService {
         User actor = resolveUser(actorId);
         validateTaskAccess(task, actor);
 
+        com.cloudkaptan.sop.domain.state.document.DocumentContext documentContext = new com.cloudkaptan.sop.domain.state.document.DocumentContext(document);
         if ("APPROVE".equalsIgnoreCase(action)) {
-            document.setStatus(com.cloudkaptan.sop.domain.enums.DocumentStatus.APPROVED);
-            document.setRejectionReason(null);
+            documentContext.approve(actor);
         } else if ("REJECT".equalsIgnoreCase(action)) {
-            if (comment == null || comment.trim().isEmpty()) {
-                throw new IllegalArgumentException("Mandatory rejection reason required for document rejection.");
-            }
-            document.setStatus(com.cloudkaptan.sop.domain.enums.DocumentStatus.REJECTED);
-            document.setRejectionReason(comment);
+            documentContext.reject(actor, comment);
         } else {
             throw new IllegalArgumentException("Invalid document review action: " + action + ". Allowed values: APPROVE, REJECT.");
         }
-
-        document.setActionedById(actor.getUserId());
-        document.setActionedByName(actor.getFullName());
-        document.setActionedAt(OffsetDateTime.now());
 
         TaskDocument saved = taskDocumentRepository.save(document);
         log.info("Document ID {} on task ID {} was {} by actor '{}'", documentId, taskId, action, actorId);
