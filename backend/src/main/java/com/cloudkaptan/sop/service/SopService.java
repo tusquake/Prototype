@@ -16,6 +16,7 @@ import com.cloudkaptan.sop.repository.AuditLogRepository;
 import com.cloudkaptan.sop.repository.CorporateEntityRepository;
 import com.cloudkaptan.sop.repository.SopEventRepository;
 import com.cloudkaptan.sop.repository.SopRepository;
+import com.cloudkaptan.sop.repository.SopVersionRepository;
 import com.cloudkaptan.sop.repository.UserRepository;
 import com.cloudkaptan.sop.repository.UserNotificationRepository;
 import com.cloudkaptan.sop.entity.SopEvent;
@@ -32,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SopService {
 
     private final SopRepository sopRepository;
+    private final SopVersionRepository sopVersionRepository;
     private final CorporateEntityRepository entityRepository;
     private final UserRepository userRepository;
     private final TaskSchedulerService taskSchedulerService;
@@ -158,6 +160,20 @@ public class SopService {
             .build();
 
         Sop saved = sopRepository.save(sop);
+
+        // Save initial active SopVersion (v1.0)
+        com.cloudkaptan.sop.entity.SopVersion initialVersion = com.cloudkaptan.sop.entity.SopVersion.builder()
+            .sop(saved)
+            .versionNumber("1.0")
+            .frequency(saved.getFrequency() != null ? saved.getFrequency() : com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY)
+            .startDateTime(request.getStartDateTime() != null ? request.getStartDateTime() : java.time.OffsetDateTime.now())
+            .dueDateTime(request.getDueDateTime() != null ? request.getDueDateTime() : java.time.OffsetDateTime.now().plusDays(saved.getDueDayOffset() != null ? saved.getDueDayOffset() : 7))
+            .isRecurring(Boolean.TRUE.equals(saved.getIsRecurring()))
+            .versionStatus("APPROVED")
+            .isRunning(true)
+            .createdBy(createdBy.getUserId())
+            .build();
+        sopVersionRepository.save(initialVersion);
 
         AuditLog auditLog = AuditLog.builder()
             .actorId(createdBy.getUserId())
@@ -359,6 +375,30 @@ public class SopService {
             // Enforce Segregation of Duties (SoD): Prohibit creator self-approval
             sopSecurityEvaluator.validateSopApprovalSoD(actor, sop);
             context.approve(actor);
+
+            com.cloudkaptan.sop.entity.SopVersion activeVersion = sopVersionRepository.findActiveVersionBySopId(sop.getSopId())
+                .orElseGet(() -> com.cloudkaptan.sop.entity.SopVersion.builder()
+                    .sop(sop)
+                    .versionNumber("1.0")
+                    .frequency(sop.getFrequency() != null ? sop.getFrequency() : com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY)
+                    .startDateTime(java.time.OffsetDateTime.now())
+                    .dueDateTime(java.time.OffsetDateTime.now().plusDays(sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7))
+                    .isRecurring(Boolean.TRUE.equals(sop.getIsRecurring()))
+                    .versionStatus("APPROVED")
+                    .isRunning(true)
+                    .createdBy(actor.getUserId())
+                    .build());
+
+            if (activeVersion.getStartDateTime() == null) {
+                activeVersion.setStartDateTime(java.time.OffsetDateTime.now());
+            }
+            if (activeVersion.getDueDateTime() == null) {
+                activeVersion.setDueDateTime(java.time.OffsetDateTime.now().plusDays(sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7));
+            }
+            activeVersion.setIsRunning(true);
+            activeVersion.setVersionStatus("APPROVED");
+            sopVersionRepository.save(activeVersion);
+
             taskSchedulerService.generateScheduledTasks();
         } else if ("REJECT".equalsIgnoreCase(request.getAction())) {
             context.reject(actor, request.getComment());

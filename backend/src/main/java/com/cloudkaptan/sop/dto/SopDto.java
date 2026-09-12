@@ -45,5 +45,7 @@ public class SopDto {
     private String rejectionReason;
     private SopStatus status;
     private Integer version;
+    private java.time.OffsetDateTime startDateTime;
+    private java.time.OffsetDateTime dueDateTime;
     private List<SopEventDto> history;
 }

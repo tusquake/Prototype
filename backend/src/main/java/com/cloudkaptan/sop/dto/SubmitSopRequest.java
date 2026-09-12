@@ -34,4 +34,8 @@ public class SubmitSopRequest {
     private List<String> defaultCheckerIds;
 
     private String actorId;
+
+    private java.time.OffsetDateTime startDateTime;
+
+    private java.time.OffsetDateTime dueDateTime;
 }

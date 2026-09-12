@@ -1,4 +1,6 @@
 app:
+  task-scheduler:
+    cron: ${APP_TASK_SCHEDULER_CRON:0 */1 * * * ?}
   messaging:
     provider: rabbitmq
 

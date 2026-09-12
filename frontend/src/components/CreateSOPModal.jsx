@@ -158,6 +158,8 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
 
       const payload = {
         ...formData,
+        startDateTime: formData.startDateTime ? new Date(formData.startDateTime).toISOString() : null,
+        dueDateTime: formData.dueDateTime ? new Date(formData.dueDateTime).toISOString() : null,
         defaultMakerId: makerId,
         defaultCheckerId: checkerId,
         createdById: currentUser?.id || 'usr-tushar-304',

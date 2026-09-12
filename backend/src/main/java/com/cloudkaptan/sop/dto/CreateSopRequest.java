@@ -53,4 +53,8 @@ public class CreateSopRequest {
 
     @NotBlank(message = "Created by user ID is required")
     private String createdById;
+
+    private java.time.OffsetDateTime startDateTime;
+
+    private java.time.OffsetDateTime dueDateTime;
 }
