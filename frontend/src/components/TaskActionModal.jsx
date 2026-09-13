@@ -249,13 +249,17 @@ export default function TaskActionModal({
   // Authorization permissions driven 100% dynamically from the backend API:
   // - task.canUserSubmit: computed based on maker assignment, write-access reporting hierarchy, and status
   // - task.canUserApprove: computed based on checker assignment, read/write reporting hierarchy, status, and segregation of duties
-  const canSubmit = task.canUserSubmit !== undefined
-    ? Boolean(task.canUserSubmit)
-    : (task.status === 'OPEN' || task.status === 'REJECTED');
+  const canSubmit = task.status !== 'PERMANENTLY_REJECTED' && task.status !== 'APPROVED' && task.status !== 'PENDING_REVIEW' && (
+    task.canUserSubmit !== undefined
+      ? Boolean(task.canUserSubmit)
+      : (task.status === 'OPEN' || task.status === 'REJECTED')
+  );
 
-  const canApproveOrReject = task.canUserApprove !== undefined
-    ? Boolean(task.canUserApprove)
-    : (task.status === 'PENDING_REVIEW');
+  const canApproveOrReject = task.status === 'PENDING_REVIEW' && (
+    task.canUserApprove !== undefined
+      ? Boolean(task.canUserApprove)
+      : true
+  );
 
   const isReadOnly = !canSubmit && !canApproveOrReject;
 
