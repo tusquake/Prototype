@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Data
@@ -35,7 +36,7 @@ public class SubmitSopRequest {
 
     private String actorId;
 
-    private java.time.OffsetDateTime startDateTime;
+    private OffsetDateTime startDateTime;
 
-    private java.time.OffsetDateTime dueDateTime;
+    private OffsetDateTime dueDateTime;
 }
