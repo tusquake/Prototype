@@ -281,6 +281,13 @@ export default function TaskActionModal({
       ...rawHistory,
     ];
 
+  const activityComments = effectiveHistory.filter(h => {
+    if (!h.comment || !h.comment.trim()) return false;
+    const act = (h.action || '').toUpperCase();
+    if (act === 'CREATE_TASK' && h.comment.includes('created automatically')) return false;
+    return true;
+  });
+
   function triggerConfirm(actionType) {
     setToastError('');
     if (actionType === 'APPROVE' && hasUnapprovedDocs) {
@@ -817,6 +824,68 @@ export default function TaskActionModal({
                 </div>
               )}
             </div>
+
+            {/* Historical Submitter & Approver Remarks Section */}
+            {activityComments.length > 0 && (
+              <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-800">
+                      Submitter &amp; Approver Remarks History
+                    </span>
+                    <span className="rounded-full bg-blue-600 px-2 py-0.25 text-[11px] font-bold text-white">
+                      {activityComments.length}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2.5 mt-1">
+                  {activityComments.map((evt, i) => {
+                    const act = (evt.action || '').toUpperCase();
+                    const isApproverEvent = act.includes('APPROVE') || act.includes('REJECT');
+                    const isReject = act.includes('REJECT');
+
+                    return (
+                      <div
+                        key={evt.eventId || i}
+                        className={`flex flex-col gap-1.5 rounded-lg border p-3 text-xs transition-all ${
+                          isReject
+                            ? 'border-rose-200 bg-rose-50/80 text-rose-950'
+                            : isApproverEvent
+                            ? 'border-emerald-200 bg-emerald-50/80 text-emerald-950'
+                            : 'border-blue-200 bg-blue-50/80 text-blue-950'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
+                              isReject
+                                ? 'bg-rose-100 text-rose-800'
+                                : isApproverEvent
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {isReject ? 'Approver Rejection' : isApproverEvent ? 'Approver Approval' : 'Submitter Note'}
+                            </span>
+                            <span className="font-bold text-slate-800">{evt.actorName || 'User'}</span>
+                          </div>
+                          <span className="text-[11px] font-medium text-slate-500">
+                            {evt.timestamp ? new Date(evt.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                          </span>
+                        </div>
+
+                        <p className="mt-0.5 text-[13px] leading-relaxed italic text-slate-900 font-medium">
+                          &ldquo;{evt.comment}&rdquo;
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Execution Comments Section */}
             <div className="flex flex-col gap-2">
