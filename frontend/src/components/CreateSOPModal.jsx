@@ -27,7 +27,7 @@ const INITIAL_FORM = {
   frequency: 'MONTHLY',
   startDateTime: formatForDateTimeLocal(new Date()),
   dueDateTime: formatForDateTimeLocal(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
-  dueDayOffset: 15,
+  dueDayOffset: 7,
   isRecurring: false,
   defaultMakerIds: [],
   defaultCheckerIds: [],
@@ -82,6 +82,9 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
         entityCode: lockedAssignment.entityCode || 'CK_INDIA',
         title: '',
         description: '',
+        startDateTime: formatForDateTimeLocal(new Date()),
+        dueDateTime: formatForDateTimeLocal(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
+        dueDayOffset: 7,
       });
     } else if (editingSop) {
       let rawMakers = editingSop.defaultMakerIds || (editingSop.defaultMakerNames ? editingSop.defaultMakerNames.map(n => USER_ID_MAP[n] || n) : (editingSop.defaultMakerId ? [editingSop.defaultMakerId] : []));
@@ -90,6 +93,9 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
       const makers = Array.from(new Set(rawMakers.map(id => USER_ID_MAP[id] || id)));
       const checkers = Array.from(new Set(rawCheckers.map(id => USER_ID_MAP[id] || id)));
 
+      const startDT = editingSop.startDateTime ? formatForDateTimeLocal(editingSop.startDateTime) : formatForDateTimeLocal(new Date());
+      const dueDT = editingSop.dueDateTime ? formatForDateTimeLocal(editingSop.dueDateTime) : formatForDateTimeLocal(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+
       setFormData({
         sopCode: editingSop.code || editingSop.sopCode || '',
         title: editingSop.name || editingSop.title || '',
@@ -97,7 +103,9 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
         processCategory: editingSop.process || editingSop.processCategory || 'Tax Compliance',
         entityCode: editingSop.entityCode || 'CK_INDIA',
         frequency: editingSop.frequency || 'MONTHLY',
-        dueDayOffset: editingSop.dueDay || editingSop.dueDayOffset || 15,
+        startDateTime: startDT,
+        dueDateTime: dueDT,
+        dueDayOffset: editingSop.dueDay || editingSop.dueDayOffset || 7,
         isRecurring: editingSop.isRecurring !== undefined ? !!editingSop.isRecurring : false,
         defaultMakerIds: makers,
         defaultCheckerIds: checkers,
@@ -112,10 +120,24 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
 
   function handleInputChange(e) {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'dueDayOffset' ? parseInt(value, 10) || 1 : value,
-    }));
+    setFormData(prev => {
+      const next = {
+        ...prev,
+        [name]: name === 'dueDayOffset' ? parseInt(value, 10) || 1 : value,
+      };
+      if ((name === 'startDateTime' || name === 'dueDateTime') && next.startDateTime && next.dueDateTime) {
+        const start = new Date(next.startDateTime);
+        const due = new Date(next.dueDateTime);
+        if (!isNaN(start.getTime()) && !isNaN(due.getTime())) {
+          const diffTime = due.getTime() - start.getTime();
+          const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
+          if (diffDays > 0) {
+            next.dueDayOffset = diffDays;
+          }
+        }
+      }
+      return next;
+    });
   }
 
   function removeMakerUser(userId) {

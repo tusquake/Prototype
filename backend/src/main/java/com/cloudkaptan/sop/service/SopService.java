@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -144,6 +145,14 @@ public class SopService {
 
         Boolean isRec = Boolean.TRUE.equals(request.getIsRecurring());
 
+        int calculatedOffset = request.getDueDayOffset() != null ? request.getDueDayOffset() : 7;
+        if (request.getStartDateTime() != null && request.getDueDateTime() != null) {
+            long days = ChronoUnit.DAYS.between(request.getStartDateTime().toLocalDate(), request.getDueDateTime().toLocalDate());
+            if (days > 0) {
+                calculatedOffset = (int) days;
+            }
+        }
+
         Sop sop = Sop.builder()
             .sopCode(request.getSopCode())
             .title(request.getTitle())
@@ -151,7 +160,7 @@ public class SopService {
             .processCategory(request.getProcessCategory())
             .entity(entity)
             .frequency(request.getFrequency())
-            .dueDayOffset(request.getDueDayOffset())
+            .dueDayOffset(calculatedOffset)
             .isRecurring(isRec)
             .defaultMakerIds(new java.util.ArrayList<>(mPool))
             .defaultCheckerIds(new java.util.ArrayList<>(cPool))
@@ -164,12 +173,15 @@ public class SopService {
         Sop saved = sopRepository.save(sop);
 
         // Save initial active SopVersion (v1.0)
-        com.cloudkaptan.sop.entity.SopVersion initialVersion = com.cloudkaptan.sop.entity.SopVersion.builder()
+        OffsetDateTime startDT = request.getStartDateTime() != null ? request.getStartDateTime() : OffsetDateTime.now();
+        OffsetDateTime dueDT = request.getDueDateTime() != null ? request.getDueDateTime() : startDT.plusDays(calculatedOffset);
+
+        SopVersion initialVersion = SopVersion.builder()
             .sop(saved)
             .versionNumber("1.0")
             .frequency(saved.getFrequency() != null ? saved.getFrequency() : com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY)
-            .startDateTime(request.getStartDateTime() != null ? request.getStartDateTime() : java.time.OffsetDateTime.now())
-            .dueDateTime(request.getDueDateTime() != null ? request.getDueDateTime() : java.time.OffsetDateTime.now().plusDays(saved.getDueDayOffset() != null ? saved.getDueDayOffset() : 7))
+            .startDateTime(startDT)
+            .dueDateTime(dueDT)
             .isRecurring(Boolean.TRUE.equals(saved.getIsRecurring()))
             .versionStatus("APPROVED")
             .isRunning(true)
@@ -303,7 +315,16 @@ public class SopService {
         if (request.getTitle() != null && !request.getTitle().isBlank()) sop.setTitle(request.getTitle());
         if (request.getDescription() != null) sop.setDescription(request.getDescription());
         if (request.getFrequency() != null) sop.setFrequency(request.getFrequency());
-        if (request.getDueDayOffset() != null) sop.setDueDayOffset(request.getDueDayOffset());
+
+        int calculatedOffset = request.getDueDayOffset() != null ? request.getDueDayOffset() : (sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7);
+        if (request.getStartDateTime() != null && request.getDueDateTime() != null) {
+            long days = ChronoUnit.DAYS.between(request.getStartDateTime().toLocalDate(), request.getDueDateTime().toLocalDate());
+            if (days > 0) {
+                calculatedOffset = (int) days;
+            }
+        }
+        sop.setDueDayOffset(calculatedOffset);
+
         if (request.getIsRecurring() != null) sop.setIsRecurring(request.getIsRecurring());
         if (request.getDefaultMakerIds() != null && !request.getDefaultMakerIds().isEmpty()) {
             sop.setDefaultMakerIds(new java.util.ArrayList<>(request.getDefaultMakerIds()));
@@ -313,6 +334,27 @@ public class SopService {
         }
 
         Sop saved = sopRepository.save(sop);
+
+        // Update or create draft SopVersion with user's chosen start & due date-time
+        SopVersion version = sopVersionRepository.findActiveVersionBySopId(saved.getSopId())
+            .orElseGet(() -> SopVersion.builder()
+                .sop(saved)
+                .versionNumber("1.0")
+                .frequency(saved.getFrequency() != null ? saved.getFrequency() : com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY)
+                .isRecurring(Boolean.TRUE.equals(saved.getIsRecurring()))
+                .versionStatus("DRAFT")
+                .isRunning(false)
+                .createdBy(actor.getUserId())
+                .build());
+
+        OffsetDateTime startDT = request.getStartDateTime() != null ? request.getStartDateTime() : (version.getStartDateTime() != null ? version.getStartDateTime() : OffsetDateTime.now());
+        OffsetDateTime dueDT = request.getDueDateTime() != null ? request.getDueDateTime() : (version.getDueDateTime() != null ? version.getDueDateTime() : startDT.plusDays(calculatedOffset));
+
+        version.setStartDateTime(startDT);
+        version.setDueDateTime(dueDT);
+        version.setFrequency(saved.getFrequency() != null ? saved.getFrequency() : com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY);
+        version.setIsRecurring(Boolean.TRUE.equals(saved.getIsRecurring()));
+        sopVersionRepository.save(version);
 
         // Audit & Record SopEvent
         auditLogRepository.save(AuditLog.builder()
@@ -378,13 +420,13 @@ public class SopService {
             sopSecurityEvaluator.validateSopApprovalSoD(actor, sop);
             context.approve(actor);
 
-            com.cloudkaptan.sop.entity.SopVersion activeVersion = sopVersionRepository.findActiveVersionBySopId(sop.getSopId())
-                .orElseGet(() -> com.cloudkaptan.sop.entity.SopVersion.builder()
+            SopVersion activeVersion = sopVersionRepository.findActiveVersionBySopId(sop.getSopId())
+                .orElseGet(() -> SopVersion.builder()
                     .sop(sop)
                     .versionNumber("1.0")
                     .frequency(sop.getFrequency() != null ? sop.getFrequency() : com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY)
-                    .startDateTime(java.time.OffsetDateTime.now())
-                    .dueDateTime(java.time.OffsetDateTime.now().plusDays(sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7))
+                    .startDateTime(OffsetDateTime.now())
+                    .dueDateTime(OffsetDateTime.now().plusDays(sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7))
                     .isRecurring(Boolean.TRUE.equals(sop.getIsRecurring()))
                     .versionStatus("APPROVED")
                     .isRunning(true)
@@ -392,10 +434,10 @@ public class SopService {
                     .build());
 
             if (activeVersion.getStartDateTime() == null) {
-                activeVersion.setStartDateTime(java.time.OffsetDateTime.now());
+                activeVersion.setStartDateTime(OffsetDateTime.now());
             }
             if (activeVersion.getDueDateTime() == null) {
-                activeVersion.setDueDateTime(java.time.OffsetDateTime.now().plusDays(sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7));
+                activeVersion.setDueDateTime(activeVersion.getStartDateTime().plusDays(sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7));
             }
             activeVersion.setIsRunning(true);
             activeVersion.setVersionStatus("APPROVED");
@@ -485,12 +527,20 @@ public class SopService {
         CorporateEntity entity = resolveEntity(request.getEntityCode());
         SopStatus prevStatus = sop.getStatus();
 
+        int calculatedOffset = request.getDueDayOffset() != null ? request.getDueDayOffset() : (sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7);
+        if (request.getStartDateTime() != null && request.getDueDateTime() != null) {
+            long days = ChronoUnit.DAYS.between(request.getStartDateTime().toLocalDate(), request.getDueDateTime().toLocalDate());
+            if (days > 0) {
+                calculatedOffset = (int) days;
+            }
+        }
+
         sop.setTitle(request.getTitle());
         sop.setDescription(request.getDescription());
         sop.setProcessCategory(request.getProcessCategory());
         sop.setEntity(entity);
         sop.setFrequency(request.getFrequency());
-        sop.setDueDayOffset(request.getDueDayOffset());
+        sop.setDueDayOffset(calculatedOffset);
         if (request.getIsRecurring() != null) {
             sop.setIsRecurring(request.getIsRecurring());
         }
@@ -509,6 +559,27 @@ public class SopService {
         sop.setStatus(SopStatus.PENDING_APPROVAL);
 
         Sop saved = sopRepository.save(sop);
+
+        // Update or create SopVersion with updated startDateTime and dueDateTime
+        SopVersion version = sopVersionRepository.findActiveVersionBySopId(saved.getSopId())
+            .orElseGet(() -> SopVersion.builder()
+                .sop(saved)
+                .versionNumber("1.0")
+                .frequency(saved.getFrequency() != null ? saved.getFrequency() : com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY)
+                .isRecurring(Boolean.TRUE.equals(saved.getIsRecurring()))
+                .versionStatus("DRAFT")
+                .isRunning(false)
+                .createdBy(request.getCreatedById() != null ? request.getCreatedById() : "usr-manoj-042")
+                .build());
+
+        OffsetDateTime startDT = request.getStartDateTime() != null ? request.getStartDateTime() : (version.getStartDateTime() != null ? version.getStartDateTime() : OffsetDateTime.now());
+        OffsetDateTime dueDT = request.getDueDateTime() != null ? request.getDueDateTime() : (version.getDueDateTime() != null ? version.getDueDateTime() : startDT.plusDays(calculatedOffset));
+
+        version.setStartDateTime(startDT);
+        version.setDueDateTime(dueDT);
+        version.setFrequency(saved.getFrequency() != null ? saved.getFrequency() : com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY);
+        version.setIsRecurring(Boolean.TRUE.equals(saved.getIsRecurring()));
+        sopVersionRepository.save(version);
 
         AuditLog auditLog = AuditLog.builder()
             .actorId(request.getCreatedById() != null ? request.getCreatedById() : (sop.getCreatedBy() != null ? sop.getCreatedBy().getUserId() : "usr-manoj-042"))
