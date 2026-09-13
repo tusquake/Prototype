@@ -54,6 +54,19 @@ export default function SopDetailModal({
     : (sop.assignedApproverName || sop.assignedApproverId || 'Approver');
   const adminName = sop.createdByName || 'Manoj Agarwal';
 
+  // Find specific actor names from event history for actioned milestones
+  const submitEvt = sop.history?.find(h => {
+    const act = (h.action || '').toUpperCase();
+    return act.includes('SUBMIT') || act.includes('CREATE') || act.includes('UPDATE') || act.includes('EDIT');
+  });
+  const actionEvt = sop.history?.find(h => {
+    const act = (h.action || '').toUpperCase();
+    return act.includes('APPROVE') || act.includes('REJECT');
+  });
+
+  const actualSubmitterName = submitEvt?.actorName || sop.assignedCreatorName || creatorName;
+  const actualApproverName = actionEvt?.actorName || sop.assignedApproverName || approverName;
+
   return (
     <>
       <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-900/60 p-5 backdrop-blur-sm" onClick={onClose}>
@@ -136,7 +149,7 @@ export default function SopDetailModal({
                   <div className="flex min-w-0 flex-col">
                     <span className="truncate text-xs font-semibold text-slate-800">Creator Draft</span>
                     <span className="text-[11px] text-slate-500">
-                      {isPendingCreation ? `Pending ${creatorName} Draft` : `Submitted by ${creatorName}`}
+                      {isPendingCreation ? `Pending ${creatorName} Draft` : `Submitted by ${actualSubmitterName}`}
                     </span>
                   </div>
                 </div>
@@ -157,7 +170,7 @@ export default function SopDetailModal({
                       {isActive ? 'Active & Scheduled' : isRejected ? 'Rejected & Returned' : 'Approver Outcome'}
                     </span>
                     <span className="text-[11px] text-slate-500">
-                      {isActive ? `Approved by ${approverName}` : isRejected ? `Rejected by ${approverName}` : `Pending ${approverName} Review`}
+                      {isActive ? `Approved by ${actualApproverName}` : isRejected ? `Rejected by ${actualApproverName}` : `Pending ${approverName} Review`}
                     </span>
                   </div>
                 </div>
