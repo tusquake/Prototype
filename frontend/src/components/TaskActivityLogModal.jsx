@@ -61,20 +61,28 @@ export default function TaskActivityLogModal({ isOpen, onClose, task }) {
           <div className="relative flex flex-col gap-4">
             {historyEvents.map((event, idx) => {
               const act = (event.action || '').toUpperCase();
-              const actionLabel = act.includes('CREATE') ? 'Task Created' :
-                act.includes('RESUBMIT') ? 'Resubmitted Task' :
-                  act.includes('SUBMIT') ? 'Submitted Task' :
-                    act.includes('APPROVE') ? 'Approved Task' :
-                      act.includes('PERMANENT') ? 'Permanently Rejected' :
-                        act.includes('REJECT') ? 'Rejected & Returned' : event.action;
+              const isDocEvent = act.includes('DOCUMENT') || act.includes('UPLOAD');
 
-              const badgeCls = act.includes('APPROVE') ? 'bg-green-50 text-green-600 border-green-300' :
-                act.includes('REJECT') ? 'bg-red-50 text-red-600 border-red-300' :
-                  act.includes('PERMANENT') ? 'bg-red-50 text-red-800 border-red-400' :
-                    act.includes('RESUBMIT') ? 'bg-blue-50 text-blue-700 border-blue-400' :
-                      act.includes('SUBMIT') ? 'bg-blue-50 text-blue-600 border-blue-300' : 'bg-purple-50 text-purple-600 border-purple-300';
+              const actionLabel = act.includes('DOCUMENT_UPLOADED') ? 'Evidence Document Uploaded' :
+                act.includes('DOCUMENT_RESUBMITTED') ? 'Evidence Document Re-submitted' :
+                  act.includes('DOCUMENT_APPROVED') ? 'Document Approved (✓)' :
+                    act.includes('DOCUMENT_REJECTED') ? 'Document Rejected (✕)' :
+                      act.includes('DOCUMENT_DELETED') ? 'Document Deleted' :
+                        act.includes('CREATE') ? 'Task Created' :
+                          act.includes('RESUBMIT') ? 'Resubmitted Task' :
+                            act.includes('SUBMIT') ? 'Submitted Task' :
+                              act.includes('APPROVE') ? 'Approved Task' :
+                                act.includes('PERMANENT') ? 'Permanently Rejected' :
+                                  act.includes('REJECT') ? 'Rejected & Returned' : event.action;
+
+              const badgeCls = act.includes('DOCUMENT_APPROVED') || (!isDocEvent && act.includes('APPROVE')) ? 'bg-emerald-50 text-emerald-600 border-emerald-300' :
+                act.includes('DOCUMENT_REJECTED') || act.includes('DOCUMENT_DELETED') || (!isDocEvent && act.includes('REJECT')) ? 'bg-rose-50 text-rose-600 border-rose-300' :
+                  act.includes('PERMANENT') ? 'bg-rose-50 text-rose-800 border-rose-400' :
+                    act.includes('DOCUMENT_RESUBMITTED') || act.includes('RESUBMIT') ? 'bg-indigo-50 text-indigo-700 border-indigo-400' :
+                      act.includes('DOCUMENT_UPLOADED') || act.includes('SUBMIT') ? 'bg-blue-50 text-blue-600 border-blue-300' : 'bg-purple-50 text-purple-600 border-purple-300';
 
               const isNotLast = idx !== historyEvents.length - 1;
+              const isSameTaskStatus = event.fromStatus === event.toStatus && (event.fromStatus === task.status || event.fromStatus === 'OPEN' || event.fromStatus === 'PENDING_REVIEW');
 
               return (
                 <div
@@ -85,12 +93,12 @@ export default function TaskActivityLogModal({ isOpen, onClose, task }) {
                   <div className={`z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${badgeCls}`}>
                     {act.includes('APPROVE') ? (
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                    ) : act.includes('REJECT') ? (
+                    ) : act.includes('REJECT') || act.includes('DELETE') ? (
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                     ) : act.includes('RESUBMIT') ? (
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" /></svg>
-                    ) : act.includes('SUBMIT') ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+                    ) : act.includes('SUBMIT') || act.includes('UPLOAD') ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                     ) : (
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /></svg>
                     )}
@@ -108,15 +116,23 @@ export default function TaskActivityLogModal({ isOpen, onClose, task }) {
                       <span>Performed by: <strong className="font-semibold text-slate-700">{event.actorName || 'System'}</strong></span>
                     </div>
 
-                    {event.fromStatus && event.toStatus && (
-                      <div className="w-fit rounded-md bg-slate-100 px-2 py-1 text-[11.5px] text-slate-600">
-                        Status Transition: <code className="font-bold text-slate-800">{event.fromStatus}</code> ➔ <code className="font-bold text-slate-800">{event.toStatus}</code>
-                      </div>
+                    {isDocEvent ? (
+                      !isSameTaskStatus && event.fromStatus && event.toStatus && (
+                        <div className="w-fit rounded-md bg-indigo-50 border border-indigo-200/60 px-2 py-0.75 text-[11.5px] text-indigo-900 font-medium">
+                          Document Status Transition: <code className="font-bold text-indigo-950">{event.fromStatus}</code> ➔ <code className="font-bold text-indigo-950">{event.toStatus}</code>
+                        </div>
+                      )
+                    ) : (
+                      event.fromStatus && event.toStatus && (
+                        <div className="w-fit rounded-md bg-slate-100 px-2 py-1 text-[11.5px] text-slate-600">
+                          Task Status Transition: <code className="font-bold text-slate-800">{event.fromStatus}</code> ➔ <code className="font-bold text-slate-800">{event.toStatus}</code>
+                        </div>
+                      )
                     )}
 
                     {event.comment && (
                       <div className="mt-1 rounded-r-lg border-l-3 border-blue-500 bg-slate-50 p-2 px-3 text-[12.5px] italic text-slate-800">
-                        <strong>Execution Notes:</strong> &ldquo;{event.comment}&rdquo;
+                        <strong>{isDocEvent ? 'Document Details:' : 'Execution Notes:'}</strong> &ldquo;{event.comment}&rdquo;
                       </div>
                     )}
                   </div>

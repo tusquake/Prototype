@@ -53,8 +53,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/finsop_db
       SPRING_DATASOURCE_USERNAME: finsop_user
       SPRING_DATASOURCE_PASSWORD: finsop_password
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      SPRING_FLYWAY_ENABLED: "false"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_LOCATIONS: classpath:db/migration/postgresql,classpath:db/migration
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
       SPRING_RABBITMQ_USERNAME: finsop_rabbit

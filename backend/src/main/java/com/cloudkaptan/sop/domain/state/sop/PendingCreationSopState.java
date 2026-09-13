@@ -1,17 +1,24 @@
 package com.cloudkaptan.sop.domain.state.sop;
 
 import com.cloudkaptan.sop.domain.enums.SopStatus;
+import com.cloudkaptan.sop.domain.enums.UserRole;
 import com.cloudkaptan.sop.entity.User;
 import com.cloudkaptan.sop.exception.IllegalStateTransitionException;
+
+import java.util.List;
 
 public class PendingCreationSopState implements SopState {
 
     @Override
     public void submitForApproval(SopContext context, User actor) {
-        String assignedCreator = context.getSop().getAssignedCreatorId();
-        if (assignedCreator != null && !assignedCreator.isBlank() && actor != null && !assignedCreator.equals(actor.getUserId())) {
+        List<String> creatorPool = context.getSop().getAssignedCreatorIds();
+        boolean isAssignedCreator = (creatorPool != null && !creatorPool.isEmpty())
+            ? creatorPool.contains(actor != null ? actor.getUserId() : null)
+            : (context.getSop().getAssignedCreatorId() != null && actor != null && context.getSop().getAssignedCreatorId().equals(actor.getUserId()));
+
+        if (actor != null && !isAssignedCreator && actor.getRole() != UserRole.ADMIN) {
             throw new IllegalStateTransitionException(
-                String.format("User [%s] is not the assigned creator [%s] for this SOP.", actor.getUserId(), assignedCreator)
+                String.format("User [%s] is not an assigned creator for this SOP.", actor.getUserId())
             );
         }
         context.transitionTo(new PendingApprovalSopState());

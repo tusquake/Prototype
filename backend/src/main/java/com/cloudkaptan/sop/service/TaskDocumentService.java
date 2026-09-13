@@ -504,6 +504,7 @@ public class TaskDocumentService {
         }
 
         TaskDocument saved = taskDocumentRepository.save(document);
+
         log.info("Document ID {} on task ID {} was {} by actor '{}'", documentId, taskId, action, actorId);
 
         // Save Task-Level Audit Logs & Activity History

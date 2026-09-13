@@ -25,6 +25,7 @@ public class SopSecurityEvaluator {
 
         // 1. Check if actor is creator / assigned creator
         boolean isCreator = (sop.getCreatedBy() != null && actorId.equals(sop.getCreatedBy().getUserId()))
+                || (sop.getAssignedCreatorIds() != null && sop.getAssignedCreatorIds().contains(actorId))
                 || (sop.getAssignedCreatorId() != null && actorId.equals(sop.getAssignedCreatorId()));
 
         if (isCreator) {

@@ -3,6 +3,22 @@ import SopActivityLogModal from './SopActivityLogModal';
 
 const FREQ_LABEL = { MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', ANNUAL: 'Annual', DAILY: 'Daily', WEEKLY: 'Weekly' };
 
+function isSopCreator(sop, userId) {
+  if (!sop || !userId) return false;
+  if (Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.length > 0) {
+    return sop.assignedCreatorIds.includes(userId);
+  }
+  return sop.assignedCreatorId === userId;
+}
+
+function isSopApprover(sop, userId) {
+  if (!sop || !userId) return false;
+  if (Array.isArray(sop.assignedApproverIds) && sop.assignedApproverIds.length > 0) {
+    return sop.assignedApproverIds.includes(userId);
+  }
+  return sop.assignedApproverId === userId;
+}
+
 export default function SopDetailModal({
   isOpen,
   sop,
@@ -293,7 +309,7 @@ export default function SopDetailModal({
             </button>
 
             {sop.status === 'PENDING_APPROVAL' && (
-              (sop.assignedApproverId === currentUser?.id || (Array.isArray(sop.assignedApproverIds) && sop.assignedApproverIds.includes(currentUser?.id)) || (currentUser?.role === 'ADMIN' && sop.assignedCreatorId !== currentUser?.id && !(Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.includes(currentUser?.id)))) && (
+              (isSopApprover(sop, currentUser?.id) || (currentUser?.role === 'ADMIN' && !isSopCreator(sop, currentUser?.id))) && (
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -321,7 +337,7 @@ export default function SopDetailModal({
               )
             )}
 
-            {(isAdmin || currentUser?.role === 'ADMIN' || sop.assignedCreatorId === currentUser?.id || (Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.includes(currentUser?.id))) && (
+            {(isAdmin || currentUser?.role === 'ADMIN' || isSopCreator(sop, currentUser?.id)) && (
               <div className="flex items-center gap-2.5">
                 {isAdmin && (
                   <button

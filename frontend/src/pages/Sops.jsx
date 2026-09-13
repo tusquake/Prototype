@@ -55,6 +55,22 @@ const FREQUENCY_OPTIONS = [
   { value: 'DAILY', label: 'Daily' },
 ];
 
+function isSopCreator(sop, userId) {
+  if (!sop || !userId) return false;
+  if (Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.length > 0) {
+    return sop.assignedCreatorIds.includes(userId);
+  }
+  return sop.assignedCreatorId === userId;
+}
+
+function isSopApprover(sop, userId) {
+  if (!sop || !userId) return false;
+  if (Array.isArray(sop.assignedApproverIds) && sop.assignedApproverIds.length > 0) {
+    return sop.assignedApproverIds.includes(userId);
+  }
+  return sop.assignedApproverId === userId;
+}
+
 const USER_NAME_MAP = {
   'usr-tushar-304': 'Tushar Seth',
   'usr-prayasa-410': 'Prayasa Sharma',
@@ -326,7 +342,7 @@ export default function Sops() {
   }
 
   function openEditModal(sop) {
-    const isAllowed = isAdmin || currentUser?.role === 'ADMIN' || sop.assignedCreatorId === currentUser?.id || (Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.includes(currentUser?.id));
+    const isAllowed = isAdmin || currentUser?.role === 'ADMIN' || isSopCreator(sop, currentUser?.id);
     if (!isAllowed) {
       setSuccessMsg('');
       setErrorMsg('Access Denied: Only assigned creators or Admin users have permission to edit this SOP.');
@@ -575,7 +591,7 @@ export default function Sops() {
     if (!selectedEntities.includes(s.entityCode)) return false;
 
     // Non-admin users: hide raw PENDING_CREATION stubs unless assigned to currentUser
-    if (!isAdmin && s.status === 'PENDING_CREATION' && s.assignedCreatorId !== currentUser.id) return false;
+    if (!isAdmin && s.status === 'PENDING_CREATION' && !isSopCreator(s, currentUser?.id)) return false;
 
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase().trim();
@@ -1006,7 +1022,7 @@ export default function Sops() {
                       <td className="px-6 py-3.5 text-[13.5px] align-middle" onClick={e => e.stopPropagation()}>
                         <div className="flex gap-1.5 justify-end">
                           {(sop.status === 'PENDING_CREATION' || sop.status === 'REJECTED') && (
-                            (sop.assignedCreatorId === currentUser.id || currentUser.role === 'ADMIN') && (
+                            (isSopCreator(sop, currentUser?.id) || currentUser?.role === 'ADMIN') && (
                               <button
                                 type="button"
                                 className="bg-[#f0f9ff] border border-[#0284c7] text-[#0369a1] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-bold"
@@ -1021,7 +1037,7 @@ export default function Sops() {
                             )
                           )}
                           {sop.status === 'PENDING_APPROVAL' && (
-                            (sop.assignedApproverId === currentUser.id || (currentUser.role === 'ADMIN' && sop.assignedCreatorId !== currentUser.id)) && (
+                            (isSopApprover(sop, currentUser?.id) || (currentUser?.role === 'ADMIN' && !isSopCreator(sop, currentUser?.id))) && (
                               <>
                                 <button
                                   type="button"
