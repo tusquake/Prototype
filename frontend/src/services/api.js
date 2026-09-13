@@ -600,12 +600,12 @@ export async function rejectTask(taskId, actorId = 'usr-mainak-215', comment = '
   let id = taskId;
   let actor = actorId;
   let comm = comment;
-  let isPermanent = permanentRejection;
+  let isPermanent = Boolean(permanentRejection);
 
   if (typeof taskId === 'object' && taskId !== null) {
     id = taskId.taskId || taskId.id || taskId.recordNo;
-    if (typeof actorId === 'string' && typeof comment !== 'string') {
-      isPermanent = !!comment;
+    if (typeof actorId === 'string' && typeof comment === 'boolean') {
+      isPermanent = comment;
       comm = actorId;
       actor = 'usr-mainak-215';
     }
@@ -613,7 +613,12 @@ export async function rejectTask(taskId, actorId = 'usr-mainak-215', comment = '
 
   const res = await fetchJson(`/tasks/${id}/action`, {
     method: 'PUT',
-    body: JSON.stringify({ action: isPermanent ? 'PERMANENT_REJECT' : 'REJECT', actorId: actor, comment: comm, permanentRejection: isPermanent }),
+    body: JSON.stringify({
+      action: isPermanent ? 'PERMANENT_REJECT' : 'REJECT',
+      actorId: actor,
+      comment: comm,
+      permanentRejection: isPermanent,
+    }),
   }).catch(() => null);
 
   const mock = MOCK_TASKS.find(t => t.taskId === id || t.id === id || t.recordNo === id);

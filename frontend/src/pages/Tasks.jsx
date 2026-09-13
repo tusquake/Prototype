@@ -148,9 +148,9 @@ export default function Tasks() {
     await loadTasks();
   }
 
-  async function handleModalReject(taskId, actorId, comment) {
-    await rejectTask(taskId, actorId, comment);
-    setToastMsg('Task rejected and sent back to Maker.');
+  async function handleModalReject(taskId, actorId, comment, isPermanent) {
+    await rejectTask(taskId, actorId, comment, isPermanent);
+    setToastMsg(isPermanent ? 'Task permanently rejected.' : 'Task rejected and sent back to Maker.');
     setActiveTask(null);
     await loadTasks();
   }
