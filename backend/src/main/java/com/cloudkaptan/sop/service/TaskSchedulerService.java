@@ -18,6 +18,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.UUID;
 
@@ -66,9 +70,37 @@ public class TaskSchedulerService {
                 }
 
                 if (!taskRepository.existsBySop_SopIdAndPeriodKey(sop.getSopId(), periodKey)) {
-                    LocalDate dueDate = (version.getDueDateTime() != null)
-                        ? version.getDueDateTime().toLocalDate()
-                        : strategy.calculateDueDate(today, sop.getDueDayOffset());
+                    LocalTime sopStartTime = (version.getStartDateTime() != null)
+                        ? version.getStartDateTime().toLocalTime()
+                        : LocalTime.of(9, 0);
+
+                    LocalTime sopDueTime = (version.getDueDateTime() != null)
+                        ? version.getDueDateTime().toLocalTime()
+                        : sopStartTime;
+
+                    ZoneOffset sopOffset = (version.getStartDateTime() != null)
+                        ? version.getStartDateTime().getOffset()
+                        : ((version.getDueDateTime() != null) ? version.getDueDateTime().getOffset() : ZoneOffset.UTC);
+
+                    LocalDate taskDueDate;
+                    OffsetDateTime taskStartDateTime;
+                    OffsetDateTime taskDueDateTime;
+
+                    if (Boolean.FALSE.equals(version.getIsRecurring())) {
+                        taskStartDateTime = (version.getStartDateTime() != null)
+                            ? version.getStartDateTime()
+                            : OffsetDateTime.now();
+                        taskDueDateTime = (version.getDueDateTime() != null)
+                            ? version.getDueDateTime()
+                            : taskStartDateTime.plusDays(sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7);
+                        taskDueDate = taskDueDateTime.toLocalDate();
+                    } else {
+                        taskDueDate = strategy.calculateDueDate(entityToday, sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 1);
+                        LocalDate periodStartDate = entityToday.with(TemporalAdjusters.firstDayOfMonth());
+                        taskStartDateTime = periodStartDate.atTime(sopStartTime).atOffset(sopOffset);
+                        taskDueDateTime = taskDueDate.atTime(sopDueTime).atOffset(sopOffset);
+                    }
+
                     String recordNo = String.format("%s-%s", sop.getSopCode(), periodKey);
 
                     java.util.List<String> makerPool = (sop.getDefaultMakerIds() != null && !sop.getDefaultMakerIds().isEmpty())
@@ -81,13 +113,16 @@ public class TaskSchedulerService {
 
                     Task task = Task.builder()
                         .sop(sop)
+                        .sopVersion(version)
                         .recordNo(recordNo)
                         .periodKey(periodKey)
                         .entity(sop.getEntity())
                         .assignedMakerIds(makerPool)
                         .assignedCheckerIds(checkerPool)
                         .status(TaskStatus.OPEN)
-                        .dueDate(dueDate)
+                        .startDateTime(taskStartDateTime)
+                        .dueDate(taskDueDate)
+                        .dueDateTime(taskDueDateTime)
                         .build();
 
                     Task savedTask = taskRepository.save(task);

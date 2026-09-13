@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
@@ -789,10 +790,29 @@ public class TaskWorkflowService {
             .actualCheckerId(task.getChecker() != null ? task.getChecker().getUserId() : null)
             .actualCheckerName(actualCheckerName)
             .status(task.getStatus())
+            .startDateTime(task.getStartDateTime() != null
+                ? task.getStartDateTime()
+                : (task.getSopVersion() != null ? task.getSopVersion().getStartDateTime() : task.getCreatedAt()))
             .dueDate(task.getDueDate())
-            .dueDateTime(task.getSopVersion() != null && task.getSopVersion().getDueDateTime() != null
-                ? task.getSopVersion().getDueDateTime()
-                : (task.getDueDate() != null ? task.getDueDate().atTime(23, 59, 59).atOffset(ZoneOffset.UTC) : null))
+            .dueDateTime(task.getDueDateTime() != null
+                ? task.getDueDateTime()
+                : (task.getSopVersion() != null && task.getSopVersion().getDueDateTime() != null && task.getSop() != null && Boolean.FALSE.equals(task.getSop().getIsRecurring())
+                    ? task.getSopVersion().getDueDateTime()
+                    : (task.getDueDate() != null
+                        ? task.getDueDate().atTime(
+                            task.getSopVersion() != null && task.getSopVersion().getDueDateTime() != null
+                                ? task.getSopVersion().getDueDateTime().toLocalTime()
+                                : (task.getSopVersion() != null && task.getSopVersion().getStartDateTime() != null
+                                    ? task.getSopVersion().getStartDateTime().toLocalTime()
+                                    : LocalTime.of(18, 0))
+                          ).atOffset(
+                            task.getSopVersion() != null && task.getSopVersion().getDueDateTime() != null
+                                ? task.getSopVersion().getDueDateTime().getOffset()
+                                : (task.getSopVersion() != null && task.getSopVersion().getStartDateTime() != null
+                                    ? task.getSopVersion().getStartDateTime().getOffset()
+                                    : ZoneOffset.UTC)
+                          )
+                        : null)))
             .daysOverdue(daysOverdue)
             .completedAt(task.getCompletedAt())
             .approvedAt(task.getApprovedAt())
