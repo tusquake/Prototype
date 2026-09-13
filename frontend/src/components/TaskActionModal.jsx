@@ -284,7 +284,19 @@ export default function TaskActionModal({
   const activityComments = effectiveHistory.filter(h => {
     if (!h.comment || !h.comment.trim()) return false;
     const act = (h.action || '').toUpperCase();
-    if (act === 'CREATE_TASK' && h.comment.includes('created automatically')) return false;
+    const commentLower = h.comment.toLowerCase();
+    const actorLower = (h.actorName || '').toLowerCase();
+
+    // Exclude System Scheduler & Automated Creation events
+    if (actorLower.includes('scheduler') || act.includes('CREATE') || commentLower.includes('created automatically') || commentLower.includes('compliance task cycle')) {
+      return false;
+    }
+
+    // Exclude Document-level events (uploads, doc approvals, doc rejections, doc deletions)
+    if (act.includes('DOCUMENT') || commentLower.includes('evidence file') || commentLower.includes('uploaded evidence') || commentLower.includes('approved evidence') || commentLower.includes('rejected evidence') || commentLower.includes('deleted evidence')) {
+      return false;
+    }
+
     return true;
   });
 
@@ -887,27 +899,26 @@ export default function TaskActionModal({
               </div>
             )}
 
-            {/* Execution Comments Section */}
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold uppercase tracking-wide text-slate-800">
-                Execution Notes &amp; Audit Comments
-              </label>
+            {/* Execution Comments Section (Only shown when user can take action) */}
+            {!isReadOnly && (
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold uppercase tracking-wide text-slate-800">
+                  Execution Notes &amp; Audit Comments
+                </label>
 
-              <textarea
-                className="min-h-[90px] w-full resize-y rounded-xl border border-slate-300 bg-white p-3 px-3.5 text-[13.5px] text-slate-900 outline-none transition-all focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15 disabled:bg-slate-100 disabled:text-slate-400"
-                rows="3"
-                placeholder={
-                  isReadOnly
-                    ? 'Read-only viewer mode...'
-                    : canApproveOrReject
+                <textarea
+                  className="min-h-[90px] w-full resize-y rounded-xl border border-slate-300 bg-white p-3 px-3.5 text-[13.5px] text-slate-900 outline-none transition-all focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15 disabled:bg-slate-100 disabled:text-slate-400"
+                  rows="3"
+                  placeholder={
+                    canApproveOrReject
                       ? 'Enter approval notes or mandatory rejection reason...'
                       : 'Enter task execution summary, tax deposit reference, or upload comments...'
-                }
-                value={comment}
-                onChange={e => setComment(e.target.value)}
-                disabled={isReadOnly}
-              />
-            </div>
+                  }
+                  value={comment}
+                  onChange={e => setComment(e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
           {/* Footer Actions */}
