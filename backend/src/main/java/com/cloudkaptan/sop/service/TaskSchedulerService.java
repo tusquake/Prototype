@@ -78,9 +78,13 @@ public class TaskSchedulerService {
                         ? version.getDueDateTime().toLocalTime()
                         : sopStartTime;
 
+                    java.time.ZoneId entityZone = (sop.getEntity() != null && sop.getEntity().getEntityCode() != null)
+                        ? sop.getEntity().getEntityCode().getTimeZone()
+                        : java.time.ZoneId.of("Asia/Kolkata");
+
                     ZoneOffset sopOffset = (version.getStartDateTime() != null)
                         ? version.getStartDateTime().getOffset()
-                        : ((version.getDueDateTime() != null) ? version.getDueDateTime().getOffset() : ZoneOffset.UTC);
+                        : ((version.getDueDateTime() != null) ? version.getDueDateTime().getOffset() : entityZone.getRules().getOffset(java.time.Instant.now()));
 
                     LocalDate taskDueDate;
                     OffsetDateTime taskStartDateTime;
