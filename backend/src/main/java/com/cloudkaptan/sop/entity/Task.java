@@ -76,8 +76,14 @@ public class Task {
     @Column(name = "status", length = 32, nullable = false)
     private TaskStatus status;
 
+    @Column(name = "start_date_time")
+    private OffsetDateTime startDateTime;
+
     @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
+
+    @Column(name = "due_date_time")
+    private OffsetDateTime dueDateTime;
 
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;

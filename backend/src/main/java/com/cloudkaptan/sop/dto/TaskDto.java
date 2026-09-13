@@ -42,6 +42,7 @@ public class TaskDto {
     private String actualCheckerName;
 
     private TaskStatus status;
+    private OffsetDateTime startDateTime;
     private LocalDate dueDate;
     private OffsetDateTime dueDateTime;
     private Long daysOverdue;

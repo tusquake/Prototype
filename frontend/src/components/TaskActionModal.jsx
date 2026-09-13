@@ -502,8 +502,8 @@ export default function TaskActionModal({
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Entity &amp; Recurrence</span>
-                <span className="text-xs text-slate-700">{task.entity || task.entityName} ({task.period || task.periodKey})</span>
+                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Start Date &amp; Time</span>
+                <span className="text-xs font-semibold text-slate-800">{task.startDateTime || 'N/A'}</span>
               </div>
 
               <div className="flex flex-col gap-1">

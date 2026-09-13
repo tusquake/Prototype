@@ -206,12 +206,15 @@ export function mapTask(dto) {
     assignedCheckerNames: checkerList,
     lockedChecker: lockedChecker,
     actualChecker: lockedChecker,
+    startDateTime: dto.startDateTime
+      ? new Date(dto.startDateTime).toLocaleString()
+      : (dto.createdAt ? new Date(dto.createdAt).toLocaleString() : 'N/A'),
     dueDate: dto.dueDateTime
       ? new Date(dto.dueDateTime).toLocaleString()
       : (dto.dueDate && dto.dueDate !== 'N/A'
-        ? (dto.dueDate.includes(':') ? dto.dueDate : `${dto.dueDate} 23:59:59`)
+        ? (dto.dueDate.includes(':') ? dto.dueDate : dto.dueDate)
         : 'N/A'),
-    dueDateTime: dto.dueDateTime || (dto.dueDate && dto.dueDate !== 'N/A' ? `${dto.dueDate}T23:59:59Z` : null),
+    dueDateTime: dto.dueDateTime || null,
     daysOverdue: dto.daysOverdue || 0,
     status: dto.status || 'OPEN',
     canUserSubmit: dto.canUserSubmit,
