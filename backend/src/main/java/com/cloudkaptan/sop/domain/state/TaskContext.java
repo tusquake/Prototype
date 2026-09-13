@@ -20,7 +20,7 @@ public class TaskContext {
             case PENDING_REVIEW -> new PendingReviewState();
             case APPROVED -> new ApprovedState();
             case REJECTED -> new RejectedState();
-            case PERMANENTLY_REJECTED -> new ApprovedState();
+            case PERMANENTLY_REJECTED -> new PermanentlyRejectedState();
         };
     }
 

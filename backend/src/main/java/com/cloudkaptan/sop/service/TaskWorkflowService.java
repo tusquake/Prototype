@@ -74,8 +74,8 @@ public class TaskWorkflowService {
     @Transactional
     public TaskDto submitTask(UUID taskId, String actorId, String comment) {
         Task task = getTaskOrThrow(taskId);
-        if (task.getStatus() == TaskStatus.PENDING_REVIEW || task.getStatus() == TaskStatus.APPROVED) {
-            throw new IllegalStateException("Task is locked and has already been submitted by " + (task.getMaker() != null ? task.getMaker().getFullName() : "another Maker"));
+        if (task.getStatus() == TaskStatus.PENDING_REVIEW || task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.PERMANENTLY_REJECTED) {
+            throw new IllegalStateException("Task is locked and cannot be submitted because its status is " + task.getStatus());
         }
 
         User actor = getUserOrThrow(actorId);
@@ -159,7 +159,7 @@ public class TaskWorkflowService {
     @Transactional
     public TaskDto approveTask(UUID taskId, String actorId, String comment) {
         Task task = getTaskOrThrow(taskId);
-        if (task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED) {
+        if (task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED || task.getStatus() == TaskStatus.PERMANENTLY_REJECTED) {
             throw new IllegalStateException("Task is locked and has already been reviewed by " + (task.getChecker() != null ? task.getChecker().getFullName() : "another Checker"));
         }
 
