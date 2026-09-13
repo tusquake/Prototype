@@ -12,6 +12,7 @@ import com.cloudkaptan.sop.entity.Sop;
 import com.cloudkaptan.sop.entity.User;
 import com.cloudkaptan.sop.exception.ResourceNotFoundException;
 import com.cloudkaptan.sop.entity.AuditLog;
+import com.cloudkaptan.sop.entity.SopVersion;
 import com.cloudkaptan.sop.repository.AuditLogRepository;
 import com.cloudkaptan.sop.repository.CorporateEntityRepository;
 import com.cloudkaptan.sop.repository.SopEventRepository;
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -593,6 +595,16 @@ public class SopService {
             .timestamp(e.getTimestamp())
             .build()).toList();
 
+        SopVersion activeVersion = sopVersionRepository.findActiveVersionBySopId(sop.getSopId()).orElse(null);
+
+        OffsetDateTime startDateTime = activeVersion != null && activeVersion.getStartDateTime() != null
+                ? activeVersion.getStartDateTime()
+                : (sop.getCreatedAt() != null ? sop.getCreatedAt() : OffsetDateTime.now());
+
+        OffsetDateTime dueDateTime = activeVersion != null && activeVersion.getDueDateTime() != null
+                ? activeVersion.getDueDateTime()
+                : startDateTime.plusDays(sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7);
+
         return SopDto.builder()
             .sopId(sop.getSopId())
             .sopCode(sop.getSopCode())
@@ -604,6 +616,8 @@ public class SopService {
             .frequency(sop.getFrequency())
             .dueDayOffset(sop.getDueDayOffset())
             .isRecurring(Boolean.TRUE.equals(sop.getIsRecurring()))
+            .startDateTime(startDateTime)
+            .dueDateTime(dueDateTime)
             .defaultMakerId(mIds.isEmpty() ? null : mIds.get(0))
             .defaultMakerName(mNames.isEmpty() ? null : mNames.get(0))
             .defaultMakerIds(mIds)
