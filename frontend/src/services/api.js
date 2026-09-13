@@ -888,17 +888,18 @@ export async function getAccessControlActivityLogs(categoryCode = null) {
 export async function getUsersByPermission(categoryCode, permissionType) {
   if (!categoryCode || !permissionType) return [];
   try {
-    const res = await fetchJson(
-      `/admin/permissions/category/${encodeURIComponent(categoryCode)}/users?permission=${permissionType}`
-    );
-    // Response is a plain List<String> of userIds
-    if (Array.isArray(res)) {
-      // Resolve full user objects from our mock user list
-      return res.map(uid => MOCK_ORGANIZATION_USERS.find(u => u.id === uid) || { id: uid, name: uid, email: '' });
+    const [res, allUsers] = await Promise.all([
+      fetchJson(`/admin/permissions/category/${encodeURIComponent(categoryCode)}/users?permission=${permissionType}`).catch(() => []),
+      getUsers().catch(() => [])
+    ]);
+    if (Array.isArray(res) && res.length > 0) {
+      const userMap = new Map((allUsers || []).map(u => [u.id, u]));
+      return res.map(uid => userMap.get(uid) || { id: uid, name: uid, email: '' });
     }
-    return [];
-  } catch {
-    // Return empty — no access until admin grants permissions
+    // Fallback: If no category-specific permissions assigned yet, return all eligible users for that role
+    return allUsers || [];
+  } catch (err) {
+    console.warn('Failed to resolve users by permission:', err);
     return [];
   }
 }

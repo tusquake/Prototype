@@ -1,0 +1,15 @@
+# Sample Terraform Configuration Variables for FinSOP GCP Infrastructure
+# Rename this file to terraform.tfvars and fill in your environment settings before running terraform apply.
+
+project_id              = "finsop-gcp-project"
+region                  = "us-central1"
+environment             = "prod"
+cloud_tasks_queue_name  = "finsop-scheduled-tasks-queue"
+
+db_host                 = "10.0.0.5" # Replace with Cloud SQL Private IP or Host
+db_port                 = 5432
+db_name                 = "finsop_db"
+db_user                 = "finsop_user"
+db_password             = "YourSecureDBPasswordHere!"
+
+checkpoint_horizon_days = 25

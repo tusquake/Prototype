@@ -1,78 +1,60 @@
 variable "project_id" {
-  description = "GCP Project ID"
+  description = "GCP Project ID for FinSOP Platform infrastructure"
   type        = string
-  default     = "finance-sop-portal"
+  default     = "finsop-gcp-project"
 }
 
 variable "region" {
-  description = "GCP Region for all regional resources"
+  description = "GCP Region for Cloud Tasks, Cloud Functions, and Cloud Scheduler deployment"
   type        = string
-  default     = "asia-south1"
+  default     = "us-central1"
 }
 
-variable "bucket_name" {
-  description = "GCS bucket name for React frontend static assets"
+variable "environment" {
+  description = "Deployment environment (prod, staging, dev)"
   type        = string
-  default     = "fin-sop-frontend-bucket"
+  default     = "prod"
 }
 
-variable "domain_name" {
-  description = "Custom domain name for the HTTPS SSL certificate"
+variable "cloud_tasks_queue_name" {
+  description = "Name of the Google Cloud Tasks Queue for scheduled task execution"
   type        = string
-  default     = "finsop.cloudkaptan.com"
+  default     = "finsop-scheduled-tasks-queue"
 }
 
-variable "db_password" {
-  description = "PostgreSQL application user password (stored in Secret Manager)"
+variable "db_host" {
+  description = "Cloud SQL PostgreSQL database host IP or connection name"
   type        = string
-  sensitive   = true
+  default     = "10.0.0.5"
+}
+
+variable "db_port" {
+  description = "Cloud SQL PostgreSQL port"
+  type        = number
+  default     = 5432
 }
 
 variable "db_name" {
-  description = "PostgreSQL logical database name"
+  description = "Cloud SQL PostgreSQL database name"
   type        = string
-  default     = "fin_sop_db"
+  default     = "finsop_db"
 }
 
 variable "db_user" {
-  description = "PostgreSQL application user name"
+  description = "Cloud SQL PostgreSQL username"
   type        = string
-  default     = "sop_app_user"
+  default     = "finsop_user"
 }
 
-variable "backend_image" {
-  description = "Full Docker image URI for the Spring Boot backend (pushed to Artifact Registry)"
+variable "db_password" {
+  description = "Cloud SQL PostgreSQL password"
   type        = string
-  default     = "asia-south1-docker.pkg.dev/finance-sop-portal/fin-sop-repo/fin-sop-backend"
+  sensitive   = true
+  default     = "finsop_password"
 }
 
-variable "rate_limiting_enabled" {
-  description = "Enable rate limiting on Cloud Run backend"
-  type        = string
-  default     = "true"
+variable "checkpoint_horizon_days" {
+  description = "Maximum Cloud Tasks dispatch horizon in days (safety limit before checkpoint hop)"
+  type        = number
+  default     = 25
 }
-
-variable "rate_limit_standard_capacity" {
-  description = "Standard rate limit bucket capacity per minute"
-  type        = string
-  default     = "100"
-}
-
-variable "rate_limit_auth_capacity" {
-  description = "Auth rate limit bucket capacity per minute"
-  type        = string
-  default     = "10"
-}
-
-variable "task_documents_bucket_name" {
-  description = "GCS bucket name for task working paper documents & attachments"
-  type        = string
-  default     = "finsop-task-documents-bucket"
-}
-
-variable "gcs_storage_type" {
-  description = "Storage adapter type for task attachments (gcs | local)"
-  type        = string
-  default     = "gcs"
-}
-
