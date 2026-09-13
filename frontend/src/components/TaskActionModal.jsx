@@ -134,7 +134,7 @@ export default function TaskActionModal({
   function handleDragOver(e) {
     e.preventDefault();
     e.stopPropagation();
-    if (!isReadOnly && !uploadingFile) {
+    if (canSubmit && !uploadingFile) {
       setIsDragging(true);
     }
   }
@@ -149,7 +149,7 @@ export default function TaskActionModal({
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    if (isReadOnly || uploadingFile) return;
+    if (!canSubmit || uploadingFile) return;
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleAutoUploadFiles(e.dataTransfer.files);
@@ -512,16 +512,16 @@ export default function TaskActionModal({
             {/* Attached Working Papers & Evidence Documents Section with Drag & Drop */}
             <div
               className={`relative flex flex-col gap-3 rounded-xl border p-4 transition-all ${
-                isDragging
+                isDragging && canSubmit
                   ? 'border-blue-500 bg-blue-50/80 ring-4 ring-blue-500/20 shadow-md'
                   : 'border-slate-200 bg-slate-50'
               }`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
+              onDragOver={canSubmit ? handleDragOver : undefined}
+              onDragLeave={canSubmit ? handleDragLeave : undefined}
+              onDrop={canSubmit ? handleDrop : undefined}
             >
               {/* Drag Overlay Notice */}
-              {isDragging && (
+              {isDragging && canSubmit && (
                 <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-xl bg-blue-600/90 text-white backdrop-blur-xs animate-[fadeIn_0.15s_ease-in-out]">
                   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -546,7 +546,7 @@ export default function TaskActionModal({
                   </span>
                 </div>
 
-                {!isReadOnly && !canApproveOrReject && (
+                {canSubmit && (
                   <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-blue-600/30 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 transition-all hover:bg-blue-100 disabled:opacity-50">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -584,7 +584,7 @@ export default function TaskActionModal({
               )}
 
               {/* Task Revision Mode Alert Callout */}
-              {task.status === 'REJECTED' && (
+              {task.status === 'REJECTED' && canSubmit && (
                 <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50/90 p-3 text-xs text-amber-900 shadow-xs">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-amber-600">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
@@ -615,21 +615,32 @@ export default function TaskActionModal({
               {loadingDocs ? (
                 <div className="py-4 text-center text-xs text-slate-500">Loading attached documents...</div>
               ) : documents.length === 0 ? (
-                <div
-                  className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 p-6 text-center transition-all hover:border-blue-400 hover:bg-blue-50/40 cursor-pointer"
-                  onClick={() => {
-                    const el = document.querySelector('input[type="file"][multiple]');
-                    if (el) el.click();
-                  }}
-                >
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="mb-2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                  <span className="text-xs font-semibold text-slate-700">No documents attached yet</span>
-                  <span className="text-[11px] text-slate-500 mt-0.5">Drag &amp; drop evidence files here or click to browse</span>
-                </div>
+                canSubmit ? (
+                  <div
+                    className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 p-6 text-center transition-all hover:border-blue-400 hover:bg-blue-50/40 cursor-pointer"
+                    onClick={() => {
+                      const el = document.querySelector('input[type="file"][multiple]');
+                      if (el) el.click();
+                    }}
+                  >
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="mb-2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <span className="text-xs font-semibold text-slate-700">No documents attached yet</span>
+                    <span className="text-[11px] text-slate-500 mt-0.5">Drag &amp; drop evidence files here or click to browse</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white p-6 text-center">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="mb-2">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    <span className="text-xs font-semibold text-slate-700">No documents attached yet</span>
+                    <span className="text-[11px] text-slate-500 mt-0.5">No evidence documents have been uploaded for this task</span>
+                  </div>
+                )
               ) : (
                 <div className="flex flex-col gap-2">
                   {documents.map(doc => (
@@ -769,8 +780,8 @@ export default function TaskActionModal({
                             <span>Download</span>
                           </button>
 
-                          {/* Delete button (Strictly denied for Approvers / Checkers) */}
-                          {!canApproveOrReject && (!isReadOnly || task.status === 'REJECTED') && doc.status !== 'APPROVED' && (
+                          {/* Delete button (Strictly allowed only for Submitter) */}
+                          {canSubmit && doc.status !== 'APPROVED' && (
                             <button
                               type="button"
                               className="flex items-center justify-center rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all"

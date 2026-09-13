@@ -1,8 +1,11 @@
 package com.cloudkaptan.sop.domain.state.sop;
 
 import com.cloudkaptan.sop.domain.enums.SopStatus;
+import com.cloudkaptan.sop.domain.enums.UserRole;
 import com.cloudkaptan.sop.entity.User;
 import com.cloudkaptan.sop.exception.IllegalStateTransitionException;
+
+import java.util.List;
 
 public class PendingApprovalSopState implements SopState {
 
@@ -13,12 +16,14 @@ public class PendingApprovalSopState implements SopState {
 
     @Override
     public void approve(SopContext context, User actor) {
-        String assignedApprover = context.getSop().getAssignedApproverId();
-        if (assignedApprover != null && !assignedApprover.isBlank() && actor != null 
-            && !assignedApprover.equals(actor.getUserId()) 
-            && actor.getRole() != com.cloudkaptan.sop.domain.enums.UserRole.ADMIN) {
+        List<String> approverPool = context.getSop().getAssignedApproverIds();
+        boolean isAssignedApprover = (approverPool != null && !approverPool.isEmpty())
+            ? approverPool.contains(actor != null ? actor.getUserId() : null)
+            : (context.getSop().getAssignedApproverId() != null && actor != null && context.getSop().getAssignedApproverId().equals(actor.getUserId()));
+
+        if (actor != null && !isAssignedApprover && actor.getRole() != UserRole.ADMIN) {
             throw new IllegalStateTransitionException(
-                String.format("User [%s] is not the assigned approver [%s] for this SOP.", actor.getUserId(), assignedApprover)
+                String.format("User [%s] is not an assigned approver for this SOP.", actor.getUserId())
             );
         }
         context.getSop().setRejectionReason(null);
@@ -27,12 +32,14 @@ public class PendingApprovalSopState implements SopState {
 
     @Override
     public void reject(SopContext context, User actor, String reason) {
-        String assignedApprover = context.getSop().getAssignedApproverId();
-        if (assignedApprover != null && !assignedApprover.isBlank() && actor != null 
-            && !assignedApprover.equals(actor.getUserId()) 
-            && actor.getRole() != com.cloudkaptan.sop.domain.enums.UserRole.ADMIN) {
+        List<String> approverPool = context.getSop().getAssignedApproverIds();
+        boolean isAssignedApprover = (approverPool != null && !approverPool.isEmpty())
+            ? approverPool.contains(actor != null ? actor.getUserId() : null)
+            : (context.getSop().getAssignedApproverId() != null && actor != null && context.getSop().getAssignedApproverId().equals(actor.getUserId()));
+
+        if (actor != null && !isAssignedApprover && actor.getRole() != UserRole.ADMIN) {
             throw new IllegalStateTransitionException(
-                String.format("User [%s] is not the assigned approver [%s] for this SOP.", actor.getUserId(), assignedApprover)
+                String.format("User [%s] is not an assigned approver for this SOP.", actor.getUserId())
             );
         }
         context.getSop().setRejectionReason(reason);
