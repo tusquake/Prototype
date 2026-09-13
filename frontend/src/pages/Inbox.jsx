@@ -67,9 +67,9 @@ export default function Inbox() {
     await loadTasks();
   }
 
-  async function handleReject(taskId, actorId, comment) {
-    await rejectTask(taskId, actorId, comment);
-    setToastMsg('Task rejected and sent back to Maker.');
+  async function handleReject(taskId, actorId, comment, isPermanent) {
+    await rejectTask(taskId, actorId, comment, isPermanent);
+    setToastMsg(isPermanent ? 'Task permanently rejected.' : 'Task rejected and sent back to Maker.');
     setActiveTask(null);
     await loadTasks();
   }
