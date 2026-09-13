@@ -507,8 +507,8 @@ export default function TaskActionModal({
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Due Date</span>
-                <span className="text-xs text-slate-700">{task.dueDate}</span>
+                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Due Date &amp; Time</span>
+                <span className="text-xs font-semibold text-slate-800">{task.dueDate}</span>
               </div>
 
               <div className="col-span-2 flex flex-col gap-1">

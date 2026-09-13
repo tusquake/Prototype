@@ -43,6 +43,7 @@ public class TaskDto {
 
     private TaskStatus status;
     private LocalDate dueDate;
+    private OffsetDateTime dueDateTime;
     private Long daysOverdue;
     private OffsetDateTime completedAt;
     private OffsetDateTime approvedAt;

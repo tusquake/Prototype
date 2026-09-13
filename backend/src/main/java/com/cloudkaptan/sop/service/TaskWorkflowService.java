@@ -22,6 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
@@ -788,6 +790,9 @@ public class TaskWorkflowService {
             .actualCheckerName(actualCheckerName)
             .status(task.getStatus())
             .dueDate(task.getDueDate())
+            .dueDateTime(task.getSopVersion() != null && task.getSopVersion().getDueDateTime() != null
+                ? task.getSopVersion().getDueDateTime()
+                : (task.getDueDate() != null ? task.getDueDate().atTime(23, 59, 59).atOffset(ZoneOffset.UTC) : null))
             .daysOverdue(daysOverdue)
             .completedAt(task.getCompletedAt())
             .approvedAt(task.getApprovedAt())
