@@ -820,7 +820,7 @@ export default function Sops() {
                 <line x1="16" y1="13" x2="8" y2="13" />
                 <line x1="16" y1="17" x2="8" y2="17" />
               </svg>
-              {isAdmin ? 'SOP Governance Assignments' : 'Master Operating Procedures'}
+              Master Operating Procedures
             </span>
             {(isAdmin || (Array.isArray(creatableCategories) && creatableCategories.length > 0)) && (
               <div className="flex gap-2.5 items-center">
@@ -840,108 +840,7 @@ export default function Sops() {
           </div>
 
           <div className="overflow-x-auto w-full">
-            {isAdmin ? (
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b border-[#f1f5f9]">
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">SOP CODE</th>
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">PROCESS CATEGORY</th>
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">CORPORATE ENTITY</th>
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ASSIGNED CREATOR</th>
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ASSIGNED APPROVER</th>
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">STATUS</th>
-                    <th className="px-6 py-3 text-right text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <TableSkeleton rows={4} columns={7} />
-                  ) : filtered.length === 0 ? (
-                    <tr><td colSpan={7} className="text-center p-12 text-[#94a3b8] text-[13.5px]">No SOP assignments created yet.</td></tr>
-                  ) : paginatedSops.map(sop => (
-                    <tr
-                      key={sop.id || sop.code}
-                      className="cursor-pointer border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]"
-                      onClick={() => setViewingAssignment(sop)}
-                    >
-                      <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{sop.code}</td>
-                      <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{sop.process || sop.processCategory}</td>
-                      <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{sop.entity || sop.entityName}</td>
-                      <td className="px-6 py-3.5 text-[12px] font-semibold text-[#334155] align-middle">
-                        {(Array.isArray(sop.assignedCreatorNames) && sop.assignedCreatorNames.length > 0) ? sop.assignedCreatorNames.join(', ') : (sop.assignedCreatorName || sop.assignedCreatorId || 'N/A')}
-                      </td>
-                      <td className="px-6 py-3.5 text-[12px] font-semibold text-[#334155] align-middle">
-                        {(Array.isArray(sop.assignedApproverNames) && sop.assignedApproverNames.length > 0) ? sop.assignedApproverNames.join(', ') : (sop.assignedApproverName || sop.assignedApproverId || 'N/A')}
-                      </td>
-                      <td className="px-6 py-3.5 text-[13.5px] align-middle">
-                        {sop.status === 'PENDING_CREATION' && (
-                          <span className="text-[11px] bg-[#ffedd5] text-[#c2410c] px-2 py-[3px] rounded-[4px] font-bold inline-block">
-                            PENDING CREATION
-                          </span>
-                        )}
-                        {sop.status === 'PENDING_APPROVAL' && (
-                          <span className="text-[11px] bg-[#fef3c7] text-[#b45309] px-2 py-[3px] rounded-[4px] font-bold inline-block">
-                            PENDING APPROVAL
-                          </span>
-                        )}
-                        {(sop.status === 'ACTIVE' || sop.status === 'APPROVED') && (
-                          <span className="text-[11px] bg-[#dcfce7] text-[#15803d] px-2 py-[3px] rounded-[4px] font-bold inline-block">
-                            ACTIVE
-                          </span>
-                        )}
-                        {sop.status === 'REJECTED' && (
-                          <span className="text-[11px] bg-[#fee2e2] text-[#b91c1c] px-2 py-[3px] rounded-[4px] font-bold inline-block">
-                            REJECTED
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-3.5 text-[13.5px] align-middle" onClick={e => e.stopPropagation()}>
-                        <div className="flex gap-1.5 justify-end">
-                          {(sop.status === 'PENDING_CREATION' || sop.status === 'REJECTED') && (
-                            <button
-                              type="button"
-                              className="bg-[#f0f9ff] border border-[#0284c7] text-[#0369a1] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-bold"
-                              onClick={() => {
-                                setLockedAssignment(sop);
-                                setEditingSop(null);
-                                setShowModal(true);
-                              }}
-                            >
-                              {sop.status === 'PENDING_CREATION' ? 'Create SOP' : 'Draft SOP'}
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            title="View Assignment Details"
-                            className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#334155] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1"
-                            onClick={() => setViewingAssignment(sop)}
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                              <circle cx="12" cy="12" r="3" />
-                            </svg>
-                            View
-                          </button>
-                          <button
-                            type="button"
-                            title="Delete Assignment"
-                            className="bg-[rgba(239,68,68,0.1)] border border-[rgba(239,68,68,0.3)] text-[#ef4444] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1"
-                            onClick={() => setDeletingSop(sop)}
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="3 6 5 6 21 6" />
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                            </svg>
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <table className="w-full border-collapse">
+            <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b border-[#f1f5f9]">
                     <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">CODE</th>
@@ -1083,7 +982,6 @@ export default function Sops() {
                   ))}
                 </tbody>
               </table>
-            )}
           </div>
 
           {!loading && (
