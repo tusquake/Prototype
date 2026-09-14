@@ -172,7 +172,7 @@ public class SopService {
                 .defaultCheckerIds(new java.util.ArrayList<>(cPool))
                 .assignedCreatorId(createdBy.getUserId())
                 .assignedCreatorIds(new java.util.ArrayList<>(List.of(createdBy.getUserId())))
-                .status(SopStatus.ACTIVE)
+                .status(SopStatus.PENDING_APPROVAL)
                 .createdBy(createdBy)
                 .build();
 
@@ -193,16 +193,9 @@ public class SopService {
                 .actor(createdBy)
                 .action("CREATE_SOP")
                 .fromStatus(null)
-                .toStatus(SopStatus.ACTIVE)
-                .comment("SOP created directly by Admin")
+                .toStatus(SopStatus.PENDING_APPROVAL)
+                .comment("SOP created and submitted for approval")
                 .build());
-
-        // Automatically trigger scheduler engine to create task for the new SOP
-        try {
-            taskSchedulerService.generateScheduledTasks();
-        } catch (Exception e) {
-            // Non-fatal if scheduler runs concurrently
-        }
 
         return mapToDto(saved);
     }
