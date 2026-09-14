@@ -193,7 +193,7 @@ export default function CreateCompleteSOPModal({
       await createCompleteSop(payload);
       window.dispatchEvent(new Event('sop-updated'));
       if (onSuccess) {
-        onSuccess(`Complete SOP "${data.title}" created successfully!`);
+        onSuccess(`SOP "${data.title}" submitted for approval successfully!`);
       }
       reset();
       onClose();
