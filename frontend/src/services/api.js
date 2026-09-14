@@ -916,6 +916,26 @@ export async function getUsersByPermission(categoryCode, permissionType) {
   }
 }
 
+export async function getUserCreatableCategories(userId) {
+  if (!userId) return [];
+  try {
+    const res = await fetchJson(`/admin/permissions/user/${encodeURIComponent(userId)}/creatable-categories`);
+    return Array.isArray(res) ? res : (res?.data || []);
+  } catch {
+    return [];
+  }
+}
+
+export async function getUserAccessibleCategories(userId) {
+  if (!userId) return [];
+  try {
+    const res = await fetchJson(`/admin/permissions/user/${encodeURIComponent(userId)}/accessible-categories`);
+    return Array.isArray(res) ? res : (res?.data || []);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Fetches corporate entities from backend GET /finsop/v1/entities API.
  * Falls back to ENTITIES constant if backend is unreachable.

@@ -49,14 +49,39 @@ const ENTITY_NAME_MAP = {
   CK_AUSTRALIA: 'CK Australia',
 };
 
-export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, currentUser, userMap, onClose, onSuccess }) {
+export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, currentUser, userMap, creatableCategories = [], allCategories = [], onClose, onSuccess }) {
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [showMakerPicker, setShowMakerPicker] = useState(false);
   const [showCheckerPicker, setShowCheckerPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.email?.includes('mainak');
   const isCreatorDraftMode = !!lockedAssignment && !editingSop;
+
+  let processCategoryOptions = [];
+  if (isAdmin) {
+    if (Array.isArray(allCategories) && allCategories.length > 0) {
+      processCategoryOptions = allCategories.filter(c => c.value !== 'ALL');
+    } else {
+      processCategoryOptions = [
+        { value: 'Tax Compliance', label: 'Tax Compliance' },
+        { value: 'Treasury & Cash Management', label: 'Treasury & Cash Management' },
+        { value: 'Financial Reporting', label: 'Financial Reporting' },
+        { value: 'Fixed Assets', label: 'Fixed Assets' },
+        { value: 'Payroll & Statutory', label: 'Payroll & Statutory' },
+      ];
+    }
+  } else if (Array.isArray(creatableCategories) && creatableCategories.length > 0) {
+    processCategoryOptions = creatableCategories.map(cat => ({
+      value: cat,
+      label: cat
+    }));
+  } else {
+    processCategoryOptions = [
+      { value: 'Tax Compliance', label: 'Tax Compliance' }
+    ];
+  }
 
   const [permittedMakers, setPermittedMakers] = useState(null);
   const [permittedCheckers, setPermittedCheckers] = useState(null);
@@ -111,10 +136,14 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
         defaultCheckerIds: checkers,
       });
     } else {
-      setFormData(INITIAL_FORM);
+      const defaultCat = processCategoryOptions[0]?.value || 'Tax Compliance';
+      setFormData({
+        ...INITIAL_FORM,
+        processCategory: defaultCat
+      });
     }
     setErrorMsg('');
-  }, [editingSop, lockedAssignment, isOpen]);
+  }, [editingSop, lockedAssignment, isOpen, creatableCategories]);
 
   if (!isOpen) return null;
 
@@ -307,12 +336,21 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
 
                 <div className="flex flex-col gap-1.5 min-w-0">
                   <label className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">PROCESS CATEGORY *</label>
-                  <input
-                    type="text"
-                    value={formData.processCategory}
-                    disabled
-                    className="w-full p-[10px_14px] rounded-[8px] border border-[#cbd5e1] bg-[#f1f5f9] text-[#475569] text-[13.5px] font-semibold cursor-not-allowed outline-none"
-                  />
+                  {(isCreatorDraftMode || !!editingSop) ? (
+                    <input
+                      type="text"
+                      value={formData.processCategory}
+                      disabled
+                      className="w-full p-[10px_14px] rounded-[8px] border border-[#cbd5e1] bg-[#f1f5f9] text-[#475569] text-[13.5px] font-semibold cursor-not-allowed outline-none"
+                    />
+                  ) : (
+                    <CustomSelect
+                      name="processCategory"
+                      value={formData.processCategory}
+                      options={processCategoryOptions}
+                      onChange={handleInputChange}
+                    />
+                  )}
                 </div>
               </div>
 

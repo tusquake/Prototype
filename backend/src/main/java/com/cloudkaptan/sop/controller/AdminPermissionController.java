@@ -129,6 +129,16 @@ public class AdminPermissionController {
         return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(categoryPermissionService.getUserAccessibleCategories(userId)));
     }
 
+    @GetMapping("/user/{userId}/creatable-categories")
+    @Operation(summary = "Get categories where user can create SOPs", description = "Lists process category codes/names that the user has CAN_CREATE_SOP permission to create.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved creatable categories")
+    })
+    public ResponseEntity<com.cloudkaptan.sop.dto.ApiResponse<List<String>>> getUserCreatableCategories(
+            @Parameter(description = "User ID") @PathVariable("userId") String userId) {
+        return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(categoryPermissionService.getUserCreatableCategories(userId)));
+    }
+
     @GetMapping("/category/{categoryCode}/users")
     @Operation(summary = "Get users by category permission", description = "Returns user IDs having a specific permission type (CREATOR | APPROVER | MAKER | CHECKER) for a category.")
     @ApiResponses({

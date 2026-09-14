@@ -13,7 +13,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import SopActivityLogModal from '../components/SopActivityLogModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { ENTITIES, getSops, deleteSop, getUsers, actionSop, getProcessCategories } from '../services/api';
+import { ENTITIES, getSops, deleteSop, getUsers, actionSop, getProcessCategories, getUserCreatableCategories } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
 const FREQ_LABEL = { MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', ANNUAL: 'Annual', DAILY: 'Daily', WEEKLY: 'Weekly' };
@@ -197,6 +197,7 @@ export default function Sops() {
 
   // Modal States
   const [dynamicProcessOptions, setDynamicProcessOptions] = useState(PROCESS_FILTER_OPTIONS);
+  const [creatableCategories, setCreatableCategories] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingSop, setEditingSop] = useState(null);
   const [lockedAssignment, setLockedAssignment] = useState(null); // sidebar notification click
@@ -246,6 +247,11 @@ export default function Sops() {
         ...categoriesData.map(c => ({ value: c.categoryName || c.categoryCode, label: c.categoryName || c.categoryCode }))
       ];
       setDynamicProcessOptions(opts);
+    }
+    if (currentUser?.id || currentUser?.email) {
+      const targetUid = currentUser.id || currentUser.email;
+      const creatable = await getUserCreatableCategories(targetUid).catch(() => []);
+      setCreatableCategories(Array.isArray(creatable) ? creatable : []);
     }
     setLoading(false);
   }
@@ -330,13 +336,19 @@ export default function Sops() {
   }, [selectedEntities]);
 
   function openCreateModal() {
-    if (!isAdmin) {
+    const canCreate = isAdmin || (Array.isArray(creatableCategories) && creatableCategories.length > 0);
+    if (!canCreate) {
       setSuccessMsg('');
-      setErrorMsg('Access Denied: Only Admin users have permission to create SOPs.');
+      setErrorMsg('Access Denied: You do not have permission to create SOPs for any process category. Please ask an Admin to grant SOP Creator access.');
       return;
     }
     setEditingSop(null);
-    setFormData(INITIAL_FORM);
+    setLockedAssignment(null);
+    const initialCategory = (creatableCategories && creatableCategories.length > 0) ? creatableCategories[0] : 'Tax Compliance';
+    setFormData({
+      ...INITIAL_FORM,
+      processCategory: initialCategory
+    });
     setErrorMsg('');
     setShowModal(true);
   }
@@ -810,8 +822,8 @@ export default function Sops() {
               </svg>
               {isAdmin ? 'SOP Governance Assignments' : 'Master Operating Procedures'}
             </span>
-            {isAdmin && (
-              <div className="flex gap-2.5 items-center">
+            <div className="flex gap-2.5 items-center">
+              {isAdmin && (
                 <button
                   type="button"
                   className="inline-flex items-center gap-1.5 px-4 py-[7px] rounded-[6px] bg-[#0284c7] text-white text-[12.5px] font-semibold border-none cursor-pointer shadow-sm transition-all duration-150 hover:bg-[#0369a1]"
@@ -825,8 +837,21 @@ export default function Sops() {
                   </svg>
                   <span>Assign SOP Creation</span>
                 </button>
-              </div>
-            )}
+              )}
+              {(isAdmin || (Array.isArray(creatableCategories) && creatableCategories.length > 0)) && (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 px-4 py-[7px] rounded-[6px] bg-[#2563eb] text-white text-[12.5px] font-semibold border-none cursor-pointer shadow-sm transition-all duration-150 hover:bg-[#1d4ed8]"
+                  onClick={openCreateModal}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  <span>+ Create SOP</span>
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="overflow-x-auto w-full">
@@ -1131,6 +1156,8 @@ export default function Sops() {
         lockedAssignment={lockedAssignment}
         currentUser={currentUser}
         userMap={userMap}
+        creatableCategories={creatableCategories}
+        allCategories={dynamicProcessOptions}
         onClose={() => { setShowModal(false); setEditingSop(null); setLockedAssignment(null); }}
         onSuccess={(msg) => { setSuccessMsg(msg); setLockedAssignment(null); loadData(); }}
       />
