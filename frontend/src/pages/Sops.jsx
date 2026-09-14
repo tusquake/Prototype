@@ -822,23 +822,8 @@ export default function Sops() {
               </svg>
               {isAdmin ? 'SOP Governance Assignments' : 'Master Operating Procedures'}
             </span>
-            <div className="flex gap-2.5 items-center">
-              {isAdmin && (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 px-4 py-[7px] rounded-[6px] bg-[#0284c7] text-white text-[12.5px] font-semibold border-none cursor-pointer shadow-sm transition-all duration-150 hover:bg-[#0369a1]"
-                  onClick={() => setShowAssignModal(true)}
-                >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                    <circle cx="8.5" cy="7" r="4" />
-                    <line x1="20" y1="8" x2="20" y2="14" />
-                    <line x1="17" y1="11" x2="23" y2="11" />
-                  </svg>
-                  <span>Assign SOP Creation</span>
-                </button>
-              )}
-              {(isAdmin || (Array.isArray(creatableCategories) && creatableCategories.length > 0)) && (
+            {(isAdmin || (Array.isArray(creatableCategories) && creatableCategories.length > 0)) && (
+              <div className="flex gap-2.5 items-center">
                 <button
                   type="button"
                   className="inline-flex items-center gap-1.5 px-4 py-[7px] rounded-[6px] bg-[#2563eb] text-white text-[12.5px] font-semibold border-none cursor-pointer shadow-sm transition-all duration-150 hover:bg-[#1d4ed8]"
@@ -850,8 +835,8 @@ export default function Sops() {
                   </svg>
                   <span>+ Create SOP</span>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           <div className="overflow-x-auto w-full">

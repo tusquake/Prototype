@@ -52,6 +52,7 @@ export default function CreateCompleteSOPModal({
   isOpen,
   currentUser,
   userMap,
+  creatableCategories = [],
   onClose,
   onSuccess,
 }) {
@@ -112,7 +113,15 @@ export default function CreateCompleteSOPModal({
     getProcessCategories()
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
-          const opts = data.map((c) => ({
+          let filtered = data;
+          if (!isAdmin && Array.isArray(creatableCategories) && creatableCategories.length > 0) {
+            filtered = data.filter(c => {
+              const code = c.categoryCode || c.categoryName;
+              const name = c.categoryName || c.categoryCode;
+              return creatableCategories.includes(code) || creatableCategories.includes(name);
+            });
+          }
+          const opts = filtered.map((c) => ({
             value: c.categoryCode || c.categoryName,
             label: c.categoryName || c.categoryCode,
           }));
@@ -120,7 +129,7 @@ export default function CreateCompleteSOPModal({
         }
       })
       .catch(() => null);
-  }, []);
+  }, [creatableCategories, isAdmin]);
 
   // Fetch all permitted roles when process category changes
   const loadPermittedUsers = useCallback(
