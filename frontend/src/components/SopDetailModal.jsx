@@ -24,6 +24,7 @@ export default function SopDetailModal({
   sop,
   isAdmin,
   currentUser,
+  userMap = {},
   onClose,
   onEdit,
   onDelete,
@@ -46,13 +47,22 @@ export default function SopDetailModal({
   const dbLength = sop.history?.length || 0;
   const historyLength = Math.max(dbLength, milestoneCount);
 
-  const creatorName = (Array.isArray(sop.assignedCreatorNames) && sop.assignedCreatorNames.length > 0)
-    ? sop.assignedCreatorNames.join(', ')
-    : (sop.assignedCreatorName || sop.assignedCreatorId || 'Creator');
-  const approverName = (Array.isArray(sop.assignedApproverNames) && sop.assignedApproverNames.length > 0)
-    ? sop.assignedApproverNames.join(', ')
-    : (sop.assignedApproverName || sop.assignedApproverId || 'Approver');
-  const adminName = sop.createdByName || 'Manoj Agarwal';
+  const formatNames = (names, singleName, singleId) => {
+    if (Array.isArray(names) && names.length > 0) {
+      return names.map(n => userMap[n] || n).join(', ');
+    }
+    if (singleName && singleName !== 'Approver' && singleName !== 'Creator') {
+      return userMap[singleName] || singleName;
+    }
+    if (singleId) {
+      return userMap[singleId] || singleId;
+    }
+    return 'N/A';
+  };
+
+  const creatorName = formatNames(sop.assignedCreatorNames, sop.assignedCreatorName, sop.assignedCreatorId);
+  const approverName = formatNames(sop.assignedApproverNames, sop.assignedApproverName, sop.assignedApproverId);
+  const adminName = sop.createdByName || userMap[sop.createdById] || 'Admin';
 
   // Find specific actor names from event history for actioned milestones
   const submitEvt = sop.history?.find(h => {

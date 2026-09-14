@@ -159,6 +159,33 @@ public class SopService {
 
         Boolean isRec = Boolean.TRUE.equals(request.getIsRecurring());
 
+        // Resolve Category Creators & Approvers from Access Control
+        CategoryAccessAssignmentDto catAssignments = null;
+        try {
+            catAssignments = categoryPermissionService.getCategoryAssignments(request.getProcessCategory());
+        } catch (Exception e) {
+            log.warn("Failed to fetch category assignments for [{}]: {}", request.getProcessCategory(), e.getMessage());
+        }
+
+        List<String> creatorIds = new ArrayList<>();
+        if (catAssignments != null && catAssignments.getCreatorUserIds() != null && !catAssignments.getCreatorUserIds().isEmpty()) {
+            creatorIds.addAll(catAssignments.getCreatorUserIds());
+        }
+        if (!creatorIds.contains(createdBy.getUserId())) {
+            creatorIds.add(createdBy.getUserId());
+        }
+
+        List<String> approverIds = new ArrayList<>();
+        if (catAssignments != null && catAssignments.getApproverUserIds() != null && !catAssignments.getApproverUserIds().isEmpty()) {
+            approverIds.addAll(catAssignments.getApproverUserIds());
+        }
+        if (approverIds.isEmpty()) {
+            approverIds.add("usr-vivek-108");
+        }
+
+        String primaryCreatorId = creatorIds.get(0);
+        String primaryApproverId = approverIds.get(0);
+
         Sop sop = Sop.builder()
                 .sopCode(request.getSopCode())
                 .title(request.getTitle())
@@ -170,8 +197,10 @@ public class SopService {
                 .isRecurring(isRec)
                 .defaultMakerIds(new java.util.ArrayList<>(mPool))
                 .defaultCheckerIds(new java.util.ArrayList<>(cPool))
-                .assignedCreatorId(createdBy.getUserId())
-                .assignedCreatorIds(new java.util.ArrayList<>(List.of(createdBy.getUserId())))
+                .assignedCreatorId(primaryCreatorId)
+                .assignedCreatorIds(new java.util.ArrayList<>(creatorIds))
+                .assignedApproverId(primaryApproverId)
+                .assignedApproverIds(new java.util.ArrayList<>(approverIds))
                 .status(SopStatus.PENDING_APPROVAL)
                 .createdBy(createdBy)
                 .build();
@@ -196,6 +225,22 @@ public class SopService {
                 .toStatus(SopStatus.PENDING_APPROVAL)
                 .comment("SOP created and submitted for approval")
                 .build());
+
+        // Notify ALL assigned Approvers
+        for (String approverId : approverIds) {
+            try {
+                notificationPublisherService.publishNotification(NotificationEventDto.builder()
+                        .recipientUserId(approverId)
+                        .eventType("SOP_SUBMITTED")
+                        .title("SOP Approval Required")
+                        .message("SOP '" + saved.getTitle() + "' (" + saved.getSopCode() + ") has been submitted for approval by " + createdBy.getFullName() + ".")
+                        .referenceEntityType("SOP")
+                        .referenceEntityId(saved.getSopId().toString())
+                        .build());
+            } catch (Exception e) {
+                log.warn("Failed to notify approver [{}]: {}", approverId, e.getMessage());
+            }
+        }
 
         return mapToDto(saved);
     }
@@ -685,6 +730,54 @@ public class SopService {
                 .timestamp(e.getTimestamp())
                 .build()).toList();
 
+        // Resolve Creator List with fallback to Category Assignments
+        List<String> creatorIdsList = (sop.getAssignedCreatorIds() != null && !sop.getAssignedCreatorIds().isEmpty())
+                ? new java.util.ArrayList<>(sop.getAssignedCreatorIds())
+                : (sop.getAssignedCreatorId() != null ? new java.util.ArrayList<>(List.of(sop.getAssignedCreatorId())) : new java.util.ArrayList<>());
+
+        if (creatorIdsList.isEmpty() && sop.getProcessCategory() != null) {
+            try {
+                CategoryAccessAssignmentDto assign = categoryPermissionService.getCategoryAssignments(sop.getProcessCategory());
+                if (assign != null && assign.getCreatorUserIds() != null && !assign.getCreatorUserIds().isEmpty()) {
+                    creatorIdsList.addAll(assign.getCreatorUserIds());
+                }
+            } catch (Exception ignored) {}
+        }
+        if (creatorIdsList.isEmpty() && sop.getCreatedBy() != null) {
+            creatorIdsList.add(sop.getCreatedBy().getUserId());
+        }
+
+        List<String> creatorNamesList = creatorIdsList.stream()
+                .map(cId -> userRepository.findById(cId).map(User::getFullName).orElse(cId))
+                .toList();
+
+        // Resolve Approver List with fallback to Category Assignments
+        List<String> approverIdsList = (sop.getAssignedApproverIds() != null && !sop.getAssignedApproverIds().isEmpty())
+                ? new java.util.ArrayList<>(sop.getAssignedApproverIds())
+                : (sop.getAssignedApproverId() != null ? new java.util.ArrayList<>(List.of(sop.getAssignedApproverId())) : new java.util.ArrayList<>());
+
+        if (approverIdsList.isEmpty() && sop.getProcessCategory() != null) {
+            try {
+                CategoryAccessAssignmentDto assign = categoryPermissionService.getCategoryAssignments(sop.getProcessCategory());
+                if (assign != null && assign.getApproverUserIds() != null && !assign.getApproverUserIds().isEmpty()) {
+                    approverIdsList.addAll(assign.getApproverUserIds());
+                }
+            } catch (Exception ignored) {}
+        }
+        if (approverIdsList.isEmpty()) {
+            approverIdsList.add("usr-vivek-108");
+        }
+
+        List<String> approverNamesList = approverIdsList.stream()
+                .map(aId -> userRepository.findById(aId).map(User::getFullName).orElse(aId))
+                .toList();
+
+        String primaryCreatorId = !creatorIdsList.isEmpty() ? creatorIdsList.get(0) : sop.getAssignedCreatorId();
+        String primaryCreatorName = !creatorNamesList.isEmpty() ? creatorNamesList.get(0) : (primaryCreatorId != null ? userRepository.findById(primaryCreatorId).map(User::getFullName).orElse(primaryCreatorId) : null);
+
+        String primaryApproverId = !approverIdsList.isEmpty() ? approverIdsList.get(0) : sop.getAssignedApproverId();
+        String primaryApproverName = !approverNamesList.isEmpty() ? approverNamesList.get(0) : (primaryApproverId != null ? userRepository.findById(primaryApproverId).map(User::getFullName).orElse(primaryApproverId) : null);
+
         return SopDto.builder()
                 .sopId(sop.getSopId())
                 .sopCode(sop.getSopCode())
@@ -701,24 +794,14 @@ public class SopService {
                 .defaultMakerNames(mNames)
                 .defaultCheckerIds(cIds)
                 .defaultCheckerNames(cNames)
-                .assignedCreatorId(sop.getAssignedCreatorId())
-                .assignedCreatorName(
-                        sop.getAssignedCreatorId() != null ? userRepository.findById(sop.getAssignedCreatorId())
-                                .map(User::getFullName).orElse(sop.getAssignedCreatorId()) : null)
-                .assignedCreatorIds(
-                        sop.getAssignedCreatorIds() != null ? sop.getAssignedCreatorIds() : new java.util.ArrayList<>())
-                .assignedCreatorNames(sop.getAssignedCreatorIds() != null ? sop.getAssignedCreatorIds().stream()
-                        .map(cId -> userRepository.findById(cId).map(User::getFullName).orElse(cId))
-                        .toList() : new java.util.ArrayList<>())
-                .assignedApproverId(sop.getAssignedApproverId())
-                .assignedApproverName(
-                        sop.getAssignedApproverId() != null ? userRepository.findById(sop.getAssignedApproverId())
-                                .map(User::getFullName).orElse(sop.getAssignedApproverId()) : null)
-                .assignedApproverIds(sop.getAssignedApproverIds() != null ? sop.getAssignedApproverIds()
-                        : new java.util.ArrayList<>())
-                .assignedApproverNames(sop.getAssignedApproverIds() != null ? sop.getAssignedApproverIds().stream()
-                        .map(aId -> userRepository.findById(aId).map(User::getFullName).orElse(aId))
-                        .toList() : new java.util.ArrayList<>())
+                .assignedCreatorId(primaryCreatorId)
+                .assignedCreatorName(primaryCreatorName)
+                .assignedCreatorIds(creatorIdsList)
+                .assignedCreatorNames(creatorNamesList)
+                .assignedApproverId(primaryApproverId)
+                .assignedApproverName(primaryApproverName)
+                .assignedApproverIds(approverIdsList)
+                .assignedApproverNames(approverNamesList)
                 .rejectionReason(sop.getRejectionReason())
                 .status(sop.getStatus())
                 .version(sop.getVersion() != null ? sop.getVersion() : 1)

@@ -1002,6 +1002,7 @@ export default function Sops() {
         sop={viewingSop}
         isAdmin={isAdmin}
         currentUser={currentUser}
+        userMap={userMap}
         onClose={() => setViewingSop(null)}
         onEdit={sop => openEditModal(sop)}
         onDelete={sop => setDeletingSop(sop)}
