@@ -65,6 +65,13 @@ public class SecurityConfig {
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
                 throws ServletException, IOException {
 
+            org.springframework.security.core.Authentication existingAuth = SecurityContextHolder.getContext().getAuthentication();
+            if (existingAuth != null && existingAuth.isAuthenticated() 
+                && !(existingAuth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             String userRole = request.getHeader("X-User-Role");
             String userEmail = request.getHeader("X-User-Email");
 
