@@ -104,6 +104,8 @@ export async function fetchJson(endpoint, options = {}) {
       if (sessionUser.role) authHeaders['X-User-Role'] = sessionUser.role;
       if (sessionUser.email) authHeaders['X-User-Email'] = sessionUser.email;
       if (sessionUser.id || sessionUser.userId) authHeaders['X-User-Id'] = sessionUser.id || sessionUser.userId;
+      const bearerToken = sessionUser.accessToken || sessionUser.idToken || sessionUser.token;
+      if (bearerToken) authHeaders['Authorization'] = `Bearer ${bearerToken}`;
     } else {
       authHeaders['X-User-Role'] = 'ADMIN';
       authHeaders['X-User-Email'] = 'manoj.agarwal@cloudkaptan.com';

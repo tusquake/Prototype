@@ -19,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Servlet filter that extracts tenant ID (corporate entity), user ID, and user role from incoming HTTP requests
@@ -32,6 +33,7 @@ public class TenantSecurityFilter extends OncePerRequestFilter {
 
     private final UserRepository userRepository;
     private final UserHierarchyRepository userHierarchyRepository;
+    private final com.cloudkaptan.sop.repository.CorporateEntityRepository entityRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -135,10 +137,76 @@ public class TenantSecurityFilter extends OncePerRequestFilter {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() != null) {
-            return auth.getName();
+            Object principal = auth.getPrincipal();
+
+            String email = null;
+            String name = null;
+            String oid = null;
+
+            if (principal instanceof org.springframework.security.oauth2.jwt.Jwt jwt) {
+                email = jwt.getClaimAsString("preferred_username");
+                if (email == null || email.isBlank()) email = jwt.getClaimAsString("email");
+                if (email == null || email.isBlank()) email = jwt.getClaimAsString("upn");
+                name = jwt.getClaimAsString("name");
+                oid = jwt.getClaimAsString("oid");
+                if (oid == null || oid.isBlank()) oid = jwt.getClaimAsString("sub");
+            } else if (principal instanceof org.springframework.security.oauth2.core.user.OAuth2User oauthUser) {
+                email = oauthUser.getAttribute("preferred_username");
+                if (email == null || email.isBlank()) email = oauthUser.getAttribute("email");
+                name = oauthUser.getAttribute("name");
+                oid = oauthUser.getAttribute("oid");
+                if (oid == null || oid.isBlank()) oid = oauthUser.getAttribute("sub");
+            }
+
+            if (email != null && !email.isBlank()) {
+                User user = userRepository.findByEmail(email).orElse(null);
+                if (user != null) {
+                    return user.getUserId();
+                }
+                // Auto-provision Entra ID user if missing locally
+                if (name == null || name.isBlank()) name = email.split("@")[0];
+                return autoProvisionEntraUser(email, name, oid);
+            }
+
+            if (oid != null && !oid.isBlank()) {
+                User user = userRepository.findById(oid).orElse(null);
+                if (user != null) return user.getUserId();
+            }
+
+            String authName = auth.getName();
+            if (authName != null && !authName.isBlank() && !authName.equalsIgnoreCase("anonymousUser")) {
+                User user = userRepository.findByEmail(authName).or(() -> userRepository.findById(authName)).orElse(null);
+                if (user != null) return user.getUserId();
+            }
         }
 
         return "usr-manoj-042";
+    }
+
+    private String autoProvisionEntraUser(String email, String name, String oid) {
+        try {
+            String newUserId = (oid != null && !oid.isBlank()) ? "usr-" + oid.substring(0, Math.min(8, oid.length())) : "usr-" + UUID.randomUUID().toString().substring(0, 8);
+            com.cloudkaptan.sop.entity.CorporateEntity defaultEntity = entityRepository.findById(com.cloudkaptan.sop.domain.enums.EntityCode.CK_INDIA)
+                .orElseGet(() -> entityRepository.save(com.cloudkaptan.sop.entity.CorporateEntity.builder()
+                    .entityCode(com.cloudkaptan.sop.domain.enums.EntityCode.CK_INDIA)
+                    .entityName("CK India")
+                    .build()));
+
+            User newUser = User.builder()
+                .userId(newUserId)
+                .email(email)
+                .fullName(name)
+                .role(UserRole.MAKER)
+                .entity(defaultEntity)
+                .isActive(true)
+                .build();
+            userRepository.save(newUser);
+            log.info("Auto-provisioned new Microsoft Entra ID SSO user: userId={}, email={}, name={}", newUserId, email, name);
+            return newUserId;
+        } catch (Exception e) {
+            log.warn("Failed to auto-provision Entra ID user for email {}: {}", email, e.getMessage());
+            return "usr-manoj-042";
+        }
     }
 
     private void collectDownline(String managerId, List<com.cloudkaptan.sop.domain.entity.UserHierarchy> allRelations, java.util.Set<String> readSubIds, java.util.Set<String> writeSubIds, java.util.Set<String> visited) {
