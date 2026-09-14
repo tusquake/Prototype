@@ -135,5 +135,14 @@ public class SopController {
         sopService.deleteSop(id);
         return ResponseEntity.ok(ApiResponse.success(null, "SOP deleted successfully"));
     }
+
+    @PostMapping("/create-complete")
+    public ResponseEntity<ApiResponse<SopDto>> createSopPendingApproval(
+            @Valid @RequestBody CreateSopRequest request
+    ) {
+        SopDto created = sopService.createSopPendingApproval(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(created, "SOP created successfully and submitted for approval."));
+    }
 }
 

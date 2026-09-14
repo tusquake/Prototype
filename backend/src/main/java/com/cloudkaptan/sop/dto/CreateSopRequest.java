@@ -10,7 +10,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 
 @Data
@@ -37,25 +36,21 @@ public class CreateSopRequest {
     private SopFrequency frequency;
 
     @NotNull(message = "Due day offset is required")
-    @Min(value = 1, message = "Due day offset must be at least 1")
+    @Min(value = 0, message = "Due day offset must be between 0 and 31")
     private Integer dueDayOffset;
 
     private Boolean isRecurring;
 
-    @NotBlank(message = "Default maker ID is required")
+    // @NotBlank(message = "Default maker ID is required")
     private String defaultMakerId;
 
     private List<String> defaultMakerIds;
 
-    @NotBlank(message = "Default checker ID is required")
+    // @NotBlank(message = "Default checker ID is required")
     private String defaultCheckerId;
 
     private List<String> defaultCheckerIds;
 
     @NotBlank(message = "Created by user ID is required")
     private String createdById;
-
-    private OffsetDateTime startDateTime;
-
-    private OffsetDateTime dueDateTime;
 }

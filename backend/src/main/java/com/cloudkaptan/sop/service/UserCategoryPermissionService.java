@@ -286,9 +286,29 @@ public class UserCategoryPermissionService {
                 .toList();
     }
  
+    private String resolveUserId(String inputId) {
+        if (inputId == null || inputId.isBlank()) return inputId;
+        return userRepository.findById(inputId)
+                .or(() -> userRepository.findByEmail(inputId))
+                .map(User::getUserId)
+                .orElse(inputId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getUserCreatableCategories(String userId) {
+        String resolvedId = resolveUserId(userId);
+        List<UserCategoryPermission> list = permissionRepository.findByUserId(resolvedId);
+        return list.stream()
+                .filter(p -> Boolean.TRUE.equals(p.getCanCreateSop()))
+                .map(UserCategoryPermission::getProcessCategory)
+                .distinct()
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public List<String> getUserAccessibleCategories(String userId) {
-        List<UserCategoryPermission> list = permissionRepository.findByUserId(userId);
+        String resolvedId = resolveUserId(userId);
+        List<UserCategoryPermission> list = permissionRepository.findByUserId(resolvedId);
         return list.stream()
                 .filter(p -> Boolean.TRUE.equals(p.getCanCreateSop())
                         || Boolean.TRUE.equals(p.getCanApproveSop())
