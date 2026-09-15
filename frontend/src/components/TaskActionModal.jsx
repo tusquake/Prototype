@@ -263,7 +263,7 @@ export default function TaskActionModal({
 
   const isReadOnly = !canSubmit && !canApproveOrReject;
 
-  const hasUnapprovedDocs = documents.length > 0 && documents.some(d => d.status !== 'APPROVED');
+  const hasUnapprovedDocs = documents.length > 0 && documents.some(d => d.status !== 'APPROVED' && d.status !== 'REJECTED');
 
   const isSubmittedOrDone = task.status === 'PENDING_REVIEW' || task.status === 'APPROVED' || task.status === 'REJECTED' || task.status === 'PERMANENTLY_REJECTED';
 

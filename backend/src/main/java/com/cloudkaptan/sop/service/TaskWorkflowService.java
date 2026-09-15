@@ -165,12 +165,12 @@ public class TaskWorkflowService {
         // Enforce Segregation of Duties (SoD): Maker cannot approve their own task
         sopSecurityEvaluator.validateTaskReviewSoD(actor, task);
 
-        // Document Approval Gating Check: All attached evidence documents must be APPROVED by the Checker
+        // Document Approval Gating Check: All pending evidence documents must be APPROVED by the Checker
         List<TaskDocument> docs = taskDocumentRepository.findByTaskTaskIdOrderByUploadedAtDesc(taskId);
         if (docs != null && !docs.isEmpty()) {
-            boolean hasUnapproved = docs.stream().anyMatch(doc -> doc.getStatus() != DocumentStatus.APPROVED);
+            boolean hasUnapproved = docs.stream().anyMatch(doc -> doc.getStatus() != DocumentStatus.APPROVED && doc.getStatus() != DocumentStatus.REJECTED);
             if (hasUnapproved) {
-                throw new IllegalStateException("Task cannot be approved until all attached evidence documents are approved by the Checker.");
+                throw new IllegalStateException("Task cannot be approved until all pending evidence documents are approved by the Checker.");
             }
         }
 
