@@ -4,16 +4,12 @@ import {
   loginWithGoogle,
   loginWithMicrosoftEntra,
   loginAsDemoAdmin,
-  loginAsDemoDual,
-  loginAsDemoChecker,
-  loginAsDemoMaker,
-  loginAsDemoViewer,
   saveSession,
   USERS,
 } from '../auth/auth';
 
-// All VIEWER-role users (for team member sign-in section)
-const VIEWER_USERS = USERS.filter(u => u.role === 'VIEWER' && u.id !== 'usr-avisek-499');
+// All team members except Manoj Agarwal (for team member sign-in dropdown)
+const TEAM_USERS = USERS.filter(u => u.id !== 'usr-manoj-042');
 
 function VectorDashField({ position = 'left' }) {
   const rows = 14;
@@ -59,7 +55,7 @@ function VectorDashField({ position = 'left' }) {
 export default function Login() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(null);
-  const [selectedViewer, setSelectedViewer] = useState('');
+  const [selectedUser, setSelectedUser] = useState('');
 
   function handleGoogle() {
     setLoading('google');
@@ -76,11 +72,11 @@ export default function Login() {
     navigate('/dashboard');
   }
 
-  function handleViewerLogin() {
-    if (!selectedViewer) return;
-    const user = VIEWER_USERS.find(u => u.id === selectedViewer);
+  function handleTeamUserLogin() {
+    if (!selectedUser) return;
+    const user = USERS.find(u => u.id === selectedUser);
     if (user) {
-      saveSession(user, `demo-viewer-token-${user.id}`);
+      saveSession(user, `demo-token-${user.id}`);
       navigate('/dashboard');
     }
   }
@@ -148,34 +144,6 @@ export default function Login() {
             >
               Sign in as Admin (Manoj Agarwal)
             </button>
-            <button
-              type="button"
-              className="px-4 py-[10px] bg-[#f8fafc] text-[#475569] border border-[#e2e8f0] rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-all duration-150 text-left hover:enabled:bg-bg-surface hover:enabled:border-[#1a2b6b] hover:enabled:text-[#1a2b6b] hover:enabled:shadow-[0_2px_6px_rgba(26,43,107,0.08)] disabled:opacity-55 disabled:cursor-not-allowed"
-              onClick={() => handleDemo(loginAsDemoDual)}
-            >
-              Sign in as Maker &amp; Checker (Vivek Raj)
-            </button>
-            <button
-              type="button"
-              className="px-4 py-[10px] bg-[#f8fafc] text-[#475569] border border-[#e2e8f0] rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-all duration-150 text-left hover:enabled:bg-bg-surface hover:enabled:border-[#1a2b6b] hover:enabled:text-[#1a2b6b] hover:enabled:shadow-[0_2px_6px_rgba(26,43,107,0.08)] disabled:opacity-55 disabled:cursor-not-allowed"
-              onClick={() => handleDemo(loginAsDemoChecker)}
-            >
-              Sign in as Checker (Mainak Gupta)
-            </button>
-            <button
-              type="button"
-              className="px-4 py-[10px] bg-[#f8fafc] text-[#475569] border border-[#e2e8f0] rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-all duration-150 text-left hover:enabled:bg-bg-surface hover:enabled:border-[#1a2b6b] hover:enabled:text-[#1a2b6b] hover:enabled:shadow-[0_2px_6px_rgba(26,43,107,0.08)] disabled:opacity-55 disabled:cursor-not-allowed"
-              onClick={() => handleDemo(loginAsDemoMaker)}
-            >
-              Sign in as Maker (Tushar Seth)
-            </button>
-            <button
-              type="button"
-              className="px-4 py-[10px] bg-[#f8fafc] text-[#475569] border border-[#e2e8f0] rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-all duration-150 text-left hover:enabled:bg-bg-surface hover:enabled:border-[#1a2b6b] hover:enabled:text-[#1a2b6b] hover:enabled:shadow-[0_2px_6px_rgba(26,43,107,0.08)] disabled:opacity-55 disabled:cursor-not-allowed"
-              onClick={() => handleDemo(loginAsDemoViewer)}
-            >
-              Sign in as Viewer (Avisek Shaw)
-            </button>
           </div>
 
           {/* Team Member Sign-in */}
@@ -185,21 +153,21 @@ export default function Login() {
 
           <div className="flex gap-2 items-stretch">
             <select
-              value={selectedViewer}
-              onChange={e => setSelectedViewer(e.target.value)}
+              value={selectedUser}
+              onChange={e => setSelectedUser(e.target.value)}
               className="flex-1 p-[10px_12px] rounded-[8px] border-[1.5px] border-[#cbd5e1] text-[13px] bg-[#f8fafc] text-text-primary outline-none cursor-pointer"
             >
               <option value="">— Select team member —</option>
-              {VIEWER_USERS.map(u => (
+              {TEAM_USERS.map(u => (
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
             </select>
             <button
               type="button"
-              className={`px-4 py-[10px] bg-[#f8fafc] text-[#475569] border border-[#e2e8f0] rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-all duration-150 text-left shrink-0 whitespace-nowrap hover:enabled:bg-bg-surface hover:enabled:border-[#1a2b6b] hover:enabled:text-[#1a2b6b] hover:enabled:shadow-[0_2px_6px_rgba(26,43,107,0.08)] ${selectedViewer ? 'opacity-100' : 'opacity-50'
+              className={`px-4 py-[10px] bg-[#f8fafc] text-[#475569] border border-[#e2e8f0] rounded-[8px] text-[12.5px] font-medium cursor-pointer transition-all duration-150 text-left shrink-0 whitespace-nowrap hover:enabled:bg-bg-surface hover:enabled:border-[#1a2b6b] hover:enabled:text-[#1a2b6b] hover:enabled:shadow-[0_2px_6px_rgba(26,43,107,0.08)] ${selectedUser ? 'opacity-100' : 'opacity-50'
                 }`}
-              onClick={handleViewerLogin}
-              disabled={!selectedViewer}
+              onClick={handleTeamUserLogin}
+              disabled={!selectedUser}
             >
               Sign In
             </button>
@@ -212,4 +180,4 @@ export default function Login() {
       </div>
     </div>
   );
-}
+}

@@ -124,14 +124,16 @@ public class TaskDocumentController {
         return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(dto));
     }
 
-    @PostMapping("/local-upload")
-    @Operation(summary = "Local development direct storage upload handler", description = "Saves uploaded file content to local storage directory in local profile mode.")
+    @PutMapping(value = "/local-upload", consumes = MediaType.ALL_VALUE)
+    @Operation(summary = "Local development direct storage upload handler", description = "Receives direct stream upload in local profile mode and saves file to local storage directory.")
     public ResponseEntity<Void> handleLocalStorageUpload(
             @Parameter(description = "Object Path") @RequestParam("objectPath") String objectPath,
-            @RequestBody byte[] content) {
+            @RequestHeader(value = "Content-Type", required = false) String contentType,
+            @RequestBody byte[] fileBytes) {
         try {
             String decodedPath = URLDecoder.decode(objectPath, StandardCharsets.UTF_8);
-            taskDocumentService.uploadLocalFile(decodedPath, new ByteArrayInputStream(content), "application/octet-stream", content.length);
+            ByteArrayInputStream is = new ByteArrayInputStream(fileBytes);
+            taskDocumentService.uploadLocalFile(decodedPath, is, contentType, fileBytes.length);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             log.error("Local upload failed for objectPath '{}': {}", objectPath, e.getMessage(), e);
@@ -148,12 +150,9 @@ public class TaskDocumentController {
             InputStream is = taskDocumentService.downloadLocalFileStream(decodedPath);
             InputStreamResource resource = new InputStreamResource(is);
             String filename = Paths.get(decodedPath).getFileName().toString();
-            MediaType mediaType = MediaTypeFactory.getMediaType(filename)
-                    .orElse(MediaType.APPLICATION_OCTET_STREAM);
-
             return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
-                    .contentType(mediaType)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
                     .body(resource);
         } catch (Exception e) {
             log.error("Local download failed for objectPath '{}': {}", objectPath, e.getMessage(), e);

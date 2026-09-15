@@ -1,211 +1,199 @@
 # FinSOP Enterprise Platform
-### Financial Compliance & Production-Grade Hybrid SOP Task Generation Architecture (v2)
+### Multi-Tenant Financial Compliance & SOP Automation Platform
 
-The **FinSOP Enterprise Platform** is a multi-tenant, cloud-native compliance governance platform designed for financial enterprise entities (`CK_INDIA`, `CK_US`, `CK_UK`, `CK_AUSTRALIA`). It automates Standard Operating Procedure (SOP) lifecycles, period-specific compliance task scheduling, multi-tier maker/checker workflows, evidence document verification via Google Cloud Storage (GCS), and native Row-Level Security (RLS).
-
----
-
-## 1. Governance & Technical Pillars
-
-- **Hybrid Event-Driven Architecture (v2)**: Combines Transactional Outbox pattern with GCP Cloud Tasks for sub-second precision, recursive 25-day checkpoints for long-horizon SOPs, and a 6-hourly reconciler safety net.
-- **Dual-Write Consistency (Transactional Outbox)**: Outbox checkpoint records (`task_outbox`) and SOP status changes are written in the **same database transaction**, eliminating dual-write inconsistencies.
-- **Solves GCP 30-Day Limit (Recursive Checkpoints)**: Enqueues 25-day checkpoint tasks for long-horizon SOPs (Quarterly, Annual), avoiding Cloud Tasks' 30-day scheduling limit.
-- **Race-Free Idempotency**: Enforces `ON CONFLICT (sop_id, period_key) DO NOTHING` with client-assigned deterministic task names (`sop-{sopId}-{periodKey}`).
-- **Authoritative Cancellation Guard**: Worker re-checks `is_running = true` and `version_status = 'APPROVED'` before every task insertion.
-- **Zero-Drift Global Timezone Preservation**: Inherits master SOP target start time (e.g., `10:00 AM`), target due time (e.g., `05:00 PM`), and timezone offset (`+05:30`, `+00:00`, `-05:00`, `+10:00`).
-- **End-to-End IAM OIDC Security**: Endpoints deployed with `--no-allow-unauthenticated`, using dedicated GCP Service Accounts (`cloud-tasks-invoker`, `cloud-scheduler-invoker`) and signed OIDC tokens.
-- **Microsoft Entra ID (Azure AD) SSO**: OAuth2 / OIDC token authentication with auto-user provisioning for enterprise users.
+The FinSOP Enterprise Platform is a multi-tenant compliance governance system engineered for financial enterprises. It automates Standard Operating Procedure (SOP) lifecycles, period-specific task scheduling, multi-tier maker/checker workflows, inline document verification, and strict Segregation of Duties (SoD).
 
 ---
 
-## 2. System Architecture & Tech Stack
+## 1. Local Workspace Setup (Docker)
 
-### Backend Stack
-- **Framework**: Java 17, Spring Boot 3.3, Spring Security, Spring Data JPA
-- **Database**: PostgreSQL with Native Row-Level Security (RLS) & Liquibase/Flyway Migrations
-- **Cloud Infrastructure**: GCP Cloud Tasks, GCP Cloud Scheduler, GCP Cloud Functions (Gen2), GCP Cloud Storage (GCS)
-- **Security**: IAM OIDC Token Authentication, Microsoft Entra ID (Azure AD) SSO, Row-Level Security (RLS), Segregation of Duties (SoD)
+Complete local workspace setup of all system components (PostgreSQL, RabbitMQ, Spring Boot Backend, and React Frontend) using Docker.
 
-### Frontend Stack
-- **Framework**: React 18, Vite 8, Tailwind CSS
-- **API & Upload**: Custom REST Hooks, GCS V4 Signed URL Direct Uploader
+### 1.1 Prerequisites
+Ensure the following tools are installed on your host system:
+* Docker Desktop (v20.10 or higher) with docker compose plugin
+* Git
 
 ---
 
-## 3. Production-Grade Task Generation Architecture (v2)
+### 1.2 Execution Commands
 
-```mermaid
-flowchart TD
-    subgraph Activation["SOP Activation & Outbox"]
-        A[Admin Approves SOP / Version V2] --> B[Spring Boot API / SopService]
-        B -->|"1. Write SOP row + task_outbox row, SAME TXN"| C[(PostgreSQL Database)]
-        C -->|"2. Outbox dispatcher polls pending outbox rows"| D[Outbox Dispatcher]
-        D -->|"3. Enqueue Cloud Task or Checkpoint Task"| E[GCP Cloud Tasks Queue]
-    end
+Step 1: Clone the repository and navigate into the workspace directory:
 
-    subgraph Execution["Sub-Second Task Execution"]
-        E -->|"4. OIDC Authenticated HTTP dispatch"| F[sop-task-worker-fn]
-        F -->|"5. ON CONFLICT DO NOTHING (sop_id, period_key)"| C
-        F -->|"6. Write next-step outbox row, SAME TXN as task insert"| C
-        D --> E
-    end
+    git clone https://github.com/CloudKaptan/ck-internal-finance-sop.git
 
-    subgraph LongHorizon["Long-Horizon SOPs (>25 Days)"]
-        F -->|"If next run > 25 days away"| G["Enqueue CHECKPOINT task at +25 days\n(re-evaluates time left, no task created)"]
-        G --> E
-        E -->|"Checkpoint fires"| H["Checkpoint Worker: recompute delta,\nre-enqueue real task or next checkpoint"]
-        H --> C
-    end
+Step 2: Build and start all containerized services:
 
-    subgraph Safety["Sparse Reconciliation Safety Net"]
-        I["Cloud Scheduler: 1 job, every 6h\n(0 */6 * * *)"] --> J[reconciler-fn]
-        J -->|"SELECT sop WHERE is_running AND next_expected < NOW() - 30m"| C
-        J -->|"Re-enqueue missing chain link"| E
-        J -->|"Emit metric: broken_chain_count"| K[Cloud Monitoring Alert]
-    end
-
-    subgraph Cancellation["Authoritative Guard"]
-        F -.->|"Worker re-checks is_running == true before insert\n(authoritative guard, not DeleteTask)"| C
-    end
-```
+    docker compose up -d --build
 
 ---
 
-## 4. Key Architectural Fixes & Guarantees
+### 1.3 Verify Status
 
-### A. Dual-Write Solution (Transactional Outbox)
-The system avoids calling Cloud Tasks API directly inside the SOP DB write transaction. It writes an intent record into `task_outbox` in the **same database transaction**:
+Check container status using:
 
-```sql
-CREATE TABLE task_outbox (
-    outbox_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    sop_id UUID NOT NULL REFERENCES sops(sop_id),
-    period_key VARCHAR(32) NOT NULL,
-    schedule_time TIMESTAMPTZ NOT NULL,
-    kind VARCHAR(20) NOT NULL DEFAULT 'TASK', -- 'TASK' or 'CHECKPOINT'
-    dispatched_at TIMESTAMPTZ,
-    dispatch_attempts INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+    docker compose ps
 
-CREATE INDEX idx_outbox_pending ON task_outbox (created_at) WHERE dispatched_at IS NULL;
-```
-
-### B. Solves GCP 30-Day Limit (Recursive 25-Day Checkpoints)
-GCP Cloud Tasks caps scheduling to **30 days into the future**. For quarterly or annual SOPs:
-1. If next run is >25 days away, the worker enqueues a **CHECKPOINT task at +25 days**.
-2. When the checkpoint fires, it re-evaluates the remaining time:
-   - If still >25 days, enqueues another 25-day checkpoint.
-   - If ≤25 days, enqueues the real compliance task.
-
-```javascript
-function scheduleNext(sopId, targetTime) {
-  const secondsAway = (targetTime - Date.now()) / 1000;
-  const CHECKPOINT_HORIZON = 25 * 24 * 60 * 60; // Safely under GCP 30-day limit
-
-  if (secondsAway > CHECKPOINT_HORIZON) {
-    return enqueueOutboxRow(sopId, 'CHECKPOINT', addSeconds(Date.now(), CHECKPOINT_HORIZON), targetTime);
-  }
-  return enqueueOutboxRow(sopId, 'TASK', targetTime, null);
-}
-```
-
-### C. Client-Assigned Deterministic Task Names & Race-Free Idempotency
-Prevents race conditions under Cloud Tasks at-least-once delivery:
-- **Database Constraint**:
-  ```sql
-  ALTER TABLE tasks ADD CONSTRAINT uq_sop_period UNIQUE (sop_id, period_key);
-  ```
-- **Atomic Insert**:
-  ```sql
-  INSERT INTO tasks (task_id, sop_id, record_no, period_key, status, due_date)
-  VALUES ($1, $2, $3, $4, 'OPEN', $5)
-  ON CONFLICT (sop_id, period_key) DO NOTHING
-  RETURNING task_id;
-  ```
-- **Deterministic Task Naming**: `projects/${PROJECT}/locations/${LOCATION}/queues/${QUEUE}/tasks/sop-${sopId}-${periodKey}`.
-
-### D. Sparse Reconciliation Sweeper (6-Hourly Safety Net)
-1 GCP Cloud Scheduler job runs every 6 hours (`0 */6 * * *`) calling `reconciler-fn`:
-```sql
-SELECT sop_id, sop_code, next_expected_execution_at
-FROM sop
-WHERE is_running = TRUE
-  AND version_status = 'APPROVED'
-  AND next_expected_execution_at < NOW() - INTERVAL '30 minutes';
-```
-This is a sparse safety net that repairs broken chains and alerts on-call without polling the DB every minute.
+Healthy containers:
+* finsop-postgres (PostgreSQL 15 Database) - Port 5432
+* finsop-rabbitmq (RabbitMQ Message Broker) - Ports 5672, 15672
+* finsop-backend (Spring Boot REST Application) - Port 8080
+* finsop-frontend (React + Nginx Application) - Port 3010
 
 ---
 
-## 5. Security & IAM Trigger Authorization
+## 2. Application Endpoint Directory
 
-Cloud Tasks and Cloud Scheduler trigger Cloud Functions using dedicated service accounts with signed OIDC tokens:
-
-```bash
-# Dedicated Service Accounts
-gcloud iam service-accounts create cloud-tasks-invoker --display-name="Invoker for sop-task-worker-fn"
-gcloud iam service-accounts create cloud-scheduler-invoker --display-name="Invoker for reconciler-fn"
-
-# Deploy Functions with Authentication Required
-gcloud functions deploy sop-task-worker-fn --gen2 --no-allow-unauthenticated
-gcloud functions deploy reconciler-fn --gen2 --no-allow-unauthenticated
-
-# Grant run.invoker bindings
-gcloud run services add-iam-policy-binding sop-task-worker-fn \
-  --member="serviceAccount:cloud-tasks-invoker@YOUR_PROJECT.iam.gserviceaccount.com" \
-  --role="roles/run.invoker"
-
-gcloud run services add-iam-policy-binding reconciler-fn \
-  --member="serviceAccount:cloud-scheduler-invoker@YOUR_PROJECT.iam.gserviceaccount.com" \
-  --role="roles/run.invoker"
-```
-
----
-
-## 6. Cost Model @ 100k Tasks / Month
-
-| Component | Role | Monthly Cost |
+| Service / Component | Endpoint URL | Details |
 | :--- | :--- | :--- |
-| **GCP Cloud Tasks** | Sub-second async task dispatch | **$0.00** (Free tier up to 1M) |
-| **Worker Cloud Function** | Task execution & outbox write | **~$0.05 – $0.10** |
-| **Outbox Dispatcher** | Small outbox polling worker | **~$0.00 – $0.02** |
-| **Cloud Scheduler** | 1 Reconciler Job (6-hourly) | **$0.00** (Free tier up to 3 jobs) |
-| **Checkpoint Hops** | Recursive hops for annual SOPs | **Negligible** |
-| **Total Platform Cost** | | **~$0.05 – $0.15 / month** |
+| Frontend Application | http://localhost:3010 | React UI with Team Member Dropdown |
+| Backend API Health | http://localhost:8080/finsop/v1/health | System status endpoint |
+| OpenAPI / Swagger Docs | http://localhost:8080/swagger-ui.html | Interactive API Documentation |
+| RabbitMQ Console | http://localhost:15672 | User: finsop_rabbit \| Pass: finsop_rabbit_pass |
+| PostgreSQL Database | localhost:5432 | DB: finsop_db \| User: finsop_user \| Pass: finsop_password |
 
 ---
 
-## 7. Local Setup & Testing
+## 3. Pre-configured Users & Roles
 
-### Prerequisites
-- JDK 17+
-- Node.js 18+ & npm
-- PostgreSQL 15+
+The platform includes the following pre-configured user accounts available in the application:
 
-### Backend Run
-```bash
-cd backend
-mvn clean spring-boot:run
-```
+### 3.1 Primary Administrator
+* Manoj Agarwal (`usr-manoj-042`) — Global System Admin (Access Control, SOP Approvals, Audit Logs)
 
-### Frontend Run
-```bash
-cd frontend
-npm install
-npm run dev
-```
+### 3.2 Team Member Accounts (Dropdown Selection)
+* Anirban Paul (`usr-anirban-001`)
+* Annu Shaw (`usr-annu-002`)
+* Avisek Shaw (`usr-avisek2-003`)
+* Ayush Pandey (`usr-ayush-004`)
+* Debajyoti Dattagupta (`usr-debajyo-005`)
+* Isha Prasad (`usr-isha-006`)
+* Kingshuk Roy (`usr-king-007`)
+* Moitrayee Dutta (`usr-moit-008`)
+* Nishan Mandal (`usr-nishan-009`)
+* Rounok Das (`usr-rounok-010`)
+* Sanjeev Kumar (`usr-sanjeev-011`)
+* Sayantan Ghosh (`usr-sayant-012`)
+* Shreya Singh (`usr-shreya-013`)
 
 ---
 
-## 8. REST API Summary
+## 4. End-to-End Application Workflow
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/finsop/v1/sops` | List SOP specifications (filtered by entity & RLS) |
-| `POST` | `/finsop/v1/sops` | Create SOP specification & write outbox checkpoint |
-| `POST` | `/finsop/v1/sops/{id}/action` | Approve SOP & write outbox checkpoint |
-| `GET` | `/finsop/v1/tasks` | List compliance tasks with permission flags |
-| `PUT` | `/finsop/v1/tasks/{id}/action` | Submit, Approve, Reject, or Permanently Reject Task |
-| `POST` | `/finsop/v1/tasks/{id}/documents/generate-upload-url` | Generate GCS V4 Signed PUT URL |
-| `POST` | `/finsop/v1/tasks/{id}/documents/confirm-upload` | Confirm document upload & tag SLA |
+### Step 1: Grant SOP Creation Access
+1. Access http://localhost:3010 and sign in as Manoj Agarwal (Admin).
+2. Navigate to Access Control.
+3. Select a Process Category (e.g., TAXATION, TREASURY, or ACCOUNTS_PAYABLE) and grant SOP Creation Permission to a team member (e.g., Tushar Seth).
+4. The designated team member receives an in-app notification.
+
+### Step 2: Create SOP Specification
+1. Sign in as the designated Maker (e.g., Tushar Seth).
+2. Click Create SOP from the dashboard or notification link.
+3. Configure SOP parameters:
+   * Title & Description (e.g., Monthly Tax Return Reconciliation & Filing)
+   * Process Category (Select authorized category)
+   * Frequency (DAILY, WEEKLY, MONTHLY, QUARTERLY, or ANNUAL)
+   * Start Date & Due Date (YYYY-MM-DD)
+   * Makers & Checkers assignment
+4. Click Submit for Approval.
+
+### Step 3: Approve SOP Specification & Task Triggering
+1. Sign in as Manoj Agarwal (Admin).
+2. Navigate to SOPs and select the pending specification.
+3. Review parameters and click Approve & Activate.
+4. Task Generation: If the start date matches current or past dates, the engine automatically creates the initial compliance task instance.
+
+### Step 4: Task Execution & Evidence Attachment
+1. Sign in as the assigned Maker (e.g., Tushar Seth).
+2. Open the active task under Inbox or Tasks.
+3. Upload supporting evidence files (PDF, PNG, JPG, XLSX).
+4. Click Submit Task for Review.
+
+### Step 5: Document Review & Task Sign-off
+1. Sign in as the assigned Checker (e.g., Mainak Gupta or Vivek Raj).
+2. Open the task under Tasks / Approvals.
+3. Review evidence documents attached to the task.
+4. Approve attached evidence documents and complete task sign-off.
+
+---
+
+## 5. Docker Operational Commands
+
+### Stream All Container Logs
+
+    docker compose logs -f
+
+### Stream Backend Container Logs Only
+
+    docker compose logs -f backend
+
+### Stream Frontend Container Logs Only
+
+    docker compose logs -f frontend
+
+### Stop All Containers
+
+    docker compose down
+
+### Database Reset and Fresh Rebuild
+
+    docker compose down -v
+    docker compose up -d --build
+
+### Rebuild Backend Service Only
+
+    docker compose up -d --build backend
+
+### Rebuild Frontend Service Only
+
+    docker compose up -d --build frontend
+
+---
+
+## 6. Project Structure Overview
+
+    Prototype/
+    ├── docker-compose.yml          # Container orchestration configuration
+    ├── README.md                   # System documentation and onboarding guide
+    ├── backend/                    # Java 17 / Spring Boot 3.3 REST Application
+    │   ├── Dockerfile              # Multi-stage Maven container build
+    │   ├── pom.xml                 # Maven configuration and dependencies
+    │   └── src/main/
+    │       ├── java/com/cloudkaptan/sop/
+    │       │   ├── config/         # Security, tenant context, and CORS setup
+    │       │   ├── controller/     # REST Endpoints (SOP, Task, Documents, Access)
+    │       │   ├── domain/         # State Machines, Domain Models, and Enums
+    │       │   ├── dto/            # Data Transfer Objects
+    │       │   ├── entity/         # JPA Entities
+    │       │   ├── repository/     # Spring Data JPA Repositories
+    │       │   └── service/        # Core Business Logic and Scheduler
+    │       └── resources/
+    │           ├── application-local.yml
+    │           └── db/migration/postgresql/  # Database Migration Scripts
+    └── frontend/                   # React 18 / Vite / Tailwind CSS Web Application
+        ├── Dockerfile              # Multi-stage Nginx production container build
+        ├── nginx.conf              # Nginx reverse proxy configuration
+        ├── package.json            # Node.js dependencies
+        └── src/
+            ├── components/         # Modal dialogs and UI elements
+            ├── pages/              # Main application views
+            └── services/api.js     # REST API client service layer
+
+---
+
+## 7. Troubleshooting
+
+### 7.1 Port Availability Conflicts
+If ports 8080 or 3010 are already bound on your host:
+* Stop conflicting host processes.
+* Or update host port mappings in docker-compose.yml (e.g., change "3010:80" to "3011:80").
+
+### 7.2 Database Restart
+If backend startup times out awaiting database readiness on slower hardware:
+
+    docker compose restart backend
+
+### 7.3 Direct Database Access
+To open an interactive SQL shell inside the PostgreSQL container:
+
+    docker exec -it finsop-postgres psql -U finsop_user -d finsop_db
