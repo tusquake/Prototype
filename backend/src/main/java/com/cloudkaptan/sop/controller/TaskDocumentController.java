@@ -11,8 +11,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,10 +38,10 @@ public class TaskDocumentController {
     private final TaskDocumentService taskDocumentService;
 
     @PostMapping("/generate-upload-url")
-    @Operation(summary = "Generate 15-min PUT Signed URL for upload", description = "Generates a short-lived PUT Signed URL (GCS in Prod / MinIO S3 in Local) for uploading task working paper attachments directly.")
+    @Operation(summary = "Generate 15-min PUT Signed URL for document upload", description = "Generates a serverless 15-minute PUT Signed URL for uploading working paper attachments directly to GCS bucket.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Upload Signed URL generated successfully"),
-        @ApiResponse(responseCode = "403", description = "Access denied — User not in task hierarchy")
+        @ApiResponse(responseCode = "400", description = "Invalid request payload or file parameters")
     })
     public ResponseEntity<com.cloudkaptan.sop.dto.ApiResponse<GenerateUploadUrlResponse>> generateUploadUrl(
             @Parameter(description = "Task UUID") @PathVariable("taskId") UUID taskId,
@@ -50,9 +53,10 @@ public class TaskDocumentController {
     }
 
     @PostMapping("/confirm-upload")
-    @Operation(summary = "Confirm upload completion & tag SLA", description = "Confirms direct upload completion and saves task document metadata with SLA timing (ON_TIME vs LATE).")
+    @Operation(summary = "Confirm uploaded document metadata", description = "Registers document metadata after successful GCS direct upload. Required before document can be attached to task.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Upload confirmed and metadata saved successfully")
+        @ApiResponse(responseCode = "200", description = "Document metadata confirmed and saved"),
+        @ApiResponse(responseCode = "400", description = "Missing or invalid document metadata")
     })
     public ResponseEntity<com.cloudkaptan.sop.dto.ApiResponse<TaskDocumentDto>> confirmUpload(
             @Parameter(description = "Task UUID") @PathVariable("taskId") UUID taskId,
@@ -120,16 +124,14 @@ public class TaskDocumentController {
         return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(dto));
     }
 
-    @PutMapping(value = "/local-upload", consumes = MediaType.ALL_VALUE)
-    @Operation(summary = "Local development direct storage upload handler", description = "Receives direct stream upload in local profile mode and saves file to local storage directory.")
+    @PostMapping("/local-upload")
+    @Operation(summary = "Local development direct storage upload handler", description = "Saves uploaded file content to local storage directory in local profile mode.")
     public ResponseEntity<Void> handleLocalStorageUpload(
             @Parameter(description = "Object Path") @RequestParam("objectPath") String objectPath,
-            @RequestHeader(value = "Content-Type", required = false) String contentType,
-            @RequestBody byte[] fileBytes) {
+            @RequestBody byte[] content) {
         try {
             String decodedPath = URLDecoder.decode(objectPath, StandardCharsets.UTF_8);
-            ByteArrayInputStream is = new ByteArrayInputStream(fileBytes);
-            taskDocumentService.uploadLocalFile(decodedPath, is, contentType, fileBytes.length);
+            taskDocumentService.uploadLocalFile(decodedPath, new ByteArrayInputStream(content), "application/octet-stream", content.length);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             log.error("Local upload failed for objectPath '{}': {}", objectPath, e.getMessage(), e);
@@ -139,16 +141,19 @@ public class TaskDocumentController {
 
     @GetMapping("/local-download")
     @Operation(summary = "Local development direct storage download handler", description = "Streams file content directly from local storage directory in local profile mode.")
-    public ResponseEntity<org.springframework.core.io.Resource> handleLocalStorageDownload(
+    public ResponseEntity<Resource> handleLocalStorageDownload(
             @Parameter(description = "Object Path") @RequestParam("objectPath") String objectPath) {
         try {
             String decodedPath = URLDecoder.decode(objectPath, StandardCharsets.UTF_8);
             InputStream is = taskDocumentService.downloadLocalFileStream(decodedPath);
-            org.springframework.core.io.InputStreamResource resource = new org.springframework.core.io.InputStreamResource(is);
+            InputStreamResource resource = new InputStreamResource(is);
             String filename = Paths.get(decodedPath).getFileName().toString();
+            MediaType mediaType = MediaTypeFactory.getMediaType(filename)
+                    .orElse(MediaType.APPLICATION_OCTET_STREAM);
+
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
-                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .contentType(mediaType)
                     .body(resource);
         } catch (Exception e) {
             log.error("Local download failed for objectPath '{}': {}", objectPath, e.getMessage(), e);
@@ -156,4 +161,3 @@ public class TaskDocumentController {
         }
     }
 }
-

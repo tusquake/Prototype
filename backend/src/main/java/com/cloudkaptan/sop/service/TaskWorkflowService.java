@@ -2,13 +2,10 @@ package com.cloudkaptan.sop.service;
 
 import com.cloudkaptan.sop.config.security.ApplyRowLevelSecurity;
 import com.cloudkaptan.sop.config.security.TenantContext;
-import com.cloudkaptan.sop.domain.enums.EntityCode;
-import com.cloudkaptan.sop.domain.enums.TaskStatus;
+import com.cloudkaptan.sop.domain.enums.*;
 import com.cloudkaptan.sop.domain.state.TaskContext;
 import com.cloudkaptan.sop.dto.TaskDto;
-import com.cloudkaptan.sop.entity.Sop;
-import com.cloudkaptan.sop.entity.Task;
-import com.cloudkaptan.sop.entity.User;
+import com.cloudkaptan.sop.entity.*;
 import com.cloudkaptan.sop.event.TaskStatusChangedEvent;
 import com.cloudkaptan.sop.exception.ResourceNotFoundException;
 import com.cloudkaptan.sop.repository.TaskRepository;
@@ -169,9 +166,9 @@ public class TaskWorkflowService {
         sopSecurityEvaluator.validateTaskReviewSoD(actor, task);
 
         // Document Approval Gating Check: All attached evidence documents must be APPROVED by the Checker
-        List<com.cloudkaptan.sop.entity.TaskDocument> docs = taskDocumentRepository.findByTaskTaskIdOrderByUploadedAtDesc(taskId);
+        List<TaskDocument> docs = taskDocumentRepository.findByTaskTaskIdOrderByUploadedAtDesc(taskId);
         if (docs != null && !docs.isEmpty()) {
-            boolean hasUnapproved = docs.stream().anyMatch(doc -> doc.getStatus() != com.cloudkaptan.sop.domain.enums.DocumentStatus.APPROVED);
+            boolean hasUnapproved = docs.stream().anyMatch(doc -> doc.getStatus() != DocumentStatus.APPROVED);
             if (hasUnapproved) {
                 throw new IllegalStateException("Task cannot be approved until all attached evidence documents are approved by the Checker.");
             }
@@ -307,11 +304,11 @@ public class TaskWorkflowService {
 
         TenantContext ctx = TenantContext.getContext();
         String currentUserId = (userId != null && !userId.isBlank()) ? userId.trim() : (ctx != null ? ctx.getUserId() : null);
-        com.cloudkaptan.sop.domain.enums.UserRole role = ctx != null && ctx.getUserRole() != null 
+        UserRole role = ctx != null && ctx.getUserRole() != null 
                 ? ctx.getUserRole() 
-                : ("ADMIN".equalsIgnoreCase(userRole) ? com.cloudkaptan.sop.domain.enums.UserRole.ADMIN : com.cloudkaptan.sop.domain.enums.UserRole.VIEWER);
+                : ("ADMIN".equalsIgnoreCase(userRole) ? UserRole.ADMIN : UserRole.VIEWER);
 
-        if (role == com.cloudkaptan.sop.domain.enums.UserRole.ADMIN || currentUserId == null || currentUserId.isBlank()) {
+        if (role == UserRole.ADMIN || currentUserId == null || currentUserId.isBlank()) {
             return tasks.stream().map(this::mapToDto).toList();
         }
 
@@ -711,7 +708,7 @@ public class TaskWorkflowService {
                         .uploadedById(doc.getUploadedBy() != null ? doc.getUploadedBy().getUserId() : null)
                         .uploadedByName(doc.getUploadedBy() != null ? doc.getUploadedBy().getFullName() : null)
                         .uploadedAt(doc.getUploadedAt())
-                        .status(doc.getStatus() != null ? doc.getStatus() : com.cloudkaptan.sop.domain.enums.DocumentStatus.PENDING_REVIEW)
+                        .status(doc.getStatus() != null ? doc.getStatus() : DocumentStatus.PENDING_REVIEW)
                         .rejectionReason(doc.getRejectionReason())
                         .actionedById(doc.getActionedById())
                         .actionedByName(doc.getActionedByName())
@@ -724,11 +721,11 @@ public class TaskWorkflowService {
         // Dynamic hierarchy permission calculation for the current requesting user
         TenantContext ctx = TenantContext.getContext();
         String currentUserId = ctx != null ? ctx.getUserId() : null;
-        com.cloudkaptan.sop.domain.enums.UserRole currentUserRole = ctx != null ? ctx.getUserRole() : null;
+        UserRole currentUserRole = ctx != null ? ctx.getUserRole() : null;
         List<String> writableSubs = (ctx != null && ctx.getWritableSubordinateIds() != null) ? ctx.getWritableSubordinateIds() : List.of();
         List<String> readableSubs = (ctx != null && ctx.getReadableSubordinateIds() != null) ? ctx.getReadableSubordinateIds() : List.of();
 
-        boolean isAdmin = currentUserRole == com.cloudkaptan.sop.domain.enums.UserRole.ADMIN;
+        boolean isAdmin = currentUserRole == UserRole.ADMIN;
 
         boolean isAssignedMaker = currentUserId != null && (
             mIds.contains(currentUserId) ||

@@ -1,13 +1,10 @@
 package com.cloudkaptan.sop.service;
 
 import com.cloudkaptan.sop.config.security.TenantContext;
-import com.cloudkaptan.sop.domain.enums.UploadTiming;
-import com.cloudkaptan.sop.domain.enums.UserRole;
+import com.cloudkaptan.sop.domain.enums.*;
+import com.cloudkaptan.sop.domain.state.document.DocumentContext;
 import com.cloudkaptan.sop.dto.*;
-import com.cloudkaptan.sop.entity.Sop;
-import com.cloudkaptan.sop.entity.Task;
-import com.cloudkaptan.sop.entity.TaskDocument;
-import com.cloudkaptan.sop.entity.User;
+import com.cloudkaptan.sop.entity.*;
 import com.cloudkaptan.sop.exception.ResourceNotFoundException;
 import com.cloudkaptan.sop.repository.TaskDocumentRepository;
 import com.cloudkaptan.sop.repository.TaskRepository;
@@ -181,13 +178,13 @@ public class TaskDocumentService {
         validateTaskAccess(task, actor);
 
         // Submission Lock Validation: Cannot upload if task is pending review or completed/locked
-        if (task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.PENDING_REVIEW || 
-            task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.APPROVED || 
-            task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.PERMANENTLY_REJECTED) {
+        if (task.getStatus() == TaskStatus.PENDING_REVIEW || 
+            task.getStatus() == TaskStatus.APPROVED || 
+            task.getStatus() == TaskStatus.PERMANENTLY_REJECTED) {
             throw new AccessDeniedException("Task evidence documents cannot be uploaded while task is submitted, approved, or locked.");
         }
 
-        boolean resubmit = Boolean.TRUE.equals(isResubmission) || task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.REJECTED;
+        boolean resubmit = Boolean.TRUE.equals(isResubmission) || task.getStatus() == TaskStatus.REJECTED;
 
         // Tag SLA Timing
         UploadTiming timing = UploadTiming.ON_TIME;
@@ -208,7 +205,7 @@ public class TaskDocumentService {
                 .uploadTiming(timing)
                 .isResubmission(resubmit)
                 .replacedDocumentId(replacedDocumentId)
-                .status(com.cloudkaptan.sop.domain.enums.DocumentStatus.PENDING_REVIEW)
+                .status(DocumentStatus.PENDING_REVIEW)
                 .build();
 
         TaskDocument saved = taskDocumentRepository.save(document);
@@ -345,16 +342,17 @@ public class TaskDocumentService {
             throw new AccessDeniedException("Access Denied: Approvers cannot delete task evidence documents. Approvers can only view, approve, or reject documents.");
         }
 
-        // Submission Lock Check: Cannot delete docs when task is submitted/pending review or completed
-        if (task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.PENDING_REVIEW ||
-            task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.APPROVED ||
-            task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.PERMANENTLY_REJECTED) {
-            throw new AccessDeniedException("Task documents cannot be deleted while task is submitted or locked.");
+        // Submission Lock Check & Audit Protection: Cannot delete APPROVED or REJECTED docs
+        if (document.getStatus() == DocumentStatus.APPROVED ||
+            document.getStatus() == DocumentStatus.REJECTED) {
+            throw new AccessDeniedException("Approved or Rejected evidence documents cannot be deleted; they are preserved for audit history.");
         }
 
-        // If task is REJECTED, Maker can only delete REJECTED docs (approved docs stay protected)
-        if (task.getStatus() == com.cloudkaptan.sop.domain.enums.TaskStatus.REJECTED && document.getStatus() == com.cloudkaptan.sop.domain.enums.DocumentStatus.APPROVED) {
-            throw new AccessDeniedException("Approved evidence documents cannot be deleted during task revision.");
+        // Submission Lock Check: Cannot delete docs when task is submitted/pending review or completed
+        if (task.getStatus() == TaskStatus.PENDING_REVIEW ||
+            task.getStatus() == TaskStatus.APPROVED ||
+            task.getStatus() == TaskStatus.PERMANENTLY_REJECTED) {
+            throw new AccessDeniedException("Task documents cannot be deleted while task is submitted or locked.");
         }
 
         if (isProdProfile()) {
@@ -491,7 +489,11 @@ public class TaskDocumentService {
         User actor = resolveUser(actorId);
         validateTaskAccess(task, actor);
 
-        com.cloudkaptan.sop.domain.state.document.DocumentContext documentContext = new com.cloudkaptan.sop.domain.state.document.DocumentContext(document);
+        if (document.getStatus() == DocumentStatus.REJECTED) {
+            throw new IllegalStateException("This document was previously rejected and cannot be modified. It is retained for audit history.");
+        }
+
+        DocumentContext documentContext = new DocumentContext(document);
         String eventAction;
         if ("APPROVE".equalsIgnoreCase(action)) {
             documentContext.approve(actor);
@@ -510,7 +512,7 @@ public class TaskDocumentService {
         // Save Task-Level Audit Logs & Activity History
         String taskRecordNo = task.getRecordNo() != null ? task.getRecordNo() : taskId.toString();
 
-        auditLogRepository.save(com.cloudkaptan.sop.entity.AuditLog.builder()
+        auditLogRepository.save(AuditLog.builder()
                 .actorId(actor.getUserId())
                 .action(eventAction)
                 .entityType("TASK")
@@ -518,7 +520,7 @@ public class TaskDocumentService {
                 .correlationId(UUID.randomUUID().toString())
                 .build());
 
-        taskEventRepository.save(com.cloudkaptan.sop.entity.TaskEvent.builder()
+        taskEventRepository.save(TaskEvent.builder()
                 .task(task)
                 .actor(actor)
                 .action(eventAction)
@@ -526,7 +528,7 @@ public class TaskDocumentService {
                 .toStatus(task.getStatus())
                 .build());
 
-        taskCommentRepository.save(com.cloudkaptan.sop.entity.TaskComment.builder()
+        taskCommentRepository.save(TaskComment.builder()
                 .task(task)
                 .author(actor)
                 .commentText(("APPROVE".equalsIgnoreCase(action) ? "Approved" : "Rejected") + " evidence file: " + document.getFileName() + (comment != null && !comment.isBlank() ? ". Reason: " + comment : ""))
@@ -547,7 +549,7 @@ public class TaskDocumentService {
                 .uploadedById(document.getUploadedBy() != null ? document.getUploadedBy().getUserId() : null)
                 .uploadedByName(document.getUploadedBy() != null ? document.getUploadedBy().getFullName() : null)
                 .uploadedAt(document.getUploadedAt())
-                .status(document.getStatus() != null ? document.getStatus() : com.cloudkaptan.sop.domain.enums.DocumentStatus.PENDING_REVIEW)
+                .status(document.getStatus() != null ? document.getStatus() : DocumentStatus.PENDING_REVIEW)
                 .rejectionReason(document.getRejectionReason())
                 .actionedById(document.getActionedById())
                 .actionedByName(document.getActionedByName())

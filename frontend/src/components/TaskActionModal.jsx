@@ -735,8 +735,8 @@ export default function TaskActionModal({
                         </div>
 
                         <div className="flex items-center gap-1.5 shrink-0">
-                          {/* Checker Approve (✓) / Reject (✕) Actions */}
-                          {canApproveOrReject && (
+                          {/* Checker Approve (✓) / Reject (✕) Actions — Hidden on REJECTED documents */}
+                          {canApproveOrReject && doc.status !== 'REJECTED' && (
                             <div className="flex items-center gap-1.5 border-r border-slate-200 pr-2 mr-1">
                               <button
                                 type="button"
@@ -803,8 +803,8 @@ export default function TaskActionModal({
                             <span>Download</span>
                           </button>
 
-                          {/* Delete button (Strictly allowed only for Submitter) */}
-                          {canSubmit && doc.status !== 'APPROVED' && (
+                          {/* Delete button (Hidden on APPROVED and REJECTED documents) */}
+                          {canSubmit && doc.status !== 'APPROVED' && doc.status !== 'REJECTED' && (
                             <button
                               type="button"
                               className="flex items-center justify-center rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all"
