@@ -1035,5 +1035,34 @@ export async function actionTaskDocument(taskId, documentId, action, comment, ac
   });
 }
 
+// ==========================================
+// SOP TEMPLATE BLUEPRINT ENDPOINTS
+// ==========================================
 
+export async function createSopTemplate(draftPayload) {
+  return await fetchJson('/sop-templates', {
+    method: 'POST',
+    body: JSON.stringify(draftPayload),
+  });
+}
 
+export async function addTaskTemplateStep(templateId, stepPayload) {
+  return await fetchJson(`/sop-templates/${templateId}/tasks`, {
+    method: 'POST',
+    body: JSON.stringify(stepPayload),
+  });
+}
+
+export async function activateSopTemplate(templateId, actorId = 'usr-manoj-042') {
+  return await fetchJson(`/sop-templates/${templateId}/activate?actorId=${encodeURIComponent(actorId)}`, {
+    method: 'PUT',
+  });
+}
+
+export async function getSopTemplates() {
+  return await fetchJson('/sop-templates');
+}
+
+export async function getSopTemplate(templateId) {
+  return await fetchJson(`/sop-templates/${templateId}`);
+}

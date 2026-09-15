@@ -10,6 +10,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.UUID;
 
 @Entity
 @Table(name = "sops")
@@ -106,6 +107,13 @@ public class Sop {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    /**
+     * Links this SOP instance back to the SopTemplate blueprint that generated it.
+     * Null for manually-created SOPs (legacy path).
+     */
+    @Column(name = "template_id")
+    private UUID templateId;
 
     @Column(name = "version")
     @Builder.Default

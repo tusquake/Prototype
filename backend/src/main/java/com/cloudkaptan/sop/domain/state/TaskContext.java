@@ -16,7 +16,7 @@ public class TaskContext {
     public TaskContext(Task task) {
         this.task = task;
         this.state = switch (task.getStatus()) {
-            case OPEN -> new OpenState();
+            case OPEN, LOCKED -> new OpenState();
             case PENDING_REVIEW -> new PendingReviewState();
             case APPROVED -> new ApprovedState();
             case REJECTED -> new RejectedState();

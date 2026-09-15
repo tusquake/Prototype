@@ -90,6 +90,13 @@ public class Task {
     @Column(name = "approved_at")
     private OffsetDateTime approvedAt;
 
+    /**
+     * Links this Task instance back to the TaskTemplate blueprint that generated it.
+     * Null for manually-assigned tasks (legacy path).
+     */
+    @Column(name = "task_template_id")
+    private UUID taskTemplateId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -98,3 +105,4 @@ public class Task {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 }
+

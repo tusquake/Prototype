@@ -16,36 +16,16 @@ import { getSession } from '../auth/auth';
 import { ENTITIES, getSops, deleteSop, getUsers, actionSop, getProcessCategories, getUserCreatableCategories } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
-const FREQ_LABEL = { MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', ANNUAL: 'Annual', DAILY: 'Daily', WEEKLY: 'Weekly' };
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import CreateSopDrawer from '../components/CreateSOPDrawer';
+import CreateCompleteSOPModal from '../components/CreateCompleteSOPModal'
 
-const PROCESS_OPTIONS = [
-  { value: 'Tax Compliance', label: 'Tax Compliance' },
-  { value: 'Treasury & Cash Management', label: 'Treasury & Cash Management' },
-  { value: 'Financial Reporting', label: 'Financial Reporting' },
-  { value: 'Fixed Assets', label: 'Fixed Assets' },
-  { value: 'Payroll & Statutory', label: 'Payroll & Statutory' },
-];
-
-const ENTITY_OPTIONS = [
-  { value: 'CK_INDIA', label: 'CK India' },
-  { value: 'CK_US', label: 'CK US' },
-  { value: 'CK_UK', label: 'CK UK' },
-  { value: 'CK_AUSTRALIA', label: 'CK Australia' },
-];
-
-const CREATOR_OPTIONS = [
-  { value: 'usr-tushar-304', label: 'Tushar Seth (usr-tushar-304)' },
-  { value: 'usr-prayasa-410', label: 'Prayasa Sharma (usr-prayasa-410)' },
-  { value: 'usr-vivek-108', label: 'Vivek Raj (usr-vivek-108)' },
-  { value: 'usr-mainak-215', label: 'Mainak Gupta (usr-mainak-215)' },
-];
-
-const APPROVER_OPTIONS = [
-  { value: 'usr-vivek-108', label: 'Vivek Raj (usr-vivek-108)' },
-  { value: 'usr-mainak-215', label: 'Mainak Gupta (usr-mainak-215)' },
-  { value: 'usr-manoj-042', label: 'Manoj Agarwal (usr-manoj-042)' },
-  { value: 'usr-avisek-499', label: 'Avisek Paul (usr-avisek-499)' },
-];
+// 1. Zod Validation Schema
+const rejectSopSchema = z.object({
+  feedback: z.string().trim().min(1, 'Feedback is required to reject an SOP draft.'),
+});
 
 const FREQUENCY_OPTIONS = [
   { value: 'MONTHLY', label: 'Monthly' },
@@ -214,11 +194,13 @@ export default function Sops() {
   const [deleting, setDeleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [showCreateCompleteModal,setShowCreateCompleteModal] = useState(false)
 
   const session = getSession();
   const currentUser = session?.user;
   const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.email?.includes('mainak');
   const { selectedEntities } = useEntity();
+
 
   // Handler for sidebar SOP task notification card click
   function handleOpenSopTask(task) {
@@ -843,7 +825,7 @@ export default function Sops() {
                 <button
                   type="button"
                   className="inline-flex items-center gap-1.5 px-4 py-[7px] rounded-[6px] bg-[#2563eb] text-white text-[12.5px] font-semibold border-none cursor-pointer shadow-sm transition-all duration-150 hover:bg-[#1d4ed8]"
-                  onClick={() => openCreateModal()}
+                  onClick={() => setShowCreateCompleteModal(true)}
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="12" y1="5" x2="12" y2="19" />
@@ -1050,6 +1032,27 @@ export default function Sops() {
         onSuccess={(msg) => { setSuccessMsg(msg); loadData(); }}
       />
 
+      {/* This modal is for creating sop */}
+
+      {/* {showCreateCompleteModal && (
+        <CreateCompleteSOPModal
+          isOpen={showCreateCompleteModal}
+          currentUser={currentUser}
+          userMap={userMap}
+          onClose={() => setShowCreateCompleteModal(false)}
+          onSuccess={(msg) => { setSuccessMsg(msg); loadData(); }}
+        />
+      )} */}
+
+      {showCreateCompleteModal && (
+        <CreateSopDrawer
+          isOpen={showCreateCompleteModal}
+          currentUser={currentUser}
+          userMap={userMap}
+          onClose={() => setShowCreateCompleteModal(false)}
+          onSuccess={(msg) => { setSuccessMsg(msg); loadData(); }} />
+      )}
+
       <CreateSOPModal
         isOpen={showModal}
         targetCategory={targetCategory}
@@ -1123,7 +1126,7 @@ export default function Sops() {
       )}
 
       {/* User Picker Modal for Maker Pool */}
-      <UserPickerModal
+      {/* <UserPickerModal
         isOpen={showMakerPicker}
         title="Select Assigned Maker Pool"
         entityCode={formData.entityCode}
@@ -1138,10 +1141,10 @@ export default function Sops() {
           setFormData(prev => ({ ...prev, defaultMakerIds: selectedIds }));
           setShowMakerPicker(false);
         }}
-      />
+      /> */}
 
       {/* User Picker Modal for Checker Pool */}
-      <UserPickerModal
+      {/* <UserPickerModal
         isOpen={showCheckerPicker}
         title="Select Assigned Checker Pool"
         entityCode={formData.entityCode}
@@ -1156,7 +1159,7 @@ export default function Sops() {
           setFormData(prev => ({ ...prev, defaultCheckerIds: selectedIds }));
           setShowCheckerPicker(false);
         }}
-      />
+      /> */}
 
     </>
   );
