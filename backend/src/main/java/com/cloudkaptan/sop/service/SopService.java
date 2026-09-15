@@ -18,6 +18,8 @@ import com.cloudkaptan.sop.repository.SopEventRepository;
 import com.cloudkaptan.sop.repository.SopRepository;
 import com.cloudkaptan.sop.repository.UserRepository;
 import com.cloudkaptan.sop.repository.UserNotificationRepository;
+import com.cloudkaptan.sop.repository.SopVersionRepository;
+import com.cloudkaptan.sop.entity.SopVersion;
 import com.cloudkaptan.sop.entity.SopEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,7 @@ import java.util.Objects;
 public class SopService {
 
     private final SopRepository sopRepository;
+    private final SopVersionRepository sopVersionRepository;
     private final CorporateEntityRepository entityRepository;
     private final UserRepository userRepository;
     private final TaskSchedulerService taskSchedulerService;
@@ -424,7 +427,6 @@ public class SopService {
             // Enforce Segregation of Duties (SoD): Prohibit creator self-approval
             sopSecurityEvaluator.validateSopApprovalSoD(actor, sop);
             context.approve(actor);
-            taskSchedulerService.generateScheduledTasks();
         } else if ("REJECT".equalsIgnoreCase(request.getAction())) {
             context.reject(actor, request.getComment());
         } else {
@@ -433,6 +435,34 @@ public class SopService {
         }
 
         Sop saved = sopRepository.save(sop);
+
+        boolean isApproved = "APPROVE".equalsIgnoreCase(request.getAction());
+
+        if (isApproved) {
+            SopVersion version = sopVersionRepository.findActiveVersionBySopId(saved.getSopId())
+                    .orElseGet(() -> SopVersion.builder()
+                            .sop(saved)
+                            .versionNumber("v" + (saved.getVersion() != null ? saved.getVersion() : 1))
+                            .build());
+
+            java.time.OffsetDateTime startDT = (saved.getCreatedAt() != null) ? saved.getCreatedAt() : java.time.OffsetDateTime.now();
+            java.time.OffsetDateTime dueDT = startDT.plusDays(saved.getDueDayOffset() != null ? saved.getDueDayOffset() : 7);
+
+            version.setFrequency(saved.getFrequency() != null ? saved.getFrequency() : com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY);
+            version.setStartDateTime(startDT);
+            version.setDueDateTime(dueDT);
+            version.setIsRecurring(Boolean.TRUE.equals(saved.getIsRecurring()));
+            version.setVersionStatus("APPROVED");
+            version.setIsRunning(true);
+            version.setCreatedBy(actor.getUserId());
+            sopVersionRepository.save(version);
+
+            try {
+                taskSchedulerService.generateScheduledTasks();
+            } catch (Exception e) {
+                log.error("Failed to generate scheduled tasks upon SOP approval: {}", e.getMessage(), e);
+            }
+        }
 
         // Clean up obsolete approval notifications for this SOP across all users
         try {
@@ -443,7 +473,6 @@ public class SopService {
         }
 
         // Audit & Record SopEvent
-        boolean isApproved = "APPROVE".equalsIgnoreCase(request.getAction());
         String auditAction = isApproved ? "APPROVE_SOP" : "REJECT_SOP";
         auditLogRepository.save(AuditLog.builder()
                 .actorId(actor.getUserId())

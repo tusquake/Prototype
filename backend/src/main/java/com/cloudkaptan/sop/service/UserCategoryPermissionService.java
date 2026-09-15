@@ -31,6 +31,7 @@ public class UserCategoryPermissionService {
     private final AccessControlActivityLogRepository accessControlActivityLogRepository;
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
+    private final NotificationPublisherService notificationPublisherService;
  
     @Transactional(readOnly = true)
     public List<CategoryPermissionDto> getUserPermissions(String userId) {
@@ -64,6 +65,22 @@ public class UserCategoryPermissionService {
         UserCategoryPermission saved = permissionRepository.save(entity);
         log.info("Granted permissions for user [{}] on category [{}]", request.getUserId(),
                 request.getProcessCategory());
+
+        if (Boolean.TRUE.equals(request.getCanCreateSop())) {
+            try {
+                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                        .recipientUserId(request.getUserId())
+                        .eventType("CATEGORY_PERMISSION_GRANTED")
+                        .title("SOP Creation Access Granted")
+                        .message("You have been granted permission to create SOPs for the '" + request.getProcessCategory() + "' process category.")
+                        .referenceEntityType("ACCESS_CONTROL")
+                        .referenceEntityId(request.getProcessCategory())
+                        .build());
+            } catch (Exception e) {
+                log.warn("Failed to publish SOP creation permission notification to user [{}]: {}", request.getUserId(), e.getMessage());
+            }
+        }
+
         return mapToDto(saved);
     }
  
@@ -196,8 +213,24 @@ public class UserCategoryPermissionService {
         List<String> removedCheckers = prevCheckers.stream().filter(u -> !newCheckers.contains(u)).toList();
  
         List<String> diffs = new ArrayList<>();
-        if (!addedCreators.isEmpty())
+        if (!addedCreators.isEmpty()) {
             diffs.add("Added SOP Creator(s): " + String.join(", ", addedCreators));
+            // Send in-app notification to each newly granted creator
+            for (String creatorId : addedCreators) {
+                try {
+                    notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                            .recipientUserId(creatorId)
+                            .eventType("CATEGORY_PERMISSION_GRANTED")
+                            .title("SOP Creation Access Granted")
+                            .message("You have been granted permission to create SOPs for the '" + category + "' process category.")
+                            .referenceEntityType("ACCESS_CONTROL")
+                            .referenceEntityId(category)
+                            .build());
+                } catch (Exception e) {
+                    log.warn("Failed to publish SOP creation permission notification to user [{}]: {}", creatorId, e.getMessage());
+                }
+            }
+        }
         if (!removedCreators.isEmpty())
             diffs.add("Removed SOP Creator(s): " + String.join(", ", removedCreators));
  
