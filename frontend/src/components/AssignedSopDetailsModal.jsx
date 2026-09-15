@@ -101,8 +101,8 @@ export default function AssignedSopDetailsModal({ isOpen, sop, onClose, onDelete
                     1
                   </div>
                   <div className="flex min-w-0 flex-col">
-                    <span className="truncate text-xs font-semibold text-slate-800">Admin Assignment</span>
-                    <span className="text-[11px] text-slate-500">Assigned by {adminName}</span>
+                    <span className="truncate text-xs font-semibold text-slate-800">Access Granted</span>
+                    <span className="text-[11px] text-slate-500">Access Granted by {adminName}</span>
                   </div>
                 </div>
 

@@ -283,18 +283,27 @@ export default function Sops() {
       loadData();
     }
 
+    function handleCreateSopEvent() {
+      openCreateModal();
+    }
+
+    window.addEventListener('open-create-sop', handleCreateSopEvent);
     window.addEventListener('open-sop-draft', handleDraftEvent);
     window.addEventListener('open-sop-review', handleReviewEvent);
     window.addEventListener('open-sop-view', handleViewEvent);
     window.addEventListener('sop-updated', handleUpdateEvent);
 
-    // Check for draftSopCode, reviewSopCode, viewSopCode or sopId query params
+    // Check for draftSopCode, reviewSopCode, viewSopCode, action=createSop or sopId query params
     const params = new URLSearchParams(window.location.search);
     const draftCode = params.get('draftSopCode');
     const reviewCode = params.get('reviewSopCode');
     const viewCode = params.get('viewSopCode') || params.get('sopId') || params.get('sopCode');
+    const actionParam = params.get('action');
 
-    if (draftCode) {
+    if (actionParam === 'createSop') {
+      openCreateModal();
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (draftCode) {
       getSops([]).then(all => {
         const target = (all || []).find(s => (s.code === draftCode || s.sopCode === draftCode || s.id === draftCode || s.sopId === draftCode));
         if (target) {
@@ -328,6 +337,7 @@ export default function Sops() {
     }
 
     return () => {
+      window.removeEventListener('open-create-sop', handleCreateSopEvent);
       window.removeEventListener('open-sop-draft', handleDraftEvent);
       window.removeEventListener('open-sop-review', handleReviewEvent);
       window.removeEventListener('open-sop-view', handleViewEvent);

@@ -16,7 +16,7 @@ export default function SopActivityLogModal({ isOpen, onClose, sop }) {
       actorRole: 'ADMIN',
       fromStatus: null,
       toStatus: 'PENDING_CREATION',
-      comment: 'SOP creation task assigned by Admin to creator',
+      comment: 'SOP creation access granted by Admin to creator',
       timestamp: sop.createdAt || new Date(Date.now() - 86400000).toISOString(),
     });
   }
@@ -118,7 +118,7 @@ export default function SopActivityLogModal({ isOpen, onClose, sop }) {
           <div className="relative flex flex-col gap-4">
             {synthesizedEvents.map((event, idx) => {
               const act = (event.action || '').toUpperCase();
-              const actionLabel = act.includes('ASSIGN') ? 'SOP Creation Assigned' :
+              const actionLabel = act.includes('ASSIGN') ? 'Access Granted by Admin' :
                 act.includes('SUBMIT') ? 'SOP Draft Submitted' :
                   act.includes('APPROVE') ? 'SOP Approved & Activated' :
                     act.includes('REJECT') ? 'SOP Draft Rejected' :

@@ -110,9 +110,13 @@ export default function NotificationBell({ currentUser }) {
     // 2. Navigate and open detail view
     const isSop = item.referenceEntityType === 'SOP';
     const isTask = item.referenceEntityType === 'TASK';
+    const isAccessControl = item.referenceEntityType === 'ACCESS_CONTROL' || item.eventType === 'CATEGORY_PERMISSION_GRANTED';
     const refId = item.referenceEntityId;
 
-    if (isSop) {
+    if (isAccessControl) {
+      window.dispatchEvent(new CustomEvent('open-create-sop', { detail: { category: refId } }));
+      navigate(`/sops?action=createSop&category=${encodeURIComponent(refId || '')}`);
+    } else if (isSop) {
       const isReview = item.eventType === 'SOP_SUBMITTED' || item.eventType === 'SOP_APPROVAL';
       const isDraft = item.eventType === 'SOP_ASSIGNED' || item.eventType === 'SOP_REJECTED';
 
@@ -250,7 +254,7 @@ export default function NotificationBell({ currentUser }) {
                         {item.message}
                       </div>
                       <div className={`inline-flex items-center gap-1 text-[11px] font-semibold transition-colors ${actionColorClass}`}>
-                        <span>Open {item.referenceEntityType || 'Item'} →</span>
+                        <span>{(item.referenceEntityType === 'ACCESS_CONTROL' || item.eventType === 'CATEGORY_PERMISSION_GRANTED') ? 'Create SOP →' : `Open ${item.referenceEntityType || 'Item'} →`}</span>
                       </div>
                     </div>
 
