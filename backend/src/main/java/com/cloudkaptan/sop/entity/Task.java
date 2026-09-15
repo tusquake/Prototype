@@ -8,6 +8,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -64,26 +66,23 @@ public class Task {
     @CollectionTable(name = "task_maker_pool", joinColumns = @JoinColumn(name = "task_id"))
     @Column(name = "maker_id", length = 64)
     @Builder.Default
-    private java.util.List<String> assignedMakerIds = new java.util.ArrayList<>();
+    private List<String> assignedMakerIds = new ArrayList<>();
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "task_checker_pool", joinColumns = @JoinColumn(name = "task_id"))
     @Column(name = "checker_id", length = 64)
     @Builder.Default
-    private java.util.List<String> assignedCheckerIds = new java.util.ArrayList<>();
+    private List<String> assignedCheckerIds = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 32, nullable = false)
     private TaskStatus status;
 
-    @Column(name = "start_date_time")
-    private OffsetDateTime startDateTime;
+    @Column(name = "start_date")
+    private LocalDate startDate;
 
     @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
-
-    @Column(name = "due_date_time")
-    private OffsetDateTime dueDateTime;
 
     @Column(name = "completed_at")
     private OffsetDateTime completedAt;

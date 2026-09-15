@@ -26,6 +26,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -189,6 +192,9 @@ public class SopService {
         String primaryCreatorId = creatorIds.get(0);
         String primaryApproverId = approverIds.get(0);
 
+        LocalDate startD = request.getStartDate() != null ? request.getStartDate() : LocalDate.now();
+        LocalDate dueD = request.getDueDate() != null ? request.getDueDate() : startD.plusDays(request.getDueDayOffset() != null ? request.getDueDayOffset() : 7);
+
         Sop sop = Sop.builder()
                 .sopCode(request.getSopCode())
                 .title(request.getTitle())
@@ -198,6 +204,8 @@ public class SopService {
                 .frequency(request.getFrequency())
                 .dueDayOffset(request.getDueDayOffset())
                 .isRecurring(isRec)
+                .startDate(startD)
+                .dueDate(dueD)
                 .defaultMakerIds(new java.util.ArrayList<>(mPool))
                 .defaultCheckerIds(new java.util.ArrayList<>(cPool))
                 .assignedCreatorId(primaryCreatorId)
@@ -361,6 +369,14 @@ public class SopService {
             sop.setDefaultCheckerIds(new java.util.ArrayList<>(request.getDefaultCheckerIds()));
         }
 
+        if (request.getStartDate() != null) {
+            sop.setStartDate(request.getStartDate());
+        }
+
+        if (request.getDueDate() != null) {
+            sop.setDueDate(request.getDueDate());
+        }
+
         Sop saved = sopRepository.save(sop);
 
         // Audit & Record SopEvent
@@ -445,8 +461,11 @@ public class SopService {
                             .versionNumber("v" + (saved.getVersion() != null ? saved.getVersion() : 1))
                             .build());
 
-            java.time.OffsetDateTime startDT = (saved.getCreatedAt() != null) ? saved.getCreatedAt() : java.time.OffsetDateTime.now();
-            java.time.OffsetDateTime dueDT = startDT.plusDays(saved.getDueDayOffset() != null ? saved.getDueDayOffset() : 7);
+            LocalDate startD = (saved.getStartDate() != null) ? saved.getStartDate() : LocalDate.now();
+            LocalDate dueD = (saved.getDueDate() != null) ? saved.getDueDate() : startD.plusDays(saved.getDueDayOffset() != null ? saved.getDueDayOffset() : 7);
+
+            OffsetDateTime startDT = startD.atStartOfDay().atOffset(ZoneOffset.UTC);
+            OffsetDateTime dueDT = dueD.atStartOfDay().atOffset(ZoneOffset.UTC);
 
             version.setFrequency(saved.getFrequency() != null ? saved.getFrequency() : com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY);
             version.setStartDateTime(startDT);
@@ -807,6 +826,12 @@ public class SopService {
         String primaryApproverId = !approverIdsList.isEmpty() ? approverIdsList.get(0) : sop.getAssignedApproverId();
         String primaryApproverName = !approverNamesList.isEmpty() ? approverNamesList.get(0) : (primaryApproverId != null ? userRepository.findById(primaryApproverId).map(User::getFullName).orElse(primaryApproverId) : null);
 
+        SopVersion activeVersion = sopVersionRepository.findActiveVersionBySopId(sop.getSopId()).orElse(null);
+        LocalDate startD = sop.getStartDate() != null ? sop.getStartDate()
+                : (activeVersion != null && activeVersion.getStartDateTime() != null ? activeVersion.getStartDateTime().toLocalDate() : null);
+        LocalDate dueD = sop.getDueDate() != null ? sop.getDueDate()
+                : (activeVersion != null && activeVersion.getDueDateTime() != null ? activeVersion.getDueDateTime().toLocalDate() : null);
+
         return SopDto.builder()
                 .sopId(sop.getSopId())
                 .sopCode(sop.getSopCode())
@@ -834,6 +859,8 @@ public class SopService {
                 .rejectionReason(sop.getRejectionReason())
                 .status(sop.getStatus())
                 .version(sop.getVersion() != null ? sop.getVersion() : 1)
+                .startDate(startD)
+                .dueDate(dueD)
                 .history(historyList)
                 .build();
     }

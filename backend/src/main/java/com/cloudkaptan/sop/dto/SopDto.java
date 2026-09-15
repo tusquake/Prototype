@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,7 +46,7 @@ public class SopDto {
     private String rejectionReason;
     private SopStatus status;
     private Integer version;
-    private java.time.OffsetDateTime startDateTime;
-    private java.time.OffsetDateTime dueDateTime;
+    private LocalDate startDate;
+    private LocalDate dueDate;
     private List<SopEventDto> history;
 }

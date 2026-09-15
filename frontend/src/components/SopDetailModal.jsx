@@ -211,12 +211,12 @@ export default function SopDetailModal({
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Start Date & Time</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Start Date</span>
                 <span className="text-[13.5px] font-semibold text-slate-800">
                   {isPendingCreation ? (
                     <span className="italic text-slate-400">Pending Creation</span>
-                  ) : sop.startDateTime ? (
-                    new Date(sop.startDateTime).toLocaleString()
+                  ) : (sop.startDate || sop.startDateTime) ? (
+                    String(sop.startDate || sop.startDateTime).slice(0, 10)
                   ) : (
                     'Not specified'
                   )}
@@ -224,12 +224,12 @@ export default function SopDetailModal({
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Due Date & Time</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Due Date</span>
                 <span className="text-[13.5px] font-semibold text-slate-800">
                   {isPendingCreation ? (
                     <span className="italic text-slate-400">Pending Creation</span>
-                  ) : sop.dueDateTime ? (
-                    new Date(sop.dueDateTime).toLocaleString()
+                  ) : (sop.dueDate || sop.dueDateTime) ? (
+                    String(sop.dueDate || sop.dueDateTime).slice(0, 10)
                   ) : (
                     `Day ${sop.dueDay || sop.dueDayOffset || 1}`
                   )}

@@ -790,29 +790,12 @@ public class TaskWorkflowService {
             .actualCheckerId(task.getChecker() != null ? task.getChecker().getUserId() : null)
             .actualCheckerName(actualCheckerName)
             .status(task.getStatus())
-            .startDateTime(task.getStartDateTime() != null
-                ? task.getStartDateTime()
-                : (task.getSopVersion() != null ? task.getSopVersion().getStartDateTime() : task.getCreatedAt()))
-            .dueDate(task.getDueDate())
-            .dueDateTime(task.getDueDateTime() != null
-                ? task.getDueDateTime()
-                : (task.getSopVersion() != null && task.getSopVersion().getDueDateTime() != null && task.getSop() != null && Boolean.FALSE.equals(task.getSop().getIsRecurring())
-                    ? task.getSopVersion().getDueDateTime()
-                    : (task.getDueDate() != null
-                        ? task.getDueDate().atTime(
-                            task.getSopVersion() != null && task.getSopVersion().getDueDateTime() != null
-                                ? task.getSopVersion().getDueDateTime().toLocalTime()
-                                : (task.getSopVersion() != null && task.getSopVersion().getStartDateTime() != null
-                                    ? task.getSopVersion().getStartDateTime().toLocalTime()
-                                    : LocalTime.of(18, 0))
-                          ).atOffset(
-                            task.getSopVersion() != null && task.getSopVersion().getDueDateTime() != null
-                                ? task.getSopVersion().getDueDateTime().getOffset()
-                                : (task.getSopVersion() != null && task.getSopVersion().getStartDateTime() != null
-                                    ? task.getSopVersion().getStartDateTime().getOffset()
-                                    : ZoneOffset.UTC)
-                          )
-                        : null)))
+            .startDate(task.getStartDate() != null ? task.getStartDate()
+                : (task.getSop() != null && task.getSop().getStartDate() != null ? task.getSop().getStartDate()
+                : (task.getSopVersion() != null && task.getSopVersion().getStartDateTime() != null ? task.getSopVersion().getStartDateTime().toLocalDate() : entityToday)))
+            .dueDate(task.getDueDate() != null ? task.getDueDate()
+                : (task.getSop() != null && task.getSop().getDueDate() != null ? task.getSop().getDueDate()
+                : (task.getSopVersion() != null && task.getSopVersion().getDueDateTime() != null ? task.getSopVersion().getDueDateTime().toLocalDate() : entityToday.plusDays(7))))
             .daysOverdue(daysOverdue)
             .completedAt(task.getCompletedAt())
             .approvedAt(task.getApprovedAt())

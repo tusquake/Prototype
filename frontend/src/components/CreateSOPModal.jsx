@@ -11,11 +11,11 @@ const FREQ_OPTIONS = [
   { value: 'DAILY', label: 'Daily' },
 ];
 
-const formatForDateTimeLocal = (dateStr) => {
+const formatForDateInput = (dateStr) => {
   const d = dateStr ? new Date(dateStr) : new Date();
-  if (isNaN(d.getTime())) return new Date().toISOString().slice(0, 16);
+  if (isNaN(d.getTime())) return new Date().toISOString().slice(0, 10);
   const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
 const INITIAL_FORM = {
@@ -25,8 +25,10 @@ const INITIAL_FORM = {
   processCategory: 'Tax Compliance',
   entityCode: 'CK_INDIA',
   frequency: 'MONTHLY',
-  startDateTime: formatForDateTimeLocal(new Date()),
-  dueDateTime: formatForDateTimeLocal(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
+  startDateTime: formatForDateInput(new Date()),
+  dueDateTime: formatForDateInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
+  startDate: formatForDateInput(new Date()),
+  dueDate: formatForDateInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
   dueDayOffset: 7,
   isRecurring: false,
   defaultMakerIds: [],
@@ -49,7 +51,7 @@ const ENTITY_NAME_MAP = {
   CK_AUSTRALIA: 'CK Australia',
 };
 
-export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, currentUser, userMap, creatableCategories = [], allCategories = [], onClose, onSuccess }) {
+export default function CreateSOPModal({ isOpen, targetCategory, editingSop, lockedAssignment, currentUser, userMap, creatableCategories = [], allCategories = [], onClose, onSuccess }) {
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [showMakerPicker, setShowMakerPicker] = useState(false);
   const [showCheckerPicker, setShowCheckerPicker] = useState(false);
@@ -118,8 +120,8 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
       const makers = Array.from(new Set(rawMakers.map(id => USER_ID_MAP[id] || id)));
       const checkers = Array.from(new Set(rawCheckers.map(id => USER_ID_MAP[id] || id)));
 
-      const startDT = editingSop.startDateTime ? formatForDateTimeLocal(editingSop.startDateTime) : formatForDateTimeLocal(new Date());
-      const dueDT = editingSop.dueDateTime ? formatForDateTimeLocal(editingSop.dueDateTime) : formatForDateTimeLocal(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+      const startD = editingSop.startDate || editingSop.startDateTime ? formatForDateInput(editingSop.startDate || editingSop.startDateTime) : formatForDateInput(new Date());
+      const dueD = editingSop.dueDate || editingSop.dueDateTime ? formatForDateInput(editingSop.dueDate || editingSop.dueDateTime) : formatForDateInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
 
       setFormData({
         sopCode: editingSop.code || editingSop.sopCode || '',
@@ -128,22 +130,32 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
         processCategory: editingSop.process || editingSop.processCategory || 'Tax Compliance',
         entityCode: editingSop.entityCode || 'CK_INDIA',
         frequency: editingSop.frequency || 'MONTHLY',
-        startDateTime: startDT,
-        dueDateTime: dueDT,
+        startDate: startD,
+        dueDate: dueD,
+        startDateTime: startD,
+        dueDateTime: dueD,
         dueDayOffset: editingSop.dueDay || editingSop.dueDayOffset || 7,
         isRecurring: editingSop.isRecurring !== undefined ? !!editingSop.isRecurring : false,
         defaultMakerIds: makers,
         defaultCheckerIds: checkers,
       });
     } else {
-      const defaultCat = processCategoryOptions[0]?.value || 'Tax Compliance';
-      setFormData({
-        ...INITIAL_FORM,
-        processCategory: defaultCat
+      setFormData(prev => {
+        const catCandidate = targetCategory || prev.processCategory;
+        const validCat = (catCandidate && processCategoryOptions.some(o => o.value === catCandidate))
+          ? catCandidate
+          : (targetCategory || processCategoryOptions[0]?.value || 'Tax Compliance');
+        return {
+          ...INITIAL_FORM,
+          sopCode: prev.sopCode || '',
+          title: prev.title || '',
+          description: prev.description || '',
+          processCategory: validCat,
+        };
       });
     }
     setErrorMsg('');
-  }, [editingSop, lockedAssignment, isOpen, creatableCategories]);
+  }, [editingSop, lockedAssignment, isOpen, creatableCategories, targetCategory]);
 
   if (!isOpen) return null;
 
@@ -207,10 +219,15 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
       const makerId = USER_ID_MAP[formData.defaultMakerIds[0]] || formData.defaultMakerIds[0];
       const checkerId = USER_ID_MAP[formData.defaultCheckerIds[0]] || formData.defaultCheckerIds[0];
 
+      const startDateVal = formData.startDate || (formData.startDateTime ? formData.startDateTime.slice(0, 10) : formatForDateInput(new Date()));
+      const dueDateVal = formData.dueDate || (formData.dueDateTime ? formData.dueDateTime.slice(0, 10) : formatForDateInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)));
+
       const payload = {
         ...formData,
-        startDateTime: formData.startDateTime ? new Date(formData.startDateTime).toISOString() : null,
-        dueDateTime: formData.dueDateTime ? new Date(formData.dueDateTime).toISOString() : null,
+        startDate: startDateVal,
+        dueDate: dueDateVal,
+        startDateTime: `${startDateVal}T00:00:00Z`,
+        dueDateTime: `${dueDateVal}T00:00:00Z`,
         defaultMakerId: makerId,
         defaultCheckerId: checkerId,
         createdById: currentUser?.id || 'usr-tushar-304',
@@ -421,24 +438,30 @@ export default function CreateSOPModal({ isOpen, editingSop, lockedAssignment, c
                 </div>
 
                 <div className="flex flex-col gap-1.5 min-w-0">
-                  <label className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">START DATE & TIME *</label>
+                  <label className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">START DATE *</label>
                   <input
-                    type="datetime-local"
+                    type="date"
                     name="startDateTime"
-                    value={formData.startDateTime || ''}
-                    onChange={handleInputChange}
+                    value={formData.startDateTime ? formData.startDateTime.slice(0, 10) : (formData.startDate || '')}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFormData(prev => ({ ...prev, startDateTime: val, startDate: val }));
+                    }}
                     required
                     className="w-full p-[10px_14px] rounded-[8px] border border-[#cbd5e1] bg-bg-surface text-[13.5px] text-text-primary outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
                   />
                 </div>
 
                 <div className="flex flex-col gap-1.5 min-w-0">
-                  <label className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">DUE DATE & TIME *</label>
+                  <label className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">DUE DATE *</label>
                   <input
-                    type="datetime-local"
+                    type="date"
                     name="dueDateTime"
-                    value={formData.dueDateTime || ''}
-                    onChange={handleInputChange}
+                    value={formData.dueDateTime ? formData.dueDateTime.slice(0, 10) : (formData.dueDate || '')}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFormData(prev => ({ ...prev, dueDateTime: val, dueDate: val }));
+                    }}
                     required
                     className="w-full p-[10px_14px] rounded-[8px] border border-[#cbd5e1] bg-bg-surface text-[13.5px] text-text-primary outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
                   />

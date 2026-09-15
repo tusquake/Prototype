@@ -11,6 +11,7 @@ import com.cloudkaptan.sop.repository.AuditLogRepository;
 import com.cloudkaptan.sop.repository.SopRepository;
 import com.cloudkaptan.sop.repository.SopVersionRepository;
 import com.cloudkaptan.sop.repository.TaskRepository;
+import com.cloudkaptan.sop.entity.SopVersion;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,6 +23,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,23 +44,28 @@ public class TaskSchedulerService {
     public void generateScheduledTasks() {
         log.info("Executing scheduled task generation engine...");
         LocalDate today = LocalDate.now();
-        List<com.cloudkaptan.sop.entity.SopVersion> activeVersions = sopVersionRepository.findActiveRunningVersions();
+        List<SopVersion> activeVersions = sopVersionRepository.findActiveRunningVersions();
 
         int generatedCount = 0;
-        for (com.cloudkaptan.sop.entity.SopVersion version : activeVersions) {
+        for (SopVersion version : activeVersions) {
             try {
                 Sop sop = version.getSop();
-
-                // Future Start Date Guard: Do NOT create tasks before startDateTime arrives
-                if (version.getStartDateTime() != null && version.getStartDateTime().isAfter(java.time.OffsetDateTime.now())) {
-                    log.info("Skipping task generation for SOP [{}] - startDateTime [{}] is in the future.",
-                            sop.getSopCode(), version.getStartDateTime());
-                    continue;
-                }
 
                 LocalDate entityToday = (sop.getEntity() != null && sop.getEntity().getEntityCode() != null)
                     ? sop.getEntity().getEntityCode().getCurrentLocalDate()
                     : today;
+
+                LocalDate sopStartDate = (sop.getStartDate() != null)
+                    ? sop.getStartDate()
+                    : ((version.getStartDateTime() != null) ? version.getStartDateTime().toLocalDate() : entityToday);
+
+                // Simple Logic: If SOP start date is in the future (sopStartDate > entityToday),
+                // skip task generation for now — the scheduler will create it when the date arrives!
+                if (sopStartDate.isAfter(entityToday)) {
+                    log.info("Skipping task generation for SOP [{}] - start date [{}] is in the future relative to today [{}].",
+                            sop.getSopCode(), sopStartDate, entityToday);
+                    continue;
+                }
 
                 RecurrenceStrategy strategy = recurrenceStrategyFactory.getStrategy(version.getFrequency());
                 String periodKey = strategy.calculatePeriodKey(entityToday);
@@ -70,50 +77,23 @@ public class TaskSchedulerService {
                 }
 
                 if (!taskRepository.existsBySop_SopIdAndPeriodKey(sop.getSopId(), periodKey)) {
-                    LocalTime sopStartTime = (version.getStartDateTime() != null)
-                        ? version.getStartDateTime().toLocalTime()
-                        : LocalTime.of(9, 0);
+                    LocalDate taskStartDate = sopStartDate;
+                    LocalDate taskDueDate = (sop.getDueDate() != null)
+                        ? sop.getDueDate()
+                        : ((version.getDueDateTime() != null) ? version.getDueDateTime().toLocalDate() : taskStartDate.plusDays(sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7));
 
-                    LocalTime sopDueTime = (version.getDueDateTime() != null)
-                        ? version.getDueDateTime().toLocalTime()
-                        : sopStartTime;
-
-                    java.time.ZoneId entityZone = (sop.getEntity() != null && sop.getEntity().getEntityCode() != null)
-                        ? sop.getEntity().getEntityCode().getTimeZone()
-                        : java.time.ZoneId.of("Asia/Kolkata");
-
-                    ZoneOffset sopOffset = (version.getStartDateTime() != null)
-                        ? version.getStartDateTime().getOffset()
-                        : ((version.getDueDateTime() != null) ? version.getDueDateTime().getOffset() : entityZone.getRules().getOffset(java.time.Instant.now()));
-
-                    LocalDate taskDueDate;
-                    OffsetDateTime taskStartDateTime;
-                    OffsetDateTime taskDueDateTime;
-
-                    if (Boolean.FALSE.equals(version.getIsRecurring())) {
-                        taskStartDateTime = (version.getStartDateTime() != null)
-                            ? version.getStartDateTime()
-                            : OffsetDateTime.now();
-                        taskDueDateTime = (version.getDueDateTime() != null)
-                            ? version.getDueDateTime()
-                            : taskStartDateTime.plusDays(sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7);
-                        taskDueDate = taskDueDateTime.toLocalDate();
-                    } else {
-                        taskDueDate = strategy.calculateDueDate(entityToday, sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 1);
-                        LocalDate periodStartDate = entityToday.with(TemporalAdjusters.firstDayOfMonth());
-                        taskStartDateTime = periodStartDate.atTime(sopStartTime).atOffset(sopOffset);
-                        taskDueDateTime = taskDueDate.atTime(sopDueTime).atOffset(sopOffset);
-                    }
+                    OffsetDateTime taskStartDateTime = taskStartDate.atStartOfDay().atOffset(ZoneOffset.UTC);
+                    OffsetDateTime taskDueDateTime = taskDueDate.atStartOfDay().atOffset(ZoneOffset.UTC);
 
                     String recordNo = String.format("%s-%s", sop.getSopCode(), periodKey);
 
-                    java.util.List<String> makerPool = (sop.getDefaultMakerIds() != null && !sop.getDefaultMakerIds().isEmpty())
-                        ? new java.util.ArrayList<>(sop.getDefaultMakerIds())
-                        : new java.util.ArrayList<>(java.util.List.of("usr-tushar-304"));
+                    List<String> makerPool = (sop.getDefaultMakerIds() != null && !sop.getDefaultMakerIds().isEmpty())
+                        ? new ArrayList<>(sop.getDefaultMakerIds())
+                        : new ArrayList<>(List.of("usr-tushar-304"));
 
-                    java.util.List<String> checkerPool = (sop.getDefaultCheckerIds() != null && !sop.getDefaultCheckerIds().isEmpty())
-                        ? new java.util.ArrayList<>(sop.getDefaultCheckerIds())
-                        : new java.util.ArrayList<>(java.util.List.of("usr-prayasa-410"));
+                    List<String> checkerPool = (sop.getDefaultCheckerIds() != null && !sop.getDefaultCheckerIds().isEmpty())
+                        ? new ArrayList<>(sop.getDefaultCheckerIds())
+                        : new ArrayList<>(List.of("usr-prayasa-410"));
 
                     Task task = Task.builder()
                         .sop(sop)
@@ -124,9 +104,8 @@ public class TaskSchedulerService {
                         .assignedMakerIds(makerPool)
                         .assignedCheckerIds(checkerPool)
                         .status(TaskStatus.OPEN)
-                        .startDateTime(taskStartDateTime)
+                        .startDate(taskStartDate)
                         .dueDate(taskDueDate)
-                        .dueDateTime(taskDueDateTime)
                         .build();
 
                     Task savedTask = taskRepository.save(task);

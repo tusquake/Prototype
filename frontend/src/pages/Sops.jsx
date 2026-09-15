@@ -205,6 +205,7 @@ export default function Sops() {
   const [viewingAssignment, setViewingAssignment] = useState(null);
   const [viewingSopHistory, setViewingSopHistory] = useState(null);
   const [deletingSop, setDeletingSop] = useState(null);
+  const [targetCategory, setTargetCategory] = useState(null);
 
   const [showMakerPicker, setShowMakerPicker] = useState(false);
   const [showCheckerPicker, setShowCheckerPicker] = useState(false);
@@ -283,8 +284,9 @@ export default function Sops() {
       loadData();
     }
 
-    function handleCreateSopEvent() {
-      openCreateModal();
+    function handleCreateSopEvent(e) {
+      const cat = e?.detail?.category;
+      openCreateModal(cat);
     }
 
     window.addEventListener('open-create-sop', handleCreateSopEvent);
@@ -299,9 +301,10 @@ export default function Sops() {
     const reviewCode = params.get('reviewSopCode');
     const viewCode = params.get('viewSopCode') || params.get('sopId') || params.get('sopCode');
     const actionParam = params.get('action');
+    const categoryParam = params.get('category');
 
     if (actionParam === 'createSop') {
-      openCreateModal();
+      openCreateModal(categoryParam);
       window.history.replaceState({}, '', window.location.pathname);
     } else if (draftCode) {
       getSops([]).then(all => {
@@ -345,16 +348,19 @@ export default function Sops() {
     };
   }, [selectedEntities]);
 
-  function openCreateModal() {
+  function openCreateModal(targetCat) {
     const canCreate = isAdmin || (Array.isArray(creatableCategories) && creatableCategories.length > 0);
     if (!canCreate) {
       setSuccessMsg('');
       setErrorMsg('Access Denied: You do not have permission to create SOPs for any process category. Please ask an Admin to grant SOP Creator access.');
       return;
     }
+    const catString = (typeof targetCat === 'string' && targetCat.trim()) ? targetCat.trim() : null;
     setEditingSop(null);
     setLockedAssignment(null);
-    const initialCategory = (creatableCategories && creatableCategories.length > 0) ? creatableCategories[0] : 'Tax Compliance';
+    setTargetCategory(catString);
+    const initialCategory = catString 
+      || ((creatableCategories && creatableCategories.length > 0) ? creatableCategories[0] : 'Tax Compliance');
     setFormData({
       ...INITIAL_FORM,
       processCategory: initialCategory
@@ -837,7 +843,7 @@ export default function Sops() {
                 <button
                   type="button"
                   className="inline-flex items-center gap-1.5 px-4 py-[7px] rounded-[6px] bg-[#2563eb] text-white text-[12.5px] font-semibold border-none cursor-pointer shadow-sm transition-all duration-150 hover:bg-[#1d4ed8]"
-                  onClick={openCreateModal}
+                  onClick={() => openCreateModal()}
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="12" y1="5" x2="12" y2="19" />
@@ -1046,14 +1052,15 @@ export default function Sops() {
 
       <CreateSOPModal
         isOpen={showModal}
+        targetCategory={targetCategory}
         editingSop={editingSop}
         lockedAssignment={lockedAssignment}
         currentUser={currentUser}
         userMap={userMap}
         creatableCategories={creatableCategories}
         allCategories={dynamicProcessOptions}
-        onClose={() => { setShowModal(false); setEditingSop(null); setLockedAssignment(null); }}
-        onSuccess={(msg) => { setSuccessMsg(msg); setLockedAssignment(null); loadData(); }}
+        onClose={() => { setShowModal(false); setEditingSop(null); setLockedAssignment(null); setTargetCategory(null); }}
+        onSuccess={(msg) => { setSuccessMsg(msg); setLockedAssignment(null); setTargetCategory(null); loadData(); }}
       />
 
       <SopActivityLogModal

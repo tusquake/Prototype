@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -29,32 +30,31 @@ public class TaskDto {
     private String entityName;
     private String makerId;
     private String makerName;
-    private java.util.List<String> assignedMakerIds;
-    private java.util.List<String> assignedMakerNames;
+    private List<String> assignedMakerIds;
+    private List<String> assignedMakerNames;
     private String actualMakerId;
     private String actualMakerName;
 
     private String checkerId;
     private String checkerName;
-    private java.util.List<String> assignedCheckerIds;
-    private java.util.List<String> assignedCheckerNames;
+    private List<String> assignedCheckerIds;
+    private List<String> assignedCheckerNames;
     private String actualCheckerId;
     private String actualCheckerName;
 
     private TaskStatus status;
-    private OffsetDateTime startDateTime;
+    private LocalDate startDate;
     private LocalDate dueDate;
-    private OffsetDateTime dueDateTime;
     private Long daysOverdue;
     private OffsetDateTime completedAt;
     private OffsetDateTime approvedAt;
     private OffsetDateTime createdAt;
     private String sopCreatedBy;
-    private java.util.List<String> sopAssignedCreatorIds;
-    private java.util.List<String> sopAssignedApproverIds;
+    private List<String> sopAssignedCreatorIds;
+    private List<String> sopAssignedApproverIds;
     private Boolean canUserSubmit;
     private Boolean canUserApprove;
-    private java.util.List<TaskEventDto> history;
-    private java.util.List<TaskReassignmentHistoryDto> reassignmentHistory;
-    private java.util.List<TaskDocumentDto> documents;
+    private List<TaskEventDto> history;
+    private List<TaskReassignmentHistoryDto> reassignmentHistory;
+    private List<TaskDocumentDto> documents;
 }

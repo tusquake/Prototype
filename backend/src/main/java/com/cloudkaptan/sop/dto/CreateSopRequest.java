@@ -10,6 +10,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -53,4 +54,8 @@ public class CreateSopRequest {
 
     @NotBlank(message = "Created by user ID is required")
     private String createdById;
+
+    private LocalDate startDate;
+
+    private LocalDate dueDate;
 }

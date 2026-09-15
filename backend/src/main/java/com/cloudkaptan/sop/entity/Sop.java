@@ -7,6 +7,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -50,6 +51,12 @@ public class Sop {
     @Column(name = "is_recurring", nullable = false)
     @Builder.Default
     private Boolean isRecurring = false;
+
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "due_date")
+    private LocalDate dueDate;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "sop_maker_pool", joinColumns = @JoinColumn(name = "sop_id"))

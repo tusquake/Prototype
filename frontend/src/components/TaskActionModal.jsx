@@ -506,13 +506,13 @@ export default function TaskActionModal({
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Start Date &amp; Time</span>
-                <span className="text-xs font-semibold text-slate-800">{task.startDateTime || 'N/A'}</span>
+                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Start Date</span>
+                <span className="text-xs font-semibold text-slate-800">{task.startDate || (task.startDateTime ? String(task.startDateTime).slice(0, 10) : 'N/A')}</span>
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Due Date &amp; Time</span>
-                <span className="text-xs font-semibold text-slate-800">{task.dueDate}</span>
+                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Due Date</span>
+                <span className="text-xs font-semibold text-slate-800">{task.dueDate || (task.dueDateTime ? String(task.dueDateTime).slice(0, 10) : 'N/A')}</span>
               </div>
 
               <div className="col-span-2 flex flex-col gap-1">
