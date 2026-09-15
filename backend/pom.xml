@@ -122,6 +122,12 @@
             <artifactId>google-cloud-storage</artifactId>
             <version>2.38.0</version>
         </dependency>
+        <!-- Google Cloud Pub/Sub SDK -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-pubsub</artifactId>
+            <version>1.137.0</version>
+        </dependency>
 
         <!-- Springdoc OpenAPI Swagger UI -->
         <dependency>
