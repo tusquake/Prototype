@@ -6,13 +6,11 @@ import com.cloudkaptan.sop.exception.ResourceNotFoundException;
 import com.cloudkaptan.sop.repository.UserNotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.scheduling.annotation.Scheduled;
-
-import org.springframework.jdbc.core.JdbcTemplate;
-import jakarta.annotation.PostConstruct;
 
 import java.util.List;
 import java.util.Map;
@@ -30,7 +28,7 @@ public class UserNotificationService {
     private final Map<String, List<SseEmitter>> emittersMap = new ConcurrentHashMap<>();
 
     public SseEmitter subscribe(String userId) {
-        SseEmitter emitter = new SseEmitter(1800000L); // 30 minutes timeout
+        SseEmitter emitter = new SseEmitter(1800000L);
         emittersMap.computeIfAbsent(userId, k -> new CopyOnWriteArrayList<>()).add(emitter);
 
         emitter.onCompletion(() -> removeEmitter(userId, emitter));
@@ -38,12 +36,11 @@ public class UserNotificationService {
         emitter.onError((e) -> removeEmitter(userId, emitter));
 
         try {
-            emitter.send(SseEmitter.event().name("INIT").data("Connected to FinSOP Real-Time Notification Stream"));
+            emitter.send(SseEmitter.event().name("INIT").data("Connected to FinSOP Real-Time Notification Stream", MediaType.TEXT_PLAIN));
             log.info("Registered SSE Notification Emitter for user [{}]", userId);
         } catch (Exception e) {
             removeEmitter(userId, emitter);
         }
-
         return emitter;
     }
 
@@ -59,15 +56,10 @@ public class UserNotificationService {
 
     @Scheduled(fixedRate = 25000)
     public void sendHeartbeat() {
-        if (emittersMap.isEmpty())
-            return;
-
-        // Iterate over a snapshot of keys/entries to avoid concurrent map modification
-        // issues
+        if (emittersMap.isEmpty()) return;
         new HashSet<>(emittersMap.entrySet()).forEach(entry -> {
             String userId = entry.getKey();
             List<SseEmitter> list = entry.getValue();
-
             for (SseEmitter emitter : list) {
                 try {
                     emitter.send(SseEmitter.event().comment("ping"));
@@ -79,17 +71,14 @@ public class UserNotificationService {
     }
 
     public void pushSseNotification(UserNotification notification) {
-        if (notification == null || notification.getRecipientUserId() == null)
-            return;
+        if (notification == null || notification.getRecipientUserId() == null) return;
         UserNotificationDto dto = mapToDto(notification);
-
         List<SseEmitter> list = emittersMap.get(notification.getRecipientUserId());
         if (list != null && !list.isEmpty()) {
-            log.info("Pushing SSE Real-Time Notification to [{}] (Emitters active: {})",
-                    notification.getRecipientUserId(), list.size());
+            log.info("Pushing SSE Real-Time Notification to [{}]", notification.getRecipientUserId());
             for (SseEmitter emitter : list) {
                 try {
-                    emitter.send(SseEmitter.event().name("NOTIFICATION").data(dto));
+                    emitter.send(SseEmitter.event().name("NOTIFICATION").data(dto, MediaType.APPLICATION_JSON));
                 } catch (Exception e) {
                     removeEmitter(notification.getRecipientUserId(), emitter);
                 }
@@ -100,8 +89,7 @@ public class UserNotificationService {
     @Transactional(readOnly = true)
     public List<UserNotificationDto> getNotificationsForUser(String userId) {
         return userNotificationRepository.findByRecipientUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userId).stream()
-                .map(this::mapToDto)
-                .toList();
+                .map(this::mapToDto).toList();
     }
 
     @Transactional(readOnly = true)
@@ -113,10 +101,8 @@ public class UserNotificationService {
     public UserNotificationDto markAsRead(UUID notificationId) {
         UserNotification notification = userNotificationRepository.findById(notificationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Notification not found with ID: " + notificationId));
-
         notification.setIsRead(true);
-        UserNotification saved = userNotificationRepository.save(notification);
-        return mapToDto(saved);
+        return mapToDto(userNotificationRepository.save(notification));
     }
 
     @Transactional
@@ -126,15 +112,12 @@ public class UserNotificationService {
 
     @Transactional
     public void deleteNotification(UUID notificationId) {
-        log.info("Soft-deleting UserNotification record with ID [{}]", notificationId);
         userNotificationRepository.softDeleteById(notificationId);
     }
 
     @Transactional
     public void deleteByReferenceEntityId(String referenceEntityId) {
-        if (referenceEntityId == null || referenceEntityId.isBlank())
-            return;
-        log.info("Soft-deleting all obsolete notifications for reference entity ID [{}]", referenceEntityId);
+        if (referenceEntityId == null || referenceEntityId.isBlank()) return;
         userNotificationRepository.softDeleteByReferenceEntityId(referenceEntityId);
     }
 

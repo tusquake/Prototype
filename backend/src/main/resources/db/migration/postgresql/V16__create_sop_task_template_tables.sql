@@ -1,6 +1,6 @@
 -- Flyway Migration V16: SOP Template and Task Template tables
 -- Introduces blueprint/template layer for the SOP Template + Instance model
-
+ 
 -- 1. SOP Templates — pure blueprint definitions, not real SOP executions
 CREATE TABLE IF NOT EXISTS sop_templates (
     template_id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -23,18 +23,18 @@ CREATE TABLE IF NOT EXISTS sop_templates (
     created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
+ 
 -- SOP Template default user pools
 CREATE TABLE IF NOT EXISTS sop_template_maker_pool (
     template_id UUID NOT NULL REFERENCES sop_templates(template_id) ON DELETE CASCADE,
     maker_id    VARCHAR(64) NOT NULL
 );
-
+ 
 CREATE TABLE IF NOT EXISTS sop_template_checker_pool (
     template_id UUID NOT NULL REFERENCES sop_templates(template_id) ON DELETE CASCADE,
     checker_id  VARCHAR(64) NOT NULL
 );
-
+ 
 -- 2. Task Templates — step blueprints, not real task executions
 CREATE TABLE IF NOT EXISTS task_templates (
     task_template_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -52,28 +52,28 @@ CREATE TABLE IF NOT EXISTS task_templates (
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (template_id, step_sequence)
 );
-
+ 
 -- Task Template user pools (subsets of SOP template pools)
 CREATE TABLE IF NOT EXISTS task_template_maker_pool (
     task_template_id UUID NOT NULL REFERENCES task_templates(task_template_id) ON DELETE CASCADE,
     maker_id         VARCHAR(64) NOT NULL
 );
-
+ 
 CREATE TABLE IF NOT EXISTS task_template_checker_pool (
     task_template_id UUID NOT NULL REFERENCES task_templates(task_template_id) ON DELETE CASCADE,
     checker_id       VARCHAR(64) NOT NULL
 );
-
+ 
 -- Required document names declared at the task template level
 CREATE TABLE IF NOT EXISTS task_template_required_docs (
     task_template_id UUID NOT NULL REFERENCES task_templates(task_template_id) ON DELETE CASCADE,
     document_name    VARCHAR(255) NOT NULL
 );
-
+ 
 -- 3. Link generated SOP instances and Task instances back to their templates
 ALTER TABLE sops  ADD COLUMN IF NOT EXISTS template_id      UUID REFERENCES sop_templates(template_id);
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_template_id UUID REFERENCES task_templates(task_template_id);
-
+ 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_sop_templates_category     ON sop_templates(process_category);
 CREATE INDEX IF NOT EXISTS idx_sop_templates_status       ON sop_templates(status);
@@ -81,3 +81,5 @@ CREATE INDEX IF NOT EXISTS idx_sop_templates_effective    ON sop_templates(effec
 CREATE INDEX IF NOT EXISTS idx_task_templates_template    ON task_templates(template_id);
 CREATE INDEX IF NOT EXISTS idx_sops_template              ON sops(template_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_task_template        ON tasks(task_template_id);
+ 
+ 
