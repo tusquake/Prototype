@@ -20,12 +20,7 @@ const FREQ_OPTIONS = [
   { value: 'DAILY', label: 'Daily' },
 ];
 
-const ENTITY_OPTIONS = [
-  { value: 'CK_INDIA', label: 'CK India' },
-  { value: 'CK_US', label: 'CK US' },
-  { value: 'CK_UK', label: 'CK UK' },
-  { value: 'CK_AUSTRALIA', label: 'CK Australia' },
-];
+const ENTITY_OPTIONS = [];
 
 // SCHEMA: Step 1 Template Validation
 const step1Schema = z.object({
@@ -192,7 +187,7 @@ function CreateTaskModal({
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {taskError && (
             <div className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs font-semibold text-red-600">
-              ⚠️ {taskError}
+              {taskError}
             </div>
           )}
 
@@ -285,7 +280,7 @@ function CreateTaskModal({
               </div>
             </div>
             <div className="rounded bg-white/80 p-2 text-[10px] text-indigo-700 border border-indigo-100 flex items-center gap-1.5">
-              💡 <span>E.g. If SOP starts Oct 1: Target Start = Oct 1 (Day {etaStartDay}), Completion Deadline = Oct {1 + (etaEndDay || 0)} (Day {etaEndDay}).</span>
+              <span>E.g. If SOP starts Oct 1: Target Start = Oct 1 (Day {etaStartDay}), Completion Deadline = Oct {1 + (etaEndDay || 0)} (Day {etaEndDay}).</span>
             </div>
           </div>
 
@@ -315,7 +310,7 @@ function CreateTaskModal({
               ) : (
                 taskLevelDocs.map((doc) => (
                   <span key={doc} className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
-                    📄 {doc}
+                    {doc}
                     <button type="button" onClick={() => setTaskLevelDocs(taskLevelDocs.filter((d) => d !== doc))} className="text-blue-400 hover:text-red-500 font-bold">✕</button>
                   </span>
                 ))
@@ -405,19 +400,8 @@ export default function CreateSopDrawer({
 
   const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.email?.includes('mainak');
 
-  const [processOptions, setProcessOptions] = useState([
-    { value: 'Tax Compliance', label: 'Tax Compliance' },
-    { value: 'Treasury & Cash Management', label: 'Treasury & Cash Management' },
-    { value: 'Financial Reporting', label: 'Financial Reporting' },
-    { value: 'Fixed Assets', label: 'Fixed Assets' },
-    { value: 'Payroll & Statutory', label: 'Payroll & Statutory' },
-  ]);
-  const [entityOptions, setEntityOptions] = useState([
-    { value: 'CK_INDIA', label: 'CK India' },
-    { value: 'CK_US', label: 'CK US' },
-    { value: 'CK_UK', label: 'CK UK' },
-    { value: 'CK_AUSTRALIA', label: 'CK Australia' },
-  ]);
+  const [processOptions, setProcessOptions] = useState([]);
+  const [entityOptions, setEntityOptions] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
 
   const [showMakerPicker, setShowMakerPicker] = useState(false);
@@ -448,8 +432,8 @@ export default function CreateSopDrawer({
       sopCode: '',
       title: '',
       description: '',
-      processCategory: 'Tax Compliance',
-      entityCode: 'CK_INDIA',
+      processCategory: '',
+      entityCode: '',
       effectiveFrom: todayStr,
       effectiveUntil: '',
       frequency: 'MONTHLY',
@@ -727,7 +711,7 @@ export default function CreateSopDrawer({
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6">
             {errorMsg && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600">⚠️ {errorMsg}</div>
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600">{errorMsg}</div>
             )}
 
             {currentStep === 1 && (
@@ -806,7 +790,7 @@ export default function CreateSopDrawer({
                       <div>
                         <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Mode</label>
                         <button type="button" onClick={() => setValue('isRecurring', !isRecurring)} className={`w-full rounded-lg p-2 text-xs font-bold transition ${isRecurring ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-slate-300 text-slate-700'}`}>
-                          {isRecurring ? '🔄 Recurring' : 'One-Time'}
+                          {isRecurring ? 'Recurring' : 'One-Time'}
                         </button>
                       </div>
                       <div>
@@ -931,16 +915,16 @@ export default function CreateSopDrawer({
                               </div>
 
                               <div className="flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-slate-500 pl-8">
-                                <span className="flex items-center gap-1"><span className="text-slate-400">⏱️ ETA Target Start:</span> <strong className="text-slate-700">Day {task.etaStartDay}</strong></span>
-                                <span className="flex items-center gap-1"><span className="text-slate-400">📅 ETA Deadline:</span> <strong className="text-slate-700">Day {task.etaEndDay}</strong></span>
-                                <span className="flex items-center gap-1"><span className="text-slate-400">⌛ SLA:</span> <strong className="text-slate-700">{task.slaHours} hrs</strong></span>
-                                <span className="flex items-center gap-1"><span className="text-slate-400">👤 Makers:</span> <strong className="text-slate-700">{task.makers.length || defaultMakerIds.length} assigned</strong></span>
+                                <span className="flex items-center gap-1"><span className="text-slate-400">ETA Target Start:</span> <strong className="text-slate-700">Day {task.etaStartDay}</strong></span>
+                                <span className="flex items-center gap-1"><span className="text-slate-400">ETA Deadline:</span> <strong className="text-slate-700">Day {task.etaEndDay}</strong></span>
+                                <span className="flex items-center gap-1"><span className="text-slate-400">SLA:</span> <strong className="text-slate-700">{task.slaHours} hrs</strong></span>
+                                <span className="flex items-center gap-1"><span className="text-slate-400">Makers:</span> <strong className="text-slate-700">{task.makers.length || defaultMakerIds.length} assigned</strong></span>
                               </div>
 
                               {task.requiredDocs.length > 0 && (
                                 <div className="pl-8 pt-1 flex flex-wrap gap-1">
                                   {task.requiredDocs.map((d) => (
-                                    <span key={d} className="rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">📄 {d}</span>
+                                    <span key={d} className="rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">{d}</span>
                                   ))}
                                 </div>
                               )}
@@ -975,7 +959,7 @@ export default function CreateSopDrawer({
                 {/* Visual Gantt View (ETA Days Relative Timeline) */}
                 <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                    📊 Visual ETA Gantt Timeline Chart
+                    Visual ETA Gantt Timeline Chart
                   </h3>
                   <div className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4">
                     <GanttTimelineChart tasks={taskTemplates} dueDayOffset={Number(getValues('dueDayOffset')) || 15} />
@@ -1115,7 +1099,7 @@ function GanttTimelineChart({ tasks = [], dueDayOffset = 15 }) {
                   <span className="truncate">Day {task.etaStartDay} → Day {task.etaEndDay}</span>
                   {task.requiredDocs?.length > 0 && (
                     <span className="ml-1 rounded bg-black/25 px-1 text-[9px]">
-                      📄{task.requiredDocs.length}
+                      Docs: {task.requiredDocs.length}
                     </span>
                   )}
                 </div>

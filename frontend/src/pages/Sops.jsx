@@ -89,26 +89,21 @@ const INITIAL_FORM = {
   sopCode: '',
   title: '',
   description: '',
-  processCategory: 'Tax Compliance',
-  entityCode: 'CK_INDIA',
+  processCategory: '',
+  entityCode: '',
   frequency: 'MONTHLY',
   startDateTime: new Date().toISOString().slice(0, 16),
   dueDateTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
   dueDayOffset: 15,
   isRecurring: false,
-  defaultMakerIds: ['usr-tushar-304', 'usr-prayasa-410'],
-  defaultCheckerIds: ['usr-vivek-108', 'usr-mainak-215'],
+  defaultMakerIds: [],
+  defaultCheckerIds: [],
 };
 
 const PAGE_SIZE = 10;
 
 const PROCESS_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All Processes' },
-  { value: 'Tax Compliance', label: 'Tax Compliance' },
-  { value: 'Treasury & Cash Management', label: 'Treasury & Cash Management' },
-  { value: 'Financial Reporting', label: 'Financial Reporting' },
-  { value: 'Fixed Assets', label: 'Fixed Assets' },
-  { value: 'Payroll & Statutory', label: 'Payroll & Statutory' },
 ];
 
 const FREQUENCY_FILTER_OPTIONS = [
@@ -350,7 +345,7 @@ export default function Sops() {
     setLockedAssignment(null);
     setTargetCategory(catString);
     const initialCategory = catString 
-      || ((creatableCategories && creatableCategories.length > 0) ? creatableCategories[0] : 'Tax Compliance');
+      || ((creatableCategories && creatableCategories.length > 0) ? creatableCategories[0] : '');
     setFormData({
       ...INITIAL_FORM,
       processCategory: initialCategory
@@ -368,8 +363,8 @@ export default function Sops() {
     }
     setEditingSop(sop);
 
-    let rawMakers = sop.defaultMakerIds || (sop.defaultMakerNames ? sop.defaultMakerNames.map(n => USER_ID_MAP[n] || n) : (sop.defaultMakerId ? [sop.defaultMakerId] : ['usr-tushar-304']));
-    let rawCheckers = sop.defaultCheckerIds || (sop.defaultCheckerNames ? sop.defaultCheckerNames.map(n => USER_ID_MAP[n] || n) : (sop.defaultCheckerId ? [sop.defaultCheckerId] : ['usr-mainak-215']));
+    let rawMakers = sop.defaultMakerIds || (sop.defaultMakerNames ? sop.defaultMakerNames.map(n => USER_ID_MAP[n] || n) : (sop.defaultMakerId ? [sop.defaultMakerId] : []));
+    let rawCheckers = sop.defaultCheckerIds || (sop.defaultCheckerNames ? sop.defaultCheckerNames.map(n => USER_ID_MAP[n] || n) : (sop.defaultCheckerId ? [sop.defaultCheckerId] : []));
 
     const makers = Array.from(new Set(rawMakers.map(id => USER_ID_MAP[id] || id)));
     const checkers = Array.from(new Set(rawCheckers.map(id => USER_ID_MAP[id] || id)));
@@ -378,8 +373,8 @@ export default function Sops() {
       sopCode: sop.code || sop.sopCode || '',
       title: sop.name || sop.title || '',
       description: sop.description || '',
-      processCategory: sop.process || sop.processCategory || 'Tax Compliance',
-      entityCode: sop.entityCode || 'CK_INDIA',
+      processCategory: sop.process || sop.processCategory || '',
+      entityCode: sop.entityCode || '',
       frequency: sop.frequency || 'MONTHLY',
       dueDayOffset: sop.dueDay || sop.dueDayOffset || 15,
       isRecurring: sop.isRecurring !== undefined ? !!sop.isRecurring : false,
@@ -402,10 +397,10 @@ export default function Sops() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignForm, setAssignForm] = useState({
     sopCode: '',
-    entityCode: 'CK_INDIA',
-    processCategory: 'Tax Compliance',
-    assignedCreatorId: 'usr-tushar-304',
-    assignedApproverId: 'usr-vivek-108',
+    entityCode: '',
+    processCategory: '',
+    assignedCreatorId: '',
+    assignedApproverId: '',
   });
 
   // Rejection Modal State
@@ -427,10 +422,10 @@ export default function Sops() {
       setShowAssignModal(false);
       setAssignForm({
         sopCode: '',
-        entityCode: 'CK_INDIA',
-        processCategory: 'Tax Compliance',
-        assignedCreatorId: 'usr-tushar-304',
-        assignedApproverId: 'usr-vivek-108',
+        entityCode: '',
+        processCategory: '',
+        assignedCreatorId: '',
+        assignedApproverId: '',
       });
       await loadData();
     } catch (err) {

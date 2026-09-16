@@ -577,7 +577,7 @@ export default function AccessControl() {
                                 </div>
                               </div>
                               <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
-                                {role.length} Selected ✎
+                                {role.length} Selected
                               </span>
                             </div>
                           </div>
@@ -600,7 +600,7 @@ export default function AccessControl() {
                           </div>
                         </div>
                         <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
-                          {creators.length} Selected ✎
+                          {creators.length} Selected
                         </span>
                       </div>
                     </div> */}
@@ -620,7 +620,7 @@ export default function AccessControl() {
                           </div>
                         </div>
                         <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
-                          {approvers.length} Selected ✎
+                          {approvers.length} Selected
                         </span>
                       </div>
                     </div> */}
@@ -640,7 +640,7 @@ export default function AccessControl() {
                           </div>
                         </div>
                         <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
-                          {makers.length} Selected ✎
+                          {makers.length} Selected
                         </span>
                       </div>
                     </div> */}
@@ -660,7 +660,7 @@ export default function AccessControl() {
                           </div>
                         </div>
                         <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
-                          {checkers.length} Selected ✎
+                          {checkers.length} Selected
                         </span>
                       </div>
                     </div> */}

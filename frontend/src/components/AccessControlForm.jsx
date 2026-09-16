@@ -148,7 +148,7 @@ export default function AccessControlForm({
                 </div>
               </div>
               <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
-                {role.length} Selected ✎
+                {role.length} Selected
               </span>
             </div>
           </div>

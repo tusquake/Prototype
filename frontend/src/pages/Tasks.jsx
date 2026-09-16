@@ -9,8 +9,7 @@ import TableSkeleton from '../components/TableSkeleton';
 import TaskActionModal from '../components/TaskActionModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import Toast from '../components/Toast';
-import { getSession } from '../auth/auth';
-import { ENTITIES, getTasks, submitTask, approveTask, rejectTask, deleteTask } from '../services/api';
+import { ENTITIES, getTasks, submitTask, approveTask, rejectTask, deleteTask, getProcessCategories } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
 const STATUS_OPTIONS = [
@@ -23,11 +22,6 @@ const STATUS_OPTIONS = [
 
 const SOP_TYPE_OPTIONS = [
   { value: 'ALL', label: 'All SOP Types' },
-  { value: 'Tax Compliance', label: 'Tax Compliance' },
-  { value: 'Treasury & Cash Management', label: 'Treasury & Cash Management' },
-  { value: 'Financial Reporting', label: 'Financial Reporting' },
-  { value: 'Fixed Assets', label: 'Fixed Assets' },
-  { value: 'Payroll & Statutory', label: 'Payroll & Statutory' },
 ];
 
 const MAKER_OPTIONS = [
@@ -71,11 +65,21 @@ export default function Tasks() {
   const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.email?.includes('mainak');
   const { selectedEntities } = useEntity();
 
+  const [dynamicSopTypeOptions, setDynamicSopTypeOptions] = useState(SOP_TYPE_OPTIONS);
+
   async function loadTasks() {
     setLoading(true);
     const data = await getTasks(selectedEntities, currentUser);
     if (data) {
       setTaskList(data);
+    }
+    const categoriesData = await getProcessCategories().catch(() => []);
+    if (Array.isArray(categoriesData) && categoriesData.length > 0) {
+      const opts = [
+        { value: 'ALL', label: 'All SOP Types' },
+        ...categoriesData.map(c => ({ value: c.categoryName || c.categoryCode, label: c.categoryName || c.categoryCode }))
+      ];
+      setDynamicSopTypeOptions(opts);
     }
     setLoading(false);
   }
@@ -164,12 +168,8 @@ export default function Tasks() {
 
     // 3. SOP Type Filter
     if (selectedSopType !== 'ALL') {
-      const sopTitle = (t.sop || t.sopTitle || t.processCategory || '').toLowerCase();
-      if (selectedSopType === 'Tax Compliance' && !sopTitle.includes('tax') && !sopTitle.includes('gstr')) return false;
-      if (selectedSopType === 'Payroll & Statutory' && !sopTitle.includes('payroll') && !sopTitle.includes('pf') && !sopTitle.includes('superannuation') && !sopTitle.includes('statutory')) return false;
-      if (selectedSopType === 'Treasury & Cash Management' && !sopTitle.includes('treasury') && !sopTitle.includes('wire')) return false;
-      if (selectedSopType === 'Financial Reporting' && !sopTitle.includes('reporting') && !sopTitle.includes('statutory filing') && !sopTitle.includes('house') && !sopTitle.includes('audit')) return false;
-      if (selectedSopType === 'Fixed Assets' && !sopTitle.includes('asset') && !sopTitle.includes('fixed')) return false;
+      const categoryStr = (t.processCategory || t.process || t.sop || t.sopTitle || '').toLowerCase();
+      if (!categoryStr.includes(selectedSopType.toLowerCase())) return false;
     }
 
     // 4. Maker Filter
@@ -257,7 +257,7 @@ export default function Tasks() {
             <CustomSelect
               name="selectedSopType"
               value={selectedSopType}
-              options={SOP_TYPE_OPTIONS}
+              options={dynamicSopTypeOptions}
               onChange={e => {
                 setSelectedSopType(e.target.value);
                 setCurrentPage(1);
