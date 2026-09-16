@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -240,6 +241,10 @@ public class SopTemplateService {
                 ? req.getDependencyMode()
                 : (sequence == 1 ? "INDEPENDENT" : "DEPENDENT_ON_PREVIOUS");
 
+        List<String> makers = (req.getMakerIds() != null) ? new ArrayList<>(req.getMakerIds()) : new ArrayList<>();
+        List<String> checkers = (req.getCheckerIds() != null) ? new ArrayList<>(req.getCheckerIds()) : new ArrayList<>();
+        List<String> docs = (req.getRequiredDocumentNames() != null) ? new ArrayList<>(req.getRequiredDocumentNames()) : new ArrayList<>();
+
         return TaskTemplate.builder()
                 .sopTemplate(parent)
                 .stepSequence(sequence)
@@ -250,9 +255,9 @@ public class SopTemplateService {
                 .etaStartDay(req.getEtaStartDay() != null ? req.getEtaStartDay() : 0)
                 .etaEndDay(req.getEtaEndDay() != null ? req.getEtaEndDay() : 7)
                 .slaHours(req.getSlaHours() != null ? req.getSlaHours() : 24)
-                .makerIds(req.getMakerIds() != null ? req.getMakerIds() : List.of())
-                .checkerIds(req.getCheckerIds() != null ? req.getCheckerIds() : List.of())
-                .requiredDocumentNames(req.getRequiredDocumentNames() != null ? req.getRequiredDocumentNames() : List.of())
+                .makerIds(makers)
+                .checkerIds(checkers)
+                .requiredDocumentNames(docs)
                 .build();
     }
 

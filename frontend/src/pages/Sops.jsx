@@ -13,7 +13,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import SopActivityLogModal from '../components/SopActivityLogModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { ENTITIES, getSops, deleteSop, getUsers, actionSop, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
+import { ENTITIES, getSops, getSopTemplates, deleteSop, getUsers, actionSop, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
 import { useForm } from 'react-hook-form';
@@ -135,6 +135,7 @@ const APPROVER_FILTER_OPTIONS = [{ value: 'ALL', label: 'All Approvers' }];
 
 const ADMIN_STATUS_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All Statuses' },
+  { value: 'DRAFT', label: 'Draft Blueprint' },
   { value: 'PENDING_CREATION', label: 'Pending Creation' },
   { value: 'PENDING_APPROVAL', label: 'Pending Approval' },
   { value: 'ACTIVE', label: 'Active' },
@@ -143,6 +144,7 @@ const ADMIN_STATUS_FILTER_OPTIONS = [
 
 const USER_STATUS_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All Statuses' },
+  { value: 'DRAFT', label: 'Draft Blueprint' },
   { value: 'PENDING_APPROVAL', label: 'Pending Approval' },
   { value: 'ACTIVE', label: 'Active' },
   { value: 'REJECTED', label: 'Rejected' },
@@ -154,6 +156,7 @@ export default function Sops() {
   const [userMap, setUserMap] = useState(USER_NAME_MAP);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [editingDraftTemplate, setEditingDraftTemplate] = useState(null);
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
@@ -241,9 +244,46 @@ export default function Sops() {
   async function loadData() {
     setLoading(true);
     const data = await getSops(selectedEntities, currentUser);
-    if (data) {
-      setSopList(data);
+    const templatesData = await getSopTemplates().catch(() => []);
+
+    let combined = Array.isArray(data) ? [...data] : [];
+    if (Array.isArray(templatesData) && templatesData.length > 0) {
+      const mappedTemplates = templatesData.map(t => ({
+        id: t.templateId,
+        templateId: t.templateId,
+        code: t.templateCode || `DRAFT-${String(t.templateId).slice(0, 6)}`,
+        sopCode: t.templateCode,
+        name: t.title,
+        title: t.title,
+        description: t.description,
+        process: t.processCategory,
+        processCategory: t.processCategory,
+        entity: t.entityCode,
+        entityCode: t.entityCode,
+        frequency: t.frequency || 'MONTHLY',
+        dueDay: t.dueDayOffset !== undefined ? t.dueDayOffset : 15,
+        dueDayOffset: t.dueDayOffset !== undefined ? t.dueDayOffset : 15,
+        isRecurring: t.isRecurring,
+        effectiveFrom: t.effectiveFrom,
+        effectiveUntil: t.effectiveUntil,
+        status: t.status || 'DRAFT',
+        makers: t.defaultMakerIds ? t.defaultMakerIds.map(id => userMap[id] || id) : [],
+        checkers: t.defaultCheckerIds ? t.defaultCheckerIds.map(id => userMap[id] || id) : [],
+        defaultMakerIds: t.defaultMakerIds || [],
+        defaultCheckerIds: t.defaultCheckerIds || [],
+        taskTemplates: t.taskTemplates || [],
+        createdById: t.createdById,
+        isTemplate: true,
+      }));
+
+      mappedTemplates.forEach(t => {
+        if (!combined.some(existing => existing.id === t.id || (existing.code && existing.code === t.code))) {
+          combined.push(t);
+        }
+      });
     }
+
+    setSopList(combined);
     const apiUsers = await getUsers().catch(() => []);
     if (Array.isArray(apiUsers) && apiUsers.length > 0) {
       const map = {};
@@ -868,7 +908,10 @@ export default function Sops() {
                 <button
                   type="button"
                   className="inline-flex items-center gap-1.5 px-4 py-[7px] rounded-[6px] bg-[#2563eb] text-white text-[12.5px] font-semibold border-none cursor-pointer shadow-sm transition-all duration-150 hover:bg-[#1d4ed8]"
-                  onClick={() => setShowCreateCompleteModal(true)}
+                  onClick={() => {
+                    setEditingDraftTemplate(null);
+                    setShowCreateCompleteModal(true);
+                  }}
                 >
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="12" y1="5" x2="12" y2="19" />
@@ -947,6 +990,11 @@ export default function Sops() {
                         </span>
                       </td>
                       <td className="px-6 py-3.5 text-[13.5px] align-middle">
+                        {sop.status === 'DRAFT' && (
+                          <span className="text-[11px] bg-[#e0f2fe] text-[#0369a1] px-2 py-[3px] rounded-[4px] font-bold inline-block">
+                            DRAFT
+                          </span>
+                        )}
                         {sop.status === 'PENDING_CREATION' && (
                           <span className="text-[11px] bg-[#ffedd5] text-[#c2410c] px-2 py-[3px] rounded-[4px] font-bold inline-block">
                             PENDING CREATION
@@ -971,6 +1019,22 @@ export default function Sops() {
                       <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">v{sop.version || 1}</td>
                       <td className="px-6 py-3.5 text-[13.5px] align-middle" onClick={e => e.stopPropagation()}>
                         <div className="flex gap-1.5 justify-end">
+                          {sop.status === 'DRAFT' && (
+                            <button
+                              type="button"
+                              className="bg-[#2563eb] text-white border border-[#1d4ed8] rounded-[6px] px-2.5 py-[4px] cursor-pointer text-[12px] font-bold hover:bg-[#1d4ed8] transition shadow-sm inline-flex items-center gap-1"
+                              onClick={() => {
+                                setEditingDraftTemplate(sop);
+                                setShowCreateCompleteModal(true);
+                              }}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                              </svg>
+                              Resume Draft
+                            </button>
+                          )}
                           {(sop.status === 'PENDING_CREATION' || sop.status === 'REJECTED') && (
                             (isSopCreator(sop, currentUser?.id) || currentUser?.role === 'ADMIN') && (
                               <button
@@ -1090,11 +1154,21 @@ export default function Sops() {
       {showCreateCompleteModal && (
         <CreateSopDrawer
           isOpen={showCreateCompleteModal}
+          editingTemplate={editingDraftTemplate}
           currentUser={currentUser}
           userMap={userMap}
           creatableCategories={creatableCategories}
-          onClose={() => setShowCreateCompleteModal(false)}
-          onSuccess={(msg) => { setSuccessMsg(msg); loadData(); }} />
+          onClose={() => {
+            setShowCreateCompleteModal(false);
+            setEditingDraftTemplate(null);
+          }}
+          onSuccess={(msg) => {
+            setSuccessMsg(msg);
+            setShowCreateCompleteModal(false);
+            setEditingDraftTemplate(null);
+            loadData();
+          }}
+        />
       )}
 
       <CreateSOPModal

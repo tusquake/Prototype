@@ -1,5 +1,7 @@
 package com.cloudkaptan.sop.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,6 +18,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateTaskTemplateRequest {
+
+    private Integer stepSequence;
 
     @NotBlank(message = "Task name is required")
     private String taskName;
@@ -53,6 +57,15 @@ public class CreateTaskTemplateRequest {
     @Builder.Default
     private List<String> checkerIds = new ArrayList<>();
 
+    @JsonProperty("requiredDocuments")
+    @JsonAlias({"requiredDocuments", "requiredDocumentNames", "requiredDocs"})
     @Builder.Default
     private List<String> requiredDocumentNames = new ArrayList<>();
+
+    public List<String> getRequiredDocumentNames() {
+        if (requiredDocumentNames != null && !requiredDocumentNames.isEmpty()) {
+            return requiredDocumentNames;
+        }
+        return new ArrayList<>();
+    }
 }

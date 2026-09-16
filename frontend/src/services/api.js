@@ -1046,10 +1046,30 @@ export async function createSopTemplate(draftPayload) {
   });
 }
 
+export async function updateSopTemplate(templateId, draftPayload) {
+  return await fetchJson(`/sop-templates/${templateId}`, {
+    method: 'PUT',
+    body: JSON.stringify(draftPayload),
+  });
+}
+
 export async function addTaskTemplateStep(templateId, stepPayload) {
   return await fetchJson(`/sop-templates/${templateId}/tasks`, {
     method: 'POST',
     body: JSON.stringify(stepPayload),
+  });
+}
+
+export async function updateTaskTemplateStep(templateId, taskTemplateId, stepPayload) {
+  return await fetchJson(`/sop-templates/${templateId}/tasks/${taskTemplateId}`, {
+    method: 'PUT',
+    body: JSON.stringify(stepPayload),
+  });
+}
+
+export async function deleteTaskTemplateStep(templateId, taskTemplateId) {
+  return await fetchJson(`/sop-templates/${templateId}/tasks/${taskTemplateId}`, {
+    method: 'DELETE',
   });
 }
 

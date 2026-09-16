@@ -71,7 +71,7 @@ public class SopTemplateController {
 
     // ─── Task Template Steps (Step 2 incremental saves) ───────────────────────
 
-    @PostMapping("/{templateId}/task-templates")
+    @PostMapping({"/{templateId}/task-templates", "/{templateId}/tasks"})
     @Operation(summary = "Add task step to SOP Template (Step 2 draft save)",
                description = "Appends a new task template step to an existing SOP Template. Step sequence is auto-assigned.")
     public ResponseEntity<ApiResponse<SopTemplateDto>> addTaskTemplate(
@@ -83,7 +83,7 @@ public class SopTemplateController {
                 .body(ApiResponse.success(updated, "Task step added to SOP Template."));
     }
 
-    @PutMapping("/{templateId}/task-templates/{taskTemplateId}")
+    @PutMapping({"/{templateId}/task-templates/{taskTemplateId}", "/{templateId}/tasks/{taskTemplateId}"})
     @Operation(summary = "Update a task step blueprint")
     public ResponseEntity<ApiResponse<SopTemplateDto>> updateTaskTemplate(
             @PathVariable UUID templateId,
@@ -94,7 +94,7 @@ public class SopTemplateController {
         return ResponseEntity.ok(ApiResponse.success(updated, "Task template step updated."));
     }
 
-    @DeleteMapping("/{templateId}/task-templates/{taskTemplateId}")
+    @DeleteMapping({"/{templateId}/task-templates/{taskTemplateId}", "/{templateId}/tasks/{taskTemplateId}"})
     @Operation(summary = "Remove a task step blueprint")
     public ResponseEntity<ApiResponse<SopTemplateDto>> deleteTaskTemplate(
             @PathVariable UUID templateId,

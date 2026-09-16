@@ -9,7 +9,10 @@ import {
   getUserCreatableCategories,
   fetchEntities,
   createSopTemplate,
+  updateSopTemplate,
   addTaskTemplateStep,
+  updateTaskTemplateStep,
+  deleteTaskTemplateStep,
   activateSopTemplate,
 } from '../services/api';
 
@@ -72,6 +75,7 @@ function CreateTaskModal({
   userMap,
   parentMakerPool,
   parentCheckerPool,
+  editingTask = null,
 }) {
   const [taskTitle, setTaskTitle] = useState('');
   const [slaHours, setSlaHours] = useState(24);
@@ -98,18 +102,31 @@ function CreateTaskModal({
 
   useEffect(() => {
     if (isOpen) {
-      setTaskTitle('');
-      setSlaHours(24);
-      setTaskDependencyMode(existingTasksCount === 0 ? 'INDEPENDENT' : 'DEPENDENT_ON_PREVIOUS');
-      setTaskPriority('Medium');
-      setEtaStartDay(0);
-      setEtaEndDay(7);
-      setTaskMakers([]);
-      setTaskCheckers([]);
-      setTaskLevelDocs([]);
-      setTaskError('');
+      if (editingTask) {
+        setTaskTitle(editingTask.title || '');
+        setSlaHours(editingTask.slaHours || 24);
+        setTaskDependencyMode(editingTask.dependencyMode || 'INDEPENDENT');
+        setTaskPriority(editingTask.priority || 'Medium');
+        setEtaStartDay(editingTask.etaStartDay !== undefined ? editingTask.etaStartDay : 0);
+        setEtaEndDay(editingTask.etaEndDay !== undefined ? editingTask.etaEndDay : 7);
+        setTaskMakers(editingTask.makers || []);
+        setTaskCheckers(editingTask.checkers || []);
+        setTaskLevelDocs(editingTask.requiredDocs || []);
+        setTaskError('');
+      } else {
+        setTaskTitle('');
+        setSlaHours(24);
+        setTaskDependencyMode(existingTasksCount === 0 ? 'INDEPENDENT' : 'DEPENDENT_ON_PREVIOUS');
+        setTaskPriority('Medium');
+        setEtaStartDay(0);
+        setEtaEndDay(7);
+        setTaskMakers([]);
+        setTaskCheckers([]);
+        setTaskLevelDocs([]);
+        setTaskError('');
+      }
     }
-  }, [isOpen, existingTasksCount]);
+  }, [isOpen, editingTask, existingTasksCount]);
 
   if (!isOpen) return null;
 
@@ -151,11 +168,11 @@ function CreateTaskModal({
     }
 
     const newTaskTemplate = {
-      id: `task-template-${Date.now()}`,
-      stepSequence: existingTasksCount + 1,
+      id: editingTask ? editingTask.id : `task-template-${Date.now()}`,
+      stepSequence: editingTask ? editingTask.stepSequence : existingTasksCount + 1,
       title: taskTitle.trim(),
       slaHours: Number(slaHours) || 24,
-      dependencyMode: existingTasksCount === 0 ? 'INDEPENDENT' : taskDependencyMode,
+      dependencyMode: editingTask ? taskDependencyMode : (existingTasksCount === 0 ? 'INDEPENDENT' : taskDependencyMode),
       priority: taskPriority,
       etaStartDay: Number(etaStartDay) || 0,
       etaEndDay: Number(etaEndDay) || 0,
@@ -165,7 +182,7 @@ function CreateTaskModal({
       savedToBackend: false,
     };
 
-    onSaveTask(newTaskTemplate);
+    onSaveTask(newTaskTemplate, !!editingTask);
   };
 
   // Convert string arrays to object arrays for UserPickerModal compatibility
@@ -178,7 +195,7 @@ function CreateTaskModal({
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div>
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
-              Create Step {existingTasksCount + 1} Task Template
+              {editingTask ? `Edit Step ${editingTask.stepSequence} Task Template` : `Create Step ${existingTasksCount + 1} Task Template`}
             </h3>
             <p className="text-[11px] text-slate-500 mt-0.5">Define blueprint rules & ETA days for this execution step.</p>
           </div>
@@ -389,6 +406,7 @@ function CreateTaskModal({
 
 export default function CreateSopDrawer({
   isOpen = true,
+  editingTemplate = null,
   currentUser = { id: 'usr-manoj-042', name: 'Compliance Lead', role: 'ADMIN' },
   userMap = {},
   creatableCategories = [],
@@ -408,6 +426,7 @@ export default function CreateSopDrawer({
   const [showMakerPicker, setShowMakerPicker] = useState(false);
   const [showCheckerPicker, setShowCheckerPicker] = useState(false);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
+  const [editingTaskStep, setEditingTaskStep] = useState(null);
 
   const [permittedMakers, setPermittedMakers] = useState([]);
   const [permittedCheckers, setPermittedCheckers] = useState([]);
@@ -453,6 +472,72 @@ export default function CreateSopDrawer({
   useEffect(() => {
     setLocalUserMap((prev) => ({ ...prev, ...userMap }));
   }, [userMap]);
+
+  // Pre-fill state when resuming an existing draft template
+  useEffect(() => {
+    if (isOpen) {
+      if (editingTemplate) {
+        setTemplateId(editingTemplate.templateId || editingTemplate.id || null);
+        reset({
+          sopCode: editingTemplate.templateCode || editingTemplate.sopCode || editingTemplate.code || '',
+          title: editingTemplate.title || editingTemplate.name || '',
+          description: editingTemplate.description || '',
+          processCategory: editingTemplate.processCategory || editingTemplate.process || '',
+          entityCode: editingTemplate.entityCode || '',
+          effectiveFrom: editingTemplate.effectiveFrom || todayStr,
+          effectiveUntil: editingTemplate.effectiveUntil || '',
+          frequency: editingTemplate.frequency || 'MONTHLY',
+          dueDayOffset: editingTemplate.dueDayOffset !== undefined ? editingTemplate.dueDayOffset : 15,
+          isRecurring: editingTemplate.isRecurring !== undefined ? editingTemplate.isRecurring : true,
+          defaultMakerIds: editingTemplate.defaultMakerIds || editingTemplate.makers || [],
+          defaultCheckerIds: editingTemplate.defaultCheckerIds || editingTemplate.checkers || [],
+        });
+
+        const rawTasks = editingTemplate.taskTemplates || [];
+        if (Array.isArray(rawTasks) && rawTasks.length > 0) {
+          const mappedTasks = rawTasks.map((t, idx) => ({
+            id: t.taskTemplateId || `task-template-${Date.now()}-${idx}`,
+            taskTemplateId: t.taskTemplateId,
+            stepSequence: t.stepSequence || idx + 1,
+            title: t.taskName || t.title || '',
+            description: t.description || '',
+            dependencyMode: t.dependencyMode || (idx === 0 ? 'INDEPENDENT' : 'DEPENDENT_ON_PREVIOUS'),
+            priority: t.priority || 'Medium',
+            etaStartDay: t.etaStartDay !== undefined ? t.etaStartDay : 0,
+            etaEndDay: t.etaEndDay !== undefined ? t.etaEndDay : 7,
+            slaHours: t.slaHours !== undefined ? t.slaHours : 24,
+            makers: t.makerIds || t.makers || [],
+            checkers: t.checkerIds || t.checkers || [],
+            requiredDocs: t.requiredDocumentNames || t.requiredDocuments || t.requiredDocs || [],
+            savedToBackend: true,
+          }));
+          setTaskTemplates(mappedTasks);
+          setCurrentStep(2);
+        } else {
+          setTaskTemplates([]);
+          setCurrentStep(1);
+        }
+      } else {
+        setTemplateId(null);
+        setTaskTemplates([]);
+        setCurrentStep(1);
+        reset({
+          sopCode: '',
+          title: '',
+          description: '',
+          processCategory: '',
+          entityCode: '',
+          effectiveFrom: todayStr,
+          effectiveUntil: '',
+          frequency: 'MONTHLY',
+          dueDayOffset: 15,
+          isRecurring: true,
+          defaultMakerIds: [],
+          defaultCheckerIds: [],
+        });
+      }
+    }
+  }, [isOpen, editingTemplate, reset, todayStr]);
 
   // Load process categories dynamically from backend API (creatable categories for non-admin user)
   useEffect(() => {
@@ -596,6 +681,8 @@ export default function CreateSopDrawer({
         const res = await createSopTemplate(payload);
         const createdId = res.data?.templateId || res.templateId || res.data?.id;
         setTemplateId(createdId);
+      } else {
+        await updateSopTemplate(templateId, payload);
       }
       setCurrentStep(2);
     } catch (err) {
@@ -628,7 +715,9 @@ export default function CreateSopDrawer({
             checkerIds: task.checkers,
             requiredDocuments: task.requiredDocs,
           };
-          await addTaskTemplateStep(templateId, stepPayload);
+          const res = await addTaskTemplateStep(templateId, stepPayload);
+          const createdStepId = res.data?.taskTemplateId || res.taskTemplateId;
+          if (createdStepId) task.taskTemplateId = createdStepId;
           task.savedToBackend = true;
         }
       }
@@ -663,7 +752,15 @@ export default function CreateSopDrawer({
   const removeMaker = (id) => setValue('defaultMakerIds', defaultMakerIds.filter((x) => x !== id), { shouldValidate: true });
   const removeChecker = (id) => setValue('defaultCheckerIds', defaultCheckerIds.filter((x) => x !== id), { shouldValidate: true });
 
-  const handleDeleteTaskTemplate = (taskId) => {
+  const handleDeleteTaskTemplate = async (taskId) => {
+    const taskToDelete = taskTemplates.find((t) => t.id === taskId);
+    if (taskToDelete?.taskTemplateId && templateId) {
+      try {
+        await deleteTaskTemplateStep(templateId, taskToDelete.taskTemplateId);
+      } catch (err) {
+        console.error('Failed to delete task step from backend:', err);
+      }
+    }
     setTaskTemplates(taskTemplates.filter((t) => t.id !== taskId).map((t, index) => ({ ...t, stepSequence: index + 1 })));
   };
 
@@ -889,7 +986,10 @@ export default function CreateSopDrawer({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setShowCreateTaskModal(true)}
+                    onClick={() => {
+                      setEditingTaskStep(null);
+                      setShowCreateTaskModal(true);
+                    }}
                     className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition"
                   >
                     + Add New Task Step
@@ -932,7 +1032,19 @@ export default function CreateSopDrawer({
                                     {task.priority}
                                   </span>
                                 </div>
-                                <button type="button" onClick={() => handleDeleteTaskTemplate(task.id)} className="text-xs font-bold text-slate-400 hover:text-red-500 p-1">✕</button>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingTaskStep(task);
+                                      setShowCreateTaskModal(true);
+                                    }}
+                                    className="rounded border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 transition shadow-sm"
+                                  >
+                                    Edit Step
+                                  </button>
+                                  <button type="button" onClick={() => handleDeleteTaskTemplate(task.id)} className="text-xs font-bold text-slate-400 hover:text-red-500 p-1" title="Delete step">✕</button>
+                                </div>
                               </div>
 
                               <div className="flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-slate-500 pl-8">
@@ -1054,17 +1166,55 @@ export default function CreateSopDrawer({
         onConfirm={(ids) => { setValue('defaultCheckerIds', ids, { shouldValidate: true }); setShowCheckerPicker(false); }}
       />
 
-      {/* Step 2 Task Creation Modal */}
+      {/* Step 2 Task Creation / Edit Modal */}
       <CreateTaskModal
         isOpen={showCreateTaskModal}
-        onClose={() => setShowCreateTaskModal(false)}
+        onClose={() => {
+          setShowCreateTaskModal(false);
+          setEditingTaskStep(null);
+        }}
         existingTasksCount={taskTemplates.length}
         userMap={localUserMap}
         parentMakerPool={defaultMakerIds}
         parentCheckerPool={defaultCheckerIds}
-        onSaveTask={(newTask) => {
-          setTaskTemplates([...taskTemplates, newTask]);
+        editingTask={editingTaskStep}
+        onSaveTask={async (savedTask, isEdit) => {
+          let updatedTask = { ...savedTask };
+          if (templateId) {
+            const stepPayload = {
+              stepSequence: savedTask.stepSequence,
+              taskName: savedTask.title,
+              dependencyMode: savedTask.dependencyMode,
+              etaStartDay: Number(savedTask.etaStartDay) || 0,
+              etaEndDay: Number(savedTask.etaEndDay) || 0,
+              slaHours: Number(savedTask.slaHours) || 24,
+              priority: savedTask.priority,
+              makerIds: savedTask.makers,
+              checkerIds: savedTask.checkers,
+              requiredDocuments: savedTask.requiredDocs,
+            };
+            try {
+              if (isEdit && savedTask.taskTemplateId) {
+                await updateTaskTemplateStep(templateId, savedTask.taskTemplateId, stepPayload);
+                updatedTask.savedToBackend = true;
+              } else {
+                const res = await addTaskTemplateStep(templateId, stepPayload);
+                const newStepId = res.data?.taskTemplateId || res.taskTemplateId;
+                if (newStepId) updatedTask.taskTemplateId = newStepId;
+                updatedTask.savedToBackend = true;
+              }
+            } catch (err) {
+              console.error('Failed to sync task template step to backend:', err);
+            }
+          }
+
+          if (isEdit) {
+            setTaskTemplates((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+          } else {
+            setTaskTemplates((prev) => [...prev, updatedTask]);
+          }
           setShowCreateTaskModal(false);
+          setEditingTaskStep(null);
         }}
       />
     </div>
