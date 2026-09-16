@@ -880,7 +880,7 @@ export default function CreateSopDrawer({
               </div>
             )}
 
-            {/* STEP 3: ACTIVATION */}
+            {/* STEP 3: ACTIVATION & VISUAL GANTT TIMELINE */}
             {currentStep === 3 && (
               <div className="space-y-6">
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -895,6 +895,16 @@ export default function CreateSopDrawer({
                       <p className="text-xs font-semibold text-slate-700">{taskTemplates.length} Executable Steps</p>
                       <p className="text-xs text-slate-500">Template Blueprint Model</p>
                     </div>
+                  </div>
+                </div>
+
+                {/* Visual Gantt View (ETA Days Relative Timeline) */}
+                <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                    📊 Visual ETA Gantt Timeline Chart
+                  </h3>
+                  <div className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <GanttTimelineChart tasks={taskTemplates} dueDayOffset={Number(getValues('dueDayOffset')) || 15} />
                   </div>
                 </div>
               </div>
@@ -978,6 +988,68 @@ export default function CreateSopDrawer({
           setShowCreateTaskModal(false);
         }}
       />
+    </div>
+  );
+}
+
+function GanttTimelineChart({ tasks = [], dueDayOffset = 15 }) {
+  if (!tasks || tasks.length === 0) {
+    return (
+      <div className="py-8 text-center text-xs text-slate-400">
+        No task timeline data available. Please append task steps in Step 2.
+      </div>
+    );
+  }
+
+  const maxDays = Math.max(dueDayOffset || 15, ...tasks.map((t) => Number(t.etaEndDay) || 1));
+
+  return (
+    <div className="min-w-[650px] space-y-3 font-sans">
+      <div className="grid grid-cols-12 border-b border-slate-200 pb-2 text-[10px] font-bold uppercase text-slate-400">
+        <div className="col-span-4">Task Step (ETA Relative)</div>
+        <div className="col-span-8 relative flex justify-between px-2">
+          <span>Day 0 (SOP Start)</span>
+          <span>Relative ETA Timeline</span>
+          <span>Day {maxDays} (Period Completion)</span>
+        </div>
+      </div>
+
+      <div className="relative space-y-2.5">
+        {tasks.map((task, idx) => {
+          const startPercent = Math.max(0, Math.min(100, ((Number(task.etaStartDay) || 0) / maxDays) * 100));
+          const endPercent = Math.max(0, Math.min(100, ((Number(task.etaEndDay) || 0) / maxDays) * 100));
+          const widthPercent = Math.max(8, endPercent - startPercent);
+
+          return (
+            <div key={task.id || idx} className="grid grid-cols-12 items-center text-xs">
+              <div className="col-span-4 truncate pr-2 font-medium text-slate-700 flex items-center gap-1.5">
+                <span className="font-bold text-indigo-600">{idx + 1}.</span>
+                <span className="truncate font-semibold" title={task.title}>
+                  {task.title}
+                </span>
+              </div>
+
+              <div className="col-span-8 relative h-7 rounded bg-slate-100 flex items-center px-1">
+                <div
+                  className="absolute h-5 rounded px-2 text-[10px] font-bold text-white flex items-center justify-between shadow-sm bg-gradient-to-r from-blue-600 to-indigo-600 transition-all"
+                  style={{
+                    left: `${startPercent}%`,
+                    width: `${Math.min(widthPercent, 100 - startPercent)}%`,
+                    minWidth: '54px',
+                  }}
+                >
+                  <span className="truncate">Day {task.etaStartDay} → Day {task.etaEndDay}</span>
+                  {task.requiredDocs?.length > 0 && (
+                    <span className="ml-1 rounded bg-black/25 px-1 text-[9px]">
+                      📄{task.requiredDocs.length}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
