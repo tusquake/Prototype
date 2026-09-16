@@ -1619,25 +1619,60 @@ export default function CreateSopDrawer({
         editingTask={editingTaskStep}
         onSaveTask={async (savedTask, isEdit) => {
           let updatedTask = { ...savedTask };
-          if (templateId) {
-            const stepPayload = {
-              stepSequence: savedTask.stepSequence,
-              taskName: savedTask.title,
-              dependencyMode: savedTask.dependencyMode,
-              etaStartDay: Number(savedTask.etaStartDay) || 0,
-              etaEndDay: Number(savedTask.etaEndDay) || 0,
-              slaHours: Number(savedTask.slaHours) || 24,
-              priority: savedTask.priority,
-              makerIds: savedTask.makers,
-              checkerIds: savedTask.checkers,
-              requiredDocuments: savedTask.requiredDocs,
-            };
-            try {
+          try {
+            let activeTemplateId = templateId;
+            if (!activeTemplateId) {
+              const formData = getValues();
+              const recurrenceConfigObj = {
+                mode: isRecurring ? 'RECURRING' : 'ONE_TIME',
+                frequency,
+                weekdays: selectedWeekDays,
+                dayOfWeek: selectedWeekDays[0] || 'MON',
+                dayOfMonth: selectedDayOfMonth,
+                quarterMonth: selectedQuarterMonth,
+                monthOfYear: selectedAnnualMonth,
+                dailyMode: selectedDailyMode,
+              };
+              const payload = {
+                templateCode: formData.sopCode || `SOP-TMPL-${Date.now()}`,
+                title: formData.title || 'Untitled SOP Blueprint',
+                description: formData.description || '',
+                processCategory: formData.processCategory || 'MONTHLY_CLOSING',
+                entityCode: formData.entityCode || 'CORP_HQ',
+                frequency: formData.frequency || 'MONTHLY',
+                dueDayOffset: Number(formData.dueDayOffset) || 15,
+                isRecurring: formData.isRecurring,
+                recurrenceConfig: JSON.stringify(recurrenceConfigObj),
+                effectiveFrom: formData.effectiveFrom || todayStr,
+                effectiveUntil: formData.effectiveUntil || null,
+                defaultMakerIds: formData.defaultMakerIds || [],
+                defaultCheckerIds: formData.defaultCheckerIds || [],
+                createdById: currentUser?.id || currentUser?.userId || currentUser?.email || 'usr-manoj-042',
+              };
+              const resDraft = await createSopTemplate(payload);
+              activeTemplateId = resDraft.data?.templateId || resDraft.templateId || resDraft.data?.id;
+              setTemplateId(activeTemplateId);
+            }
+
+            if (activeTemplateId) {
+              const stepPayload = {
+                stepSequence: savedTask.stepSequence,
+                taskName: savedTask.title,
+                dependencyMode: savedTask.dependencyMode,
+                etaStartDay: Number(savedTask.etaStartDay) || 0,
+                etaEndDay: Number(savedTask.etaEndDay) || 0,
+                slaHours: Number(savedTask.slaHours) || 24,
+                priority: savedTask.priority,
+                makerIds: savedTask.makers,
+                checkerIds: savedTask.checkers,
+                requiredDocuments: savedTask.requiredDocs,
+              };
+
               if (isEdit && savedTask.taskTemplateId) {
-                await updateTaskTemplateStep(templateId, savedTask.taskTemplateId, stepPayload);
+                await updateTaskTemplateStep(activeTemplateId, savedTask.taskTemplateId, stepPayload);
                 updatedTask.savedToBackend = true;
               } else {
-                const res = await addTaskTemplateStep(templateId, stepPayload);
+                const res = await addTaskTemplateStep(activeTemplateId, stepPayload);
                 const tDto = res.data || res;
                 if (tDto && Array.isArray(tDto.taskTemplates)) {
                   const match = tDto.taskTemplates.find(st => st.stepSequence === savedTask.stepSequence) || tDto.taskTemplates[tDto.taskTemplates.length - 1];
@@ -1647,9 +1682,9 @@ export default function CreateSopDrawer({
                 }
                 updatedTask.savedToBackend = true;
               }
-            } catch (err) {
-              console.error('Failed to sync task template step to backend:', err);
             }
+          } catch (err) {
+            console.error('Failed to sync task template step to backend:', err);
           }
 
           if (isEdit) {
