@@ -35,6 +35,14 @@ const FREQUENCY_OPTIONS = [
   { value: 'DAILY', label: 'Daily' },
 ];
 
+const FREQ_LABEL = {
+  MONTHLY: 'Monthly',
+  QUARTERLY: 'Quarterly',
+  ANNUAL: 'Annual',
+  DAILY: 'Daily',
+  WEEKLY: 'Weekly',
+};
+
 function isSopCreator(sop, userId) {
   if (!sop || !userId) return false;
   if (Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.length > 0) {
