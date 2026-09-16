@@ -137,9 +137,12 @@ const APPROVER_FILTER_OPTIONS = [{ value: 'ALL', label: 'All Approvers' }];
 const ADMIN_STATUS_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All Statuses' },
   { value: 'DRAFT', label: 'Draft Blueprint' },
-  { value: 'PENDING_CREATION', label: 'Pending Creation' },
   { value: 'PENDING_APPROVAL', label: 'Pending Approval' },
-  { value: 'ACTIVE', label: 'Active' },
+  { value: 'ACTIVE', label: 'Active / Approved' },
+  { value: 'IN_PROGRESS', label: 'In Progress (Instance)' },
+  { value: 'OVERDUE', label: 'Overdue (Instance)' },
+  { value: 'COMPLETED', label: 'Completed (Instance)' },
+  { value: 'DEACTIVATED', label: 'Deactivated Template' },
   { value: 'REJECTED', label: 'Rejected' },
 ];
 
@@ -147,7 +150,11 @@ const USER_STATUS_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All Statuses' },
   { value: 'DRAFT', label: 'Draft Blueprint' },
   { value: 'PENDING_APPROVAL', label: 'Pending Approval' },
-  { value: 'ACTIVE', label: 'Active' },
+  { value: 'ACTIVE', label: 'Active / Approved' },
+  { value: 'IN_PROGRESS', label: 'In Progress (Instance)' },
+  { value: 'OVERDUE', label: 'Overdue (Instance)' },
+  { value: 'COMPLETED', label: 'Completed (Instance)' },
+  { value: 'DEACTIVATED', label: 'Deactivated Template' },
   { value: 'REJECTED', label: 'Rejected' },
 ];
 

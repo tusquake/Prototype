@@ -182,15 +182,14 @@ public class SopTemplateService {
     @Transactional
     public SopTemplateDto transitionStatus(UUID templateId, String action, String actorId, String comment) {
         if (action == null || action.isBlank()) {
-            throw new IllegalArgumentException("Lifecycle action parameter is required (SUBMIT, ACTIVATE, DEACTIVATE, ARCHIVE, REJECT)");
+            throw new IllegalArgumentException("Lifecycle action parameter is required (SUBMIT, ACTIVATE, DEACTIVATE, REJECT)");
         }
         return switch (action.toUpperCase().trim()) {
             case "SUBMIT", "PENDING_APPROVAL" -> submitForApproval(templateId, actorId);
             case "ACTIVATE", "ACTIVE" -> activateTemplate(templateId);
             case "DEACTIVATE", "DEACTIVATED" -> deactivateTemplate(templateId);
-            case "ARCHIVE", "ARCHIVED", "RETIRE", "RETIRED" -> archiveTemplate(templateId);
             case "REJECT", "REJECTED" -> rejectTemplate(templateId, comment);
-            default -> throw new IllegalArgumentException("Unsupported lifecycle action: " + action + ". Supported actions: SUBMIT, ACTIVATE, DEACTIVATE, ARCHIVE, REJECT.");
+            default -> throw new IllegalArgumentException("Unsupported lifecycle action: " + action + ". Supported actions: SUBMIT, ACTIVATE, DEACTIVATE, REJECT.");
         };
     }
 
@@ -261,14 +260,7 @@ public class SopTemplateService {
         return toDto(saved);
     }
 
-    @Transactional
-    public SopTemplateDto archiveTemplate(UUID templateId) {
-        SopTemplate template = getTemplateOrThrow(templateId);
-        template.setStatus(SopTemplateStatus.ARCHIVED);
-        SopTemplate saved = sopTemplateRepository.save(template);
-        log.info("Archived SOP Template [{}]", templateId);
-        return toDto(saved);
-    }
+
 
     @Transactional
     public SopTemplateDto rejectTemplate(UUID templateId, String comment) {

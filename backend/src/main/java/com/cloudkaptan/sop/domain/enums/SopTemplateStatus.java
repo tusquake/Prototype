@@ -5,7 +5,6 @@ public enum SopTemplateStatus {
     PENDING_APPROVAL,
     ACTIVE,
     DEACTIVATED,
-    ARCHIVED,
     REJECTED
 }
 

@@ -11,9 +11,9 @@ public class SopStateMachineFactory {
         return switch (status) {
             case PENDING_CREATION, DRAFT -> new PendingCreationSopState();
             case PENDING_APPROVAL -> new PendingApprovalSopState();
-            case ACTIVE -> new ActiveSopState();
+            case ACTIVE, IN_PROGRESS, OVERDUE, COMPLETED, CANCELLED, ARCHIVED -> new ActiveSopState();
             case REJECTED -> new RejectedSopState();
-            case ARCHIVED -> new ActiveSopState();
+            default -> new ActiveSopState();
         };
     }
 }
