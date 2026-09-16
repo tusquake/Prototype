@@ -556,11 +556,17 @@ export default function CreateSopDrawer({
   );
 
   // Trigger getUsersByPermission whenever processCategory changes or drawer opens
+  const prevCategoryRef = React.useRef(processCategory);
   useEffect(() => {
     if (isOpen && processCategory) {
+      if (prevCategoryRef.current !== processCategory) {
+        setValue('defaultMakerIds', [], { shouldValidate: false });
+        setValue('defaultCheckerIds', [], { shouldValidate: false });
+        prevCategoryRef.current = processCategory;
+      }
       loadPermittedUsers(processCategory);
     }
-  }, [isOpen, processCategory, loadPermittedUsers]);
+  }, [isOpen, processCategory, loadPermittedUsers, setValue]);
 
   const handleProceedToStep2 = async () => {
     setErrorMsg('');

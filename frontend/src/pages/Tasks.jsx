@@ -8,8 +8,8 @@ import Pagination from '../components/Pagination';
 import TableSkeleton from '../components/TableSkeleton';
 import TaskActionModal from '../components/TaskActionModal';
 import ConfirmationModal from '../components/ConfirmationModal';
-import Toast from '../components/Toast';
-import { ENTITIES, getTasks, submitTask, approveTask, rejectTask, deleteTask, getProcessCategories, getUserAccessibleCategories } from '../services/api';
+import { getSession } from '../auth/auth';
+import { ENTITIES, getTasks, submitTask, approveTask, rejectTask, deleteTask, getProcessCategories, getUserAccessibleCategories, getUsersByPermission, getUsers } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
 const STATUS_OPTIONS = [
@@ -24,19 +24,8 @@ const SOP_TYPE_OPTIONS = [
   { value: 'ALL', label: 'All SOP Types' },
 ];
 
-const MAKER_OPTIONS = [
-  { value: 'ALL', label: 'All Makers' },
-  { value: 'Tushar Seth', label: 'Tushar Seth' },
-  { value: 'Vivek Raj', label: 'Vivek Raj' },
-  { value: 'Prayasa Sharma', label: 'Prayasa Sharma' },
-];
-
-const CHECKER_OPTIONS = [
-  { value: 'ALL', label: 'All Checkers' },
-  { value: 'Mainak Gupta', label: 'Mainak Gupta' },
-  { value: 'Vivek Raj', label: 'Vivek Raj' },
-  { value: 'Manoj Agarwal', label: 'Manoj Agarwal' },
-];
+const MAKER_OPTIONS = [{ value: 'ALL', label: 'All Makers' }];
+const CHECKER_OPTIONS = [{ value: 'ALL', label: 'All Checkers' }];
 
 const PAGE_SIZE = 10;
 
@@ -66,6 +55,45 @@ export default function Tasks() {
   const { selectedEntities } = useEntity();
 
   const [dynamicSopTypeOptions, setDynamicSopTypeOptions] = useState(SOP_TYPE_OPTIONS);
+  const [dynamicMakerOptions, setDynamicMakerOptions] = useState(MAKER_OPTIONS);
+  const [dynamicCheckerOptions, setDynamicCheckerOptions] = useState(CHECKER_OPTIONS);
+
+  useEffect(() => {
+    if (selectedSopType && selectedSopType !== 'ALL') {
+      Promise.all([
+        getUsersByPermission(selectedSopType, 'MAKER'),
+        getUsersByPermission(selectedSopType, 'CHECKER')
+      ]).then(([makers, checkers]) => {
+        const mList = Array.isArray(makers) ? makers : [];
+        const cList = Array.isArray(checkers) ? checkers : [];
+
+        setDynamicMakerOptions([
+          { value: 'ALL', label: 'All Makers' },
+          ...mList.map(u => ({ value: u.name || u.id, label: u.name || u.id }))
+        ]);
+        setDynamicCheckerOptions([
+          { value: 'ALL', label: 'All Checkers' },
+          ...cList.map(u => ({ value: u.name || u.id, label: u.name || u.id }))
+        ]);
+      }).catch(() => {
+        setDynamicMakerOptions([{ value: 'ALL', label: 'All Makers' }]);
+        setDynamicCheckerOptions([{ value: 'ALL', label: 'All Checkers' }]);
+      });
+    } else {
+      getUsers().then(users => {
+        if (Array.isArray(users)) {
+          setDynamicMakerOptions([
+            { value: 'ALL', label: 'All Makers' },
+            ...users.map(u => ({ value: u.name || u.fullName, label: u.name || u.fullName }))
+          ]);
+          setDynamicCheckerOptions([
+            { value: 'ALL', label: 'All Checkers' },
+            ...users.map(u => ({ value: u.name || u.fullName, label: u.name || u.fullName }))
+          ]);
+        }
+      }).catch(() => {});
+    }
+  }, [selectedSopType]);
 
   async function loadTasks() {
     setLoading(true);
@@ -297,7 +325,7 @@ export default function Tasks() {
             <CustomSelect
               name="selectedMaker"
               value={selectedMaker}
-              options={MAKER_OPTIONS}
+              options={dynamicMakerOptions}
               onChange={e => {
                 setSelectedMaker(e.target.value);
                 setCurrentPage(1);
@@ -310,7 +338,7 @@ export default function Tasks() {
             <CustomSelect
               name="selectedChecker"
               value={selectedChecker}
-              options={CHECKER_OPTIONS}
+              options={dynamicCheckerOptions}
               onChange={e => {
                 setSelectedChecker(e.target.value);
                 setCurrentPage(1);

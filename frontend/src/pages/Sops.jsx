@@ -13,7 +13,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import SopActivityLogModal from '../components/SopActivityLogModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { ENTITIES, getSops, deleteSop, getUsers, actionSop, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories } from '../services/api';
+import { ENTITIES, getSops, deleteSop, getUsers, actionSop, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
 import { useForm } from 'react-hook-form';
@@ -130,21 +130,8 @@ const CHECKER_FILTER_OPTIONS = [
   { value: 'Manoj Agarwal', label: 'Manoj Agarwal' },
 ];
 
-const CREATOR_FILTER_OPTIONS = [
-  { value: 'ALL', label: 'All Creators' },
-  { value: 'usr-tushar-304', label: 'Tushar Seth' },
-  { value: 'usr-prayasa-410', label: 'Prayasa Sharma' },
-  { value: 'usr-vivek-108', label: 'Vivek Raj' },
-  { value: 'usr-mainak-215', label: 'Mainak Gupta' },
-];
-
-const APPROVER_FILTER_OPTIONS = [
-  { value: 'ALL', label: 'All Approvers' },
-  { value: 'usr-vivek-108', label: 'Vivek Raj' },
-  { value: 'usr-mainak-215', label: 'Mainak Gupta' },
-  { value: 'usr-manoj-042', label: 'Manoj Agarwal' },
-  { value: 'usr-avisek-499', label: 'Avisek Paul' },
-];
+const CREATOR_FILTER_OPTIONS = [{ value: 'ALL', label: 'All Creators' }];
+const APPROVER_FILTER_OPTIONS = [{ value: 'ALL', label: 'All Approvers' }];
 
 const ADMIN_STATUS_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All Statuses' },
@@ -180,6 +167,45 @@ export default function Sops() {
 
   // Modal States
   const [dynamicProcessOptions, setDynamicProcessOptions] = useState(PROCESS_FILTER_OPTIONS);
+  const [dynamicCreatorFilterOptions, setDynamicCreatorFilterOptions] = useState(CREATOR_FILTER_OPTIONS);
+  const [dynamicApproverFilterOptions, setDynamicApproverFilterOptions] = useState(APPROVER_FILTER_OPTIONS);
+
+  useEffect(() => {
+    if (selectedProcess && selectedProcess !== 'ALL') {
+      Promise.all([
+        getUsersByPermission(selectedProcess, 'CREATOR'),
+        getUsersByPermission(selectedProcess, 'APPROVER')
+      ]).then(([creators, approvers]) => {
+        const crList = Array.isArray(creators) ? creators : [];
+        const aList = Array.isArray(approvers) ? approvers : [];
+
+        setDynamicCreatorFilterOptions([
+          { value: 'ALL', label: 'All Creators' },
+          ...crList.map(u => ({ value: u.id, label: u.name || u.id }))
+        ]);
+        setDynamicApproverFilterOptions([
+          { value: 'ALL', label: 'All Approvers' },
+          ...aList.map(u => ({ value: u.id, label: u.name || u.id }))
+        ]);
+      }).catch(() => {
+        setDynamicCreatorFilterOptions([{ value: 'ALL', label: 'All Creators' }]);
+        setDynamicApproverFilterOptions([{ value: 'ALL', label: 'All Approvers' }]);
+      });
+    } else {
+      getUsers().then(users => {
+        if (Array.isArray(users)) {
+          setDynamicCreatorFilterOptions([
+            { value: 'ALL', label: 'All Creators' },
+            ...users.map(u => ({ value: u.id || u.userId, label: u.name || u.fullName }))
+          ]);
+          setDynamicApproverFilterOptions([
+            { value: 'ALL', label: 'All Approvers' },
+            ...users.map(u => ({ value: u.id || u.userId, label: u.name || u.fullName }))
+          ]);
+        }
+      }).catch(() => {});
+    }
+  }, [selectedProcess]);
   const [creatableCategories, setCreatableCategories] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingSop, setEditingSop] = useState(null);
@@ -720,7 +746,7 @@ export default function Sops() {
                 <CustomSelect
                   name="selectedCreator"
                   value={selectedCreator}
-                  options={CREATOR_FILTER_OPTIONS}
+                  options={dynamicCreatorFilterOptions}
                   onChange={e => {
                     setSelectedCreator(e.target.value);
                     setCurrentPage(1);
@@ -733,7 +759,7 @@ export default function Sops() {
                 <CustomSelect
                   name="selectedApprover"
                   value={selectedApprover}
-                  options={APPROVER_FILTER_OPTIONS}
+                  options={dynamicApproverFilterOptions}
                   onChange={e => {
                     setSelectedApprover(e.target.value);
                     setCurrentPage(1);
