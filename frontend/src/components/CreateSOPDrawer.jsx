@@ -14,6 +14,7 @@ import {
   updateTaskTemplateStep,
   deleteTaskTemplateStep,
   activateSopTemplate,
+  getSopTemplate,
 } from '../services/api';
 
 const FREQ_OPTIONS = [
@@ -473,11 +474,14 @@ export default function CreateSopDrawer({
     setLocalUserMap((prev) => ({ ...prev, ...userMap }));
   }, [userMap]);
 
-  // Pre-fill state when resuming an existing draft template
+  // Pre-fill state when resuming an existing draft template from backend API
   useEffect(() => {
     if (isOpen) {
       if (editingTemplate) {
-        setTemplateId(editingTemplate.templateId || editingTemplate.id || null);
+        const targetId = editingTemplate.templateId || editingTemplate.id || null;
+        setTemplateId(targetId);
+
+        // Pre-fill from editingTemplate props first for instant UI response
         reset({
           sopCode: editingTemplate.templateCode || editingTemplate.sopCode || editingTemplate.code || '',
           title: editingTemplate.title || editingTemplate.name || '',
@@ -516,6 +520,55 @@ export default function CreateSopDrawer({
         } else {
           setTaskTemplates([]);
           setCurrentStep(1);
+        }
+
+        // Fetch complete, authoritative draft state from GET /finsop/v1/sop-templates/{templateId}
+        if (targetId) {
+          getSopTemplate(targetId)
+            .then((res) => {
+              const full = res?.data || res;
+              if (full && (full.templateId || full.id)) {
+                reset({
+                  sopCode: full.templateCode || full.sopCode || '',
+                  title: full.title || full.name || '',
+                  description: full.description || '',
+                  processCategory: full.processCategory || full.process || '',
+                  entityCode: full.entityCode || '',
+                  effectiveFrom: full.effectiveFrom || todayStr,
+                  effectiveUntil: full.effectiveUntil || '',
+                  frequency: full.frequency || 'MONTHLY',
+                  dueDayOffset: full.dueDayOffset !== undefined ? full.dueDayOffset : 15,
+                  isRecurring: full.isRecurring !== undefined ? full.isRecurring : true,
+                  defaultMakerIds: full.defaultMakerIds || [],
+                  defaultCheckerIds: full.defaultCheckerIds || [],
+                });
+
+                const fetchedTasks = full.taskTemplates || [];
+                if (Array.isArray(fetchedTasks) && fetchedTasks.length > 0) {
+                  const mapped = fetchedTasks.map((t, idx) => ({
+                    id: t.taskTemplateId || `task-template-${Date.now()}-${idx}`,
+                    taskTemplateId: t.taskTemplateId,
+                    stepSequence: t.stepSequence || idx + 1,
+                    title: t.taskName || t.title || '',
+                    description: t.description || '',
+                    dependencyMode: t.dependencyMode || (idx === 0 ? 'INDEPENDENT' : 'DEPENDENT_ON_PREVIOUS'),
+                    priority: t.priority || 'Medium',
+                    etaStartDay: t.etaStartDay !== undefined ? t.etaStartDay : 0,
+                    etaEndDay: t.etaEndDay !== undefined ? t.etaEndDay : 7,
+                    slaHours: t.slaHours !== undefined ? t.slaHours : 24,
+                    makers: t.makerIds || t.makers || [],
+                    checkers: t.checkerIds || t.checkers || [],
+                    requiredDocs: t.requiredDocumentNames || t.requiredDocuments || t.requiredDocs || [],
+                    savedToBackend: true,
+                  }));
+                  setTaskTemplates(mapped);
+                  setCurrentStep(2);
+                }
+              }
+            })
+            .catch((err) => {
+              console.error('Failed to fetch complete draft SOP template from API:', err);
+            });
         }
       } else {
         setTemplateId(null);
