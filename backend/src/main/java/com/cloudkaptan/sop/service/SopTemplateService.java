@@ -182,14 +182,15 @@ public class SopTemplateService {
     @Transactional
     public SopTemplateDto transitionStatus(UUID templateId, String action, String actorId, String comment) {
         if (action == null || action.isBlank()) {
-            throw new IllegalArgumentException("Lifecycle action parameter is required (SUBMIT, ACTIVATE, REJECT, RETIRE)");
+            throw new IllegalArgumentException("Lifecycle action parameter is required (SUBMIT, ACTIVATE, DEACTIVATE, ARCHIVE, REJECT)");
         }
         return switch (action.toUpperCase().trim()) {
             case "SUBMIT", "PENDING_APPROVAL" -> submitForApproval(templateId, actorId);
             case "ACTIVATE", "ACTIVE" -> activateTemplate(templateId);
+            case "DEACTIVATE", "DEACTIVATED" -> deactivateTemplate(templateId);
+            case "ARCHIVE", "ARCHIVED", "RETIRE", "RETIRED" -> archiveTemplate(templateId);
             case "REJECT", "REJECTED" -> rejectTemplate(templateId, comment);
-            case "RETIRE", "RETIRED" -> retireTemplate(templateId);
-            default -> throw new IllegalArgumentException("Unsupported lifecycle action: " + action + ". Supported actions: SUBMIT, ACTIVATE, REJECT, RETIRE.");
+            default -> throw new IllegalArgumentException("Unsupported lifecycle action: " + action + ". Supported actions: SUBMIT, ACTIVATE, DEACTIVATE, ARCHIVE, REJECT.");
         };
     }
 
@@ -252,19 +253,30 @@ public class SopTemplateService {
     }
 
     @Transactional
+    public SopTemplateDto deactivateTemplate(UUID templateId) {
+        SopTemplate template = getTemplateOrThrow(templateId);
+        template.setStatus(SopTemplateStatus.DEACTIVATED);
+        SopTemplate saved = sopTemplateRepository.save(template);
+        log.info("Deactivated SOP Template [{}]", templateId);
+        return toDto(saved);
+    }
+
+    @Transactional
+    public SopTemplateDto archiveTemplate(UUID templateId) {
+        SopTemplate template = getTemplateOrThrow(templateId);
+        template.setStatus(SopTemplateStatus.ARCHIVED);
+        SopTemplate saved = sopTemplateRepository.save(template);
+        log.info("Archived SOP Template [{}]", templateId);
+        return toDto(saved);
+    }
+
+    @Transactional
     public SopTemplateDto rejectTemplate(UUID templateId, String comment) {
         SopTemplate template = getTemplateOrThrow(templateId);
         template.setStatus(SopTemplateStatus.REJECTED);
         SopTemplate saved = sopTemplateRepository.save(template);
         log.info("Rejected SOP Template [{}] with comment: {}", templateId, comment);
         return toDto(saved);
-    }
-
-    @Transactional
-    public SopTemplateDto retireTemplate(UUID templateId) {
-        SopTemplate template = getTemplateOrThrow(templateId);
-        template.setStatus(SopTemplateStatus.RETIRED);
-        return toDto(sopTemplateRepository.save(template));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

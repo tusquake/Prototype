@@ -1095,8 +1095,12 @@ export async function rejectSopTemplate(templateId, comment = '') {
   return await updateSopTemplateStatus(templateId, 'REJECT', { comment });
 }
 
-export async function retireSopTemplate(templateId) {
-  return await updateSopTemplateStatus(templateId, 'RETIRE');
+export async function deactivateSopTemplate(templateId) {
+  return await updateSopTemplateStatus(templateId, 'DEACTIVATE');
+}
+
+export async function archiveSopTemplate(templateId) {
+  return await updateSopTemplateStatus(templateId, 'ARCHIVE');
 }
 
 export async function getSopTemplates() {
