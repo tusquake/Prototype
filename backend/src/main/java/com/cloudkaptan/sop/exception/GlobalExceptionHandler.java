@@ -3,14 +3,34 @@ package com.cloudkaptan.sop.exception;
 import com.cloudkaptan.sop.dto.ApiErrorDetail;
 import com.cloudkaptan.sop.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+
+import java.io.IOException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(AsyncRequestTimeoutException.class)
+    public ResponseEntity<Void> handleAsyncRequestTimeout(AsyncRequestTimeoutException ex) {
+        // Quietly absorb SSE streaming client timeouts (standard when client leaves page or ping lapses)
+        return ResponseEntity.status(HttpStatus.OK)
+                .contentType(MediaType.APPLICATION_JSON)
+                .build();
+    }
+
+    @ExceptionHandler(IOException.class)
+    public ResponseEntity<Void> handleIOException(IOException ex) {
+        // Quietly absorb Broken Pipe / ClientAbortException during SSE streaming
+        return ResponseEntity.status(HttpStatus.OK)
+                .contentType(MediaType.APPLICATION_JSON)
+                .build();
+    }
 
     @ExceptionHandler(SeparationOfDutyViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleSeparationOfDutyViolation(SeparationOfDutyViolationException ex) {
@@ -20,6 +40,7 @@ public class GlobalExceptionHandler {
             .detail(ex.getMessage())
             .build();
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .contentType(MediaType.APPLICATION_JSON)
             .body(ApiResponse.error(HttpStatus.FORBIDDEN, ex.getMessage(), detail));
     }
 
@@ -31,6 +52,7 @@ public class GlobalExceptionHandler {
             .detail(ex.getMessage())
             .build();
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .contentType(MediaType.APPLICATION_JSON)
             .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), detail));
     }
 
@@ -42,6 +64,7 @@ public class GlobalExceptionHandler {
             .detail(ex.getMessage())
             .build();
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .contentType(MediaType.APPLICATION_JSON)
             .body(ApiResponse.error(HttpStatus.FORBIDDEN, ex.getMessage(), detail));
     }
 
@@ -54,6 +77,7 @@ public class GlobalExceptionHandler {
             .detail(msg)
             .build();
         return ResponseEntity.status(HttpStatus.CONFLICT)
+            .contentType(MediaType.APPLICATION_JSON)
             .body(ApiResponse.error(HttpStatus.CONFLICT, msg, detail));
     }
 
@@ -65,6 +89,7 @@ public class GlobalExceptionHandler {
             .detail(ex.getMessage())
             .build();
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .contentType(MediaType.APPLICATION_JSON)
             .body(ApiResponse.error(HttpStatus.NOT_FOUND, ex.getMessage(), detail));
     }
 
@@ -78,6 +103,7 @@ public class GlobalExceptionHandler {
             .detail(msg)
             .build();
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .contentType(MediaType.APPLICATION_JSON)
             .body(ApiResponse.error(HttpStatus.BAD_REQUEST, msg, detail));
     }
 
@@ -89,6 +115,7 @@ public class GlobalExceptionHandler {
             .detail(ex.getMessage())
             .build();
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .contentType(MediaType.APPLICATION_JSON)
             .body(ApiResponse.error(HttpStatus.BAD_REQUEST, ex.getMessage(), detail));
     }
 
@@ -100,6 +127,7 @@ public class GlobalExceptionHandler {
             .detail(ex.getMessage() != null ? ex.getMessage() : "An unexpected server error occurred.")
             .build();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .contentType(MediaType.APPLICATION_JSON)
             .body(ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected server error occurred", detail));
     }
 }
