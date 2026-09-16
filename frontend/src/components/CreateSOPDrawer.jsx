@@ -6,6 +6,7 @@ import UserPickerModal from './UserPickerModal';
 import {
   getUsersByPermission,
   getProcessCategories,
+  getUserCreatableCategories,
   fetchEntities,
   createSopTemplate,
   addTaskTemplateStep,
@@ -453,34 +454,48 @@ export default function CreateSopDrawer({
     setLocalUserMap((prev) => ({ ...prev, ...userMap }));
   }, [userMap]);
 
-  // Load process categories dynamically from backend API and filter by user permissions
+  // Load process categories dynamically from backend API (creatable categories for non-admin user)
   useEffect(() => {
     if (isOpen) {
-      getProcessCategories()
-        .then((cats) => {
-          if (Array.isArray(cats) && cats.length > 0) {
-            let available = cats.map((c) => ({
-              value: c.categoryName || c.categoryCode || c,
-              label: c.categoryName || c.categoryCode || c,
-            }));
-
-            // Filter available categories for non-admin users by creatableCategories permission
-            if (!isAdmin && Array.isArray(creatableCategories) && creatableCategories.length > 0) {
-              available = available.filter((opt) => creatableCategories.includes(opt.value));
-            }
-
-            if (available.length > 0) {
+      const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
+      if (isAdmin) {
+        getProcessCategories()
+          .then((cats) => {
+            if (Array.isArray(cats) && cats.length > 0) {
+              const available = cats.map((c) => ({
+                value: c.categoryName || c.categoryCode || c,
+                label: c.categoryName || c.categoryCode || c,
+              }));
               setProcessOptions(available);
               const currentCat = getValues('processCategory');
               if (!currentCat || !available.some((o) => o.value === currentCat)) {
                 setValue('processCategory', available[0].value);
               }
             }
-          }
-        })
-        .catch(() => {});
+          })
+          .catch(() => {});
+      } else if (targetUid) {
+        getUserCreatableCategories(targetUid)
+          .then((cats) => {
+            const list = Array.isArray(cats) ? cats : (cats?.data || []);
+            if (list.length > 0) {
+              const available = list.map((c) => ({
+                value: typeof c === 'string' ? c : (c.categoryName || c.categoryCode || c),
+                label: typeof c === 'string' ? c : (c.categoryName || c.categoryCode || c),
+              }));
+              setProcessOptions(available);
+              const currentCat = getValues('processCategory');
+              if (!currentCat || !available.some((o) => o.value === currentCat)) {
+                setValue('processCategory', available[0].value);
+              }
+            } else {
+              setProcessOptions([]);
+            }
+          })
+          .catch(() => {});
+      }
     }
-  }, [isOpen, isAdmin, creatableCategories, setValue, getValues]);
+  }, [isOpen, isAdmin, currentUser, setValue, getValues]);
 
   // Load corporate entities dynamically from backend API
   useEffect(() => {

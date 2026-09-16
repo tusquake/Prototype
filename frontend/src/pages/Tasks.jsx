@@ -9,7 +9,7 @@ import TableSkeleton from '../components/TableSkeleton';
 import TaskActionModal from '../components/TaskActionModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import Toast from '../components/Toast';
-import { ENTITIES, getTasks, submitTask, approveTask, rejectTask, deleteTask, getProcessCategories } from '../services/api';
+import { ENTITIES, getTasks, submitTask, approveTask, rejectTask, deleteTask, getProcessCategories, getUserAccessibleCategories } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
 const STATUS_OPTIONS = [
@@ -73,13 +73,27 @@ export default function Tasks() {
     if (data) {
       setTaskList(data);
     }
-    const categoriesData = await getProcessCategories().catch(() => []);
-    if (Array.isArray(categoriesData) && categoriesData.length > 0) {
-      const opts = [
-        { value: 'ALL', label: 'All SOP Types' },
-        ...categoriesData.map(c => ({ value: c.categoryName || c.categoryCode, label: c.categoryName || c.categoryCode }))
-      ];
-      setDynamicSopTypeOptions(opts);
+    const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
+    if (isAdmin) {
+      const categoriesData = await getProcessCategories().catch(() => []);
+      if (Array.isArray(categoriesData) && categoriesData.length > 0) {
+        const opts = [
+          { value: 'ALL', label: 'All SOP Types' },
+          ...categoriesData.map(c => ({ value: c.categoryName || c.categoryCode, label: c.categoryName || c.categoryCode }))
+        ];
+        setDynamicSopTypeOptions(opts);
+      }
+    } else if (targetUid) {
+      const userCategories = await getUserAccessibleCategories(targetUid).catch(() => []);
+      if (Array.isArray(userCategories) && userCategories.length > 0) {
+        const opts = [
+          { value: 'ALL', label: 'All SOP Types' },
+          ...userCategories.map(c => ({ value: typeof c === 'string' ? c : (c.categoryName || c.categoryCode), label: typeof c === 'string' ? c : (c.categoryName || c.categoryCode) }))
+        ];
+        setDynamicSopTypeOptions(opts);
+      } else {
+        setDynamicSopTypeOptions([{ value: 'ALL', label: 'All SOP Types' }]);
+      }
     }
     setLoading(false);
   }

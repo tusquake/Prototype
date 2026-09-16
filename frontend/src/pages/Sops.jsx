@@ -13,7 +13,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import SopActivityLogModal from '../components/SopActivityLogModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { ENTITIES, getSops, deleteSop, getUsers, actionSop, getProcessCategories, getUserCreatableCategories } from '../services/api';
+import { ENTITIES, getSops, deleteSop, getUsers, actionSop, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
 import { useForm } from 'react-hook-form';
@@ -226,16 +226,30 @@ export default function Sops() {
       });
       setUserMap(prev => ({ ...prev, ...map }));
     }
-    const categoriesData = await getProcessCategories().catch(() => []);
-    if (Array.isArray(categoriesData) && categoriesData.length > 0) {
-      const opts = [
-        { value: 'ALL', label: 'All Processes' },
-        ...categoriesData.map(c => ({ value: c.categoryName || c.categoryCode, label: c.categoryName || c.categoryCode }))
-      ];
-      setDynamicProcessOptions(opts);
+    const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
+    if (isAdmin) {
+      const categoriesData = await getProcessCategories().catch(() => []);
+      if (Array.isArray(categoriesData) && categoriesData.length > 0) {
+        const opts = [
+          { value: 'ALL', label: 'All Processes' },
+          ...categoriesData.map(c => ({ value: c.categoryName || c.categoryCode, label: c.categoryName || c.categoryCode }))
+        ];
+        setDynamicProcessOptions(opts);
+      }
+    } else if (targetUid) {
+      const userCategories = await getUserAccessibleCategories(targetUid).catch(() => []);
+      if (Array.isArray(userCategories) && userCategories.length > 0) {
+        const opts = [
+          { value: 'ALL', label: 'All Processes' },
+          ...userCategories.map(c => ({ value: typeof c === 'string' ? c : (c.categoryName || c.categoryCode), label: typeof c === 'string' ? c : (c.categoryName || c.categoryCode) }))
+        ];
+        setDynamicProcessOptions(opts);
+      } else {
+        setDynamicProcessOptions([{ value: 'ALL', label: 'All Processes' }]);
+      }
     }
-    if (currentUser?.id || currentUser?.email) {
-      const targetUid = currentUser.id || currentUser.email;
+
+    if (targetUid) {
       const creatable = await getUserCreatableCategories(targetUid).catch(() => []);
       setCreatableCategories(Array.isArray(creatable) ? creatable : []);
     }
