@@ -1057,6 +1057,7 @@ export default function Sops() {
           isOpen={showCreateCompleteModal}
           currentUser={currentUser}
           userMap={userMap}
+          creatableCategories={creatableCategories}
           onClose={() => setShowCreateCompleteModal(false)}
           onSuccess={(msg) => { setSuccessMsg(msg); loadData(); }} />
       )}

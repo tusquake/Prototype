@@ -5,6 +5,8 @@ import { z } from 'zod';
 import UserPickerModal from './UserPickerModal';
 import {
   getUsersByPermission,
+  getProcessCategories,
+  fetchEntities,
   createSopTemplate,
   addTaskTemplateStep,
   activateSopTemplate,
@@ -392,13 +394,8 @@ function CreateTaskModal({
 export default function CreateSopDrawer({
   isOpen = true,
   currentUser = { id: 'usr-manoj-042', name: 'Compliance Lead', role: 'ADMIN' },
-  userMap = {
-    'usr-manoj-042': 'Manoj Compliance Lead (Admin)',
-    'usr-tushar-304': 'Tushar Sharma (Maker)',
-    'usr-prayasa-410': 'Prayasa Patel (Checker)',
-    'usr-2': 'Aarav Sharma',
-    'usr-3': 'Priya Patel',
-  },
+  userMap = {},
+  creatableCategories = [],
   onClose = () => { },
   onSuccess = () => { },
 }) {
@@ -406,10 +403,20 @@ export default function CreateSopDrawer({
   const [templateId, setTemplateId] = useState(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
-  const [processOptions] = useState([
-    { value: 'TAX_AUDIT', label: 'Statutory Tax Audit' },
-    { value: 'GST_FILING', label: 'GST Monthly Compliance' },
-    { value: 'FINANCIAL_CLOSING', label: 'Financial Closing' },
+  const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.email?.includes('mainak');
+
+  const [processOptions, setProcessOptions] = useState([
+    { value: 'Tax Compliance', label: 'Tax Compliance' },
+    { value: 'Treasury & Cash Management', label: 'Treasury & Cash Management' },
+    { value: 'Financial Reporting', label: 'Financial Reporting' },
+    { value: 'Fixed Assets', label: 'Fixed Assets' },
+    { value: 'Payroll & Statutory', label: 'Payroll & Statutory' },
+  ]);
+  const [entityOptions, setEntityOptions] = useState([
+    { value: 'CK_INDIA', label: 'CK India' },
+    { value: 'CK_US', label: 'CK US' },
+    { value: 'CK_UK', label: 'CK UK' },
+    { value: 'CK_AUSTRALIA', label: 'CK Australia' },
   ]);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -417,15 +424,10 @@ export default function CreateSopDrawer({
   const [showCheckerPicker, setShowCheckerPicker] = useState(false);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
 
-  const [permittedMakers, setPermittedMakers] = useState([
-    { id: 'usr-tushar-304', name: 'Tushar Sharma (Maker)' },
-    { id: 'usr-2', name: 'Aarav Sharma' },
-  ]);
-  const [permittedCheckers, setPermittedCheckers] = useState([
-    { id: 'usr-prayasa-410', name: 'Prayasa Patel (Checker)' },
-    { id: 'usr-3', name: 'Priya Patel' },
-  ]);
+  const [permittedMakers, setPermittedMakers] = useState([]);
+  const [permittedCheckers, setPermittedCheckers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [localUserMap, setLocalUserMap] = useState(userMap);
 
   const [taskTemplates, setTaskTemplates] = useState([]);
 
@@ -443,18 +445,18 @@ export default function CreateSopDrawer({
   } = useForm({
     resolver: zodResolver(step1Schema),
     defaultValues: {
-      sopCode: 'SOP-TAX-2026-001',
-      title: 'Annual Statutory GST Audit Blueprint',
-      description: 'Master blueprint for regulatory GST submissions.',
-      processCategory: 'GST_FILING',
+      sopCode: '',
+      title: '',
+      description: '',
+      processCategory: 'Tax Compliance',
       entityCode: 'CK_INDIA',
       effectiveFrom: todayStr,
       effectiveUntil: '',
       frequency: 'MONTHLY',
       dueDayOffset: 15,
       isRecurring: true,
-      defaultMakerIds: ['usr-tushar-304'],
-      defaultCheckerIds: ['usr-prayasa-410'],
+      defaultMakerIds: [],
+      defaultCheckerIds: [],
     },
   });
 
@@ -462,6 +464,104 @@ export default function CreateSopDrawer({
   const isRecurring = useWatch({ control, name: 'isRecurring' });
   const defaultMakerIds = useWatch({ control, name: 'defaultMakerIds' }) || [];
   const defaultCheckerIds = useWatch({ control, name: 'defaultCheckerIds' }) || [];
+
+  useEffect(() => {
+    setLocalUserMap((prev) => ({ ...prev, ...userMap }));
+  }, [userMap]);
+
+  // Load process categories dynamically from backend API and filter by user permissions
+  useEffect(() => {
+    if (isOpen) {
+      getProcessCategories()
+        .then((cats) => {
+          if (Array.isArray(cats) && cats.length > 0) {
+            let available = cats.map((c) => ({
+              value: c.categoryName || c.categoryCode || c,
+              label: c.categoryName || c.categoryCode || c,
+            }));
+
+            // Filter available categories for non-admin users by creatableCategories permission
+            if (!isAdmin && Array.isArray(creatableCategories) && creatableCategories.length > 0) {
+              available = available.filter((opt) => creatableCategories.includes(opt.value));
+            }
+
+            if (available.length > 0) {
+              setProcessOptions(available);
+              const currentCat = getValues('processCategory');
+              if (!currentCat || !available.some((o) => o.value === currentCat)) {
+                setValue('processCategory', available[0].value);
+              }
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen, isAdmin, creatableCategories, setValue, getValues]);
+
+  // Load corporate entities dynamically from backend API
+  useEffect(() => {
+    if (isOpen) {
+      fetchEntities()
+        .then((entities) => {
+          if (Array.isArray(entities) && entities.length > 0) {
+            const opts = entities.map((e) => ({
+              value: e.entityCode || e.id || e.value,
+              label: e.entityName || e.label || e.name || e.id,
+            }));
+            setEntityOptions(opts);
+            const currentEntity = getValues('entityCode');
+            if (!currentEntity || !opts.some((o) => o.value === currentEntity)) {
+              setValue('entityCode', opts[0].value);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen, setValue, getValues]);
+
+  const loadPermittedUsers = useCallback(
+    async (category) => {
+      if (!category) return;
+      setLoadingUsers(true);
+      try {
+        const [makers, checkers] = await Promise.all([
+          getUsersByPermission(category, 'MAKER'),
+          getUsersByPermission(category, 'CHECKER'),
+        ]);
+        const makerList = Array.isArray(makers) ? makers : [];
+        const checkerList = Array.isArray(checkers) ? checkers : [];
+
+        setPermittedMakers(makerList);
+        setPermittedCheckers(checkerList);
+
+        // Update local user map with full names of permitted users
+        setLocalUserMap((prev) => {
+          const map = { ...prev };
+          makerList.forEach((u) => { if (u.id) map[u.id] = u.name || u.id; });
+          checkerList.forEach((u) => { if (u.id) map[u.id] = u.name || u.id; });
+          return map;
+        });
+
+        // Do NOT auto-select default makers/checkers — user manually selects from permitted pool!
+      } catch (err) {
+        console.error('Failed to load permitted users for category:', category, err);
+        setPermittedMakers([]);
+        setPermittedCheckers([]);
+        setValue('defaultMakerIds', [], { shouldValidate: true });
+        setValue('defaultCheckerIds', [], { shouldValidate: true });
+      } finally {
+        setLoadingUsers(false);
+      }
+    },
+    [setValue]
+  );
+
+  // Trigger getUsersByPermission whenever processCategory changes or drawer opens
+  useEffect(() => {
+    if (isOpen && processCategory) {
+      loadPermittedUsers(processCategory);
+    }
+  }, [isOpen, processCategory, loadPermittedUsers]);
 
   const handleProceedToStep2 = async () => {
     setErrorMsg('');
@@ -484,6 +584,7 @@ export default function CreateSopDrawer({
         effectiveUntil: formData.effectiveUntil || null,
         defaultMakerIds: formData.defaultMakerIds,
         defaultCheckerIds: formData.defaultCheckerIds,
+        createdById: currentUser?.id || currentUser?.userId || currentUser?.email || 'usr-manoj-042',
       };
 
       if (!templateId) {
@@ -540,7 +641,7 @@ export default function CreateSopDrawer({
     setIsSavingDraft(true);
     try {
       if (templateId) {
-        await activateSopTemplate(templateId, currentUser.id || 'usr-manoj-042');
+        await activateSopTemplate(templateId, currentUser?.id || currentUser?.userId || 'usr-manoj-042');
       }
       const formData = getValues();
       if (onSuccess) onSuccess(`SOP Blueprint "${formData.title}" activated successfully!`);
@@ -560,33 +661,6 @@ export default function CreateSopDrawer({
   const handleDeleteTaskTemplate = (taskId) => {
     setTaskTemplates(taskTemplates.filter((t) => t.id !== taskId).map((t, index) => ({ ...t, stepSequence: index + 1 })));
   };
-
-  const loadPermittedUsers = useCallback(
-    async (category) => {
-      if (!category) return;
-      setLoadingUsers(true);
-      try {
-        const [makers, checkers] = await Promise.all([
-          getUsersByPermission(category, 'MAKER'),
-          getUsersByPermission(category, 'CHECKER'),
-        ]);
-        setPermittedMakers(makers || []);
-        setPermittedCheckers(checkers || []);
-      } catch {
-        setPermittedMakers([]);
-        setPermittedCheckers([]);
-      } finally {
-        setLoadingUsers(false);
-      }
-    },
-    []
-  );
-
-  useEffect(() => {
-    if (isOpen && processCategory) {
-      loadPermittedUsers(processCategory);
-    }
-  }, [isOpen, processCategory, loadPermittedUsers]);
 
   if (!isOpen) return null;
 
@@ -676,7 +750,7 @@ export default function CreateSopDrawer({
                     <div>
                       <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Corporate Entity *</label>
                       <select {...register('entityCode')} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs focus:border-blue-600 focus:outline-none">
-                        {ENTITY_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+                        {entityOptions.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
                       </select>
                     </div>
                   </div>
@@ -770,7 +844,7 @@ export default function CreateSopDrawer({
                       <div className="flex flex-wrap gap-1 min-h-[30px]">
                         {defaultMakerIds.map((id) => (
                           <span key={id} className="inline-flex items-center gap-1 rounded bg-white border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm">
-                            {userMap[id] || id} <button type="button" onClick={() => removeMaker(id)} className="text-slate-400 hover:text-red-500">✕</button>
+                            {localUserMap[id] || id} <button type="button" onClick={() => removeMaker(id)} className="text-slate-400 hover:text-red-500">✕</button>
                           </span>
                         ))}
                         {errors.defaultMakerIds && <p className="text-[10px] text-red-500 mt-1 w-full">{errors.defaultMakerIds.message}</p>}
@@ -785,7 +859,7 @@ export default function CreateSopDrawer({
                       <div className="flex flex-wrap gap-1 min-h-[30px]">
                         {defaultCheckerIds.map((id) => (
                           <span key={id} className="inline-flex items-center gap-1 rounded bg-white border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm">
-                            {userMap[id] || id} <button type="button" onClick={() => removeChecker(id)} className="text-slate-400 hover:text-red-500">✕</button>
+                            {localUserMap[id] || id} <button type="button" onClick={() => removeChecker(id)} className="text-slate-400 hover:text-red-500">✕</button>
                           </span>
                         ))}
                         {errors.defaultCheckerIds && <p className="text-[10px] text-red-500 mt-1 w-full">{errors.defaultCheckerIds.message}</p>}
@@ -980,7 +1054,7 @@ export default function CreateSopDrawer({
         isOpen={showCreateTaskModal}
         onClose={() => setShowCreateTaskModal(false)}
         existingTasksCount={taskTemplates.length}
-        userMap={userMap}
+        userMap={localUserMap}
         parentMakerPool={defaultMakerIds}
         parentCheckerPool={defaultCheckerIds}
         onSaveTask={(newTask) => {
