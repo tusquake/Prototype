@@ -1073,22 +1073,30 @@ export async function deleteTaskTemplateStep(templateId, taskTemplateId) {
   });
 }
 
-export async function submitSopTemplate(templateId, actorId = 'usr-manoj-042') {
-  return await fetchJson(`/sop-templates/${templateId}/submit?actorId=${encodeURIComponent(actorId)}`, {
+export async function updateSopTemplateStatus(templateId, action, { actorId = 'usr-manoj-042', comment = '' } = {}) {
+  return await fetchJson(`/sop-templates/${templateId}/status`, {
     method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ action, actorId, comment }),
   });
+}
+
+export async function submitSopTemplate(templateId, actorId = 'usr-manoj-042') {
+  return await updateSopTemplateStatus(templateId, 'SUBMIT', { actorId });
 }
 
 export async function activateSopTemplate(templateId, actorId = 'usr-manoj-042') {
-  return await fetchJson(`/sop-templates/${templateId}/activate?actorId=${encodeURIComponent(actorId)}`, {
-    method: 'PUT',
-  });
+  return await updateSopTemplateStatus(templateId, 'ACTIVATE', { actorId });
 }
 
 export async function rejectSopTemplate(templateId, comment = '') {
-  return await fetchJson(`/sop-templates/${templateId}/reject?comment=${encodeURIComponent(comment)}`, {
-    method: 'PUT',
-  });
+  return await updateSopTemplateStatus(templateId, 'REJECT', { comment });
+}
+
+export async function retireSopTemplate(templateId) {
+  return await updateSopTemplateStatus(templateId, 'RETIRE');
 }
 
 export async function getSopTemplates() {

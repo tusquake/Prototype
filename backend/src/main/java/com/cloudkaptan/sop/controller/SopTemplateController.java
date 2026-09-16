@@ -5,6 +5,7 @@ import com.cloudkaptan.sop.dto.ApiResponse;
 import com.cloudkaptan.sop.dto.CreateSopTemplateRequest;
 import com.cloudkaptan.sop.dto.CreateTaskTemplateRequest;
 import com.cloudkaptan.sop.dto.SopTemplateDto;
+import com.cloudkaptan.sop.dto.SopTemplateStatusUpdateRequest;
 import com.cloudkaptan.sop.service.SopTemplateService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,8 +25,6 @@ import java.util.UUID;
 public class SopTemplateController {
 
     private final SopTemplateService sopTemplateService;
-
-    // ─── Template CRUD ────────────────────────────────────────────────────────
 
     @PostMapping
     @Operation(summary = "Create SOP Template (Step 1 draft save)",
@@ -69,8 +68,6 @@ public class SopTemplateController {
         return ResponseEntity.ok(ApiResponse.success(updated, "SOP Template updated."));
     }
 
-    // ─── Task Template Steps (Step 2 incremental saves) ───────────────────────
-
     @PostMapping({"/{templateId}/task-templates", "/{templateId}/tasks"})
     @Operation(summary = "Add task step to SOP Template (Step 2 draft save)",
                description = "Appends a new task template step to an existing SOP Template. Step sequence is auto-assigned.")
@@ -104,49 +101,20 @@ public class SopTemplateController {
         return ResponseEntity.ok(ApiResponse.success(updated, "Task template step removed and remaining steps re-sequenced."));
     }
 
-    // ─── Lifecycle Transitions ────────────────────────────────────────────────
-
-    @PutMapping("/{templateId}/submit")
-    @Operation(summary = "Submit SOP Template for approval (Step 3 final save)",
-               description = "Promotes a DRAFT template to PENDING_APPROVAL and notifies assigned approvers.")
-    public ResponseEntity<ApiResponse<SopTemplateDto>> submitForApproval(
+    @PutMapping("/{templateId}/status")
+    @Operation(summary = "Update SOP Template status",
+               description = "Unified lifecycle status transition endpoint using JSON request payload. Actions: SUBMIT, ACTIVATE, REJECT, RETIRE.")
+    public ResponseEntity<ApiResponse<SopTemplateDto>> updateTemplateStatus(
             @PathVariable UUID templateId,
-            @RequestParam(name = "actorId", required = false) String actorId
+            @Valid @RequestBody SopTemplateStatusUpdateRequest request
     ) {
-        SopTemplateDto submitted = sopTemplateService.submitForApproval(templateId, actorId);
-        return ResponseEntity.ok(ApiResponse.success(submitted, "SOP Template submitted for approval successfully. Status: PENDING_APPROVAL."));
-    }
-
-    @PutMapping("/{templateId}/activate")
-    @Operation(summary = "Activate SOP Template",
-               description = "Promotes a PENDING_APPROVAL or DRAFT template to ACTIVE. The scheduler will begin generating SOP instances from effectiveFrom date.")
-    public ResponseEntity<ApiResponse<SopTemplateDto>> activateTemplate(
-            @PathVariable UUID templateId
-    ) {
-        SopTemplateDto activated = sopTemplateService.activateTemplate(templateId);
-        return ResponseEntity.ok(ApiResponse.success(activated,
-                "SOP Template is now ACTIVE. The scheduler will generate SOP instances from " + activated.getEffectiveFrom() + "."));
-    }
-
-    @PutMapping("/{templateId}/reject")
-    @Operation(summary = "Reject SOP Template",
-               description = "Sets the template status to REJECTED with revision feedback.")
-    public ResponseEntity<ApiResponse<SopTemplateDto>> rejectTemplate(
-            @PathVariable UUID templateId,
-            @RequestParam(name = "comment", required = false) String comment
-    ) {
-        SopTemplateDto rejected = sopTemplateService.rejectTemplate(templateId, comment);
-        return ResponseEntity.ok(ApiResponse.success(rejected, "SOP Template rejected back to creator."));
-    }
-
-    @PutMapping("/{templateId}/retire")
-    @Operation(summary = "Retire SOP Template",
-               description = "Sets the template status to RETIRED. No new SOP instances will be generated.")
-    public ResponseEntity<ApiResponse<SopTemplateDto>> retireTemplate(
-            @PathVariable UUID templateId
-    ) {
-        SopTemplateDto retired = sopTemplateService.retireTemplate(templateId);
-        return ResponseEntity.ok(ApiResponse.success(retired, "SOP Template retired. No further SOP instances will be generated."));
+        SopTemplateDto updated = sopTemplateService.transitionStatus(
+                templateId,
+                request.getAction(),
+                request.getActorId(),
+                request.getComment()
+        );
+        return ResponseEntity.ok(ApiResponse.success(updated, "SOP Template status successfully updated to " + updated.getStatus() + "."));
     }
 }
 

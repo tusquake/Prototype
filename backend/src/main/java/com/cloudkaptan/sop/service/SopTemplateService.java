@@ -180,6 +180,20 @@ public class SopTemplateService {
     // ─────────────────────────────────────────────────────────────────────────
 
     @Transactional
+    public SopTemplateDto transitionStatus(UUID templateId, String action, String actorId, String comment) {
+        if (action == null || action.isBlank()) {
+            throw new IllegalArgumentException("Lifecycle action parameter is required (SUBMIT, ACTIVATE, REJECT, RETIRE)");
+        }
+        return switch (action.toUpperCase().trim()) {
+            case "SUBMIT", "PENDING_APPROVAL" -> submitForApproval(templateId, actorId);
+            case "ACTIVATE", "ACTIVE" -> activateTemplate(templateId);
+            case "REJECT", "REJECTED" -> rejectTemplate(templateId, comment);
+            case "RETIRE", "RETIRED" -> retireTemplate(templateId);
+            default -> throw new IllegalArgumentException("Unsupported lifecycle action: " + action + ". Supported actions: SUBMIT, ACTIVATE, REJECT, RETIRE.");
+        };
+    }
+
+    @Transactional
     public SopTemplateDto submitForApproval(UUID templateId, String actorId) {
         SopTemplate template = getTemplateOrThrow(templateId);
 
