@@ -72,9 +72,6 @@ public class UserNotificationService {
                 try {
                     emitter.send(SseEmitter.event().comment("ping"));
                 } catch (Exception e) {
-                    try {
-                        emitter.complete();
-                    } catch (Exception ignored) {}
                     removeEmitter(userId, emitter);
                 }
             }

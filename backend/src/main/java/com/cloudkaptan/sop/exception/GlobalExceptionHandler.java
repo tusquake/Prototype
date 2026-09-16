@@ -19,17 +19,19 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AsyncRequestTimeoutException.class)
     public ResponseEntity<Void> handleAsyncRequestTimeout(AsyncRequestTimeoutException ex) {
         // Quietly absorb SSE streaming client timeouts (standard when client leaves page or ping lapses)
-        return ResponseEntity.status(HttpStatus.OK)
-                .contentType(MediaType.APPLICATION_JSON)
-                .build();
+        return ResponseEntity.ok().build();
     }
 
     @ExceptionHandler(IOException.class)
     public ResponseEntity<Void> handleIOException(IOException ex) {
         // Quietly absorb Broken Pipe / ClientAbortException during SSE streaming
-        return ResponseEntity.status(HttpStatus.OK)
-                .contentType(MediaType.APPLICATION_JSON)
-                .build();
+        return ResponseEntity.ok().build();
+    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotWritableException.class)
+    public ResponseEntity<Void> handleHttpMessageNotWritable(org.springframework.http.converter.HttpMessageNotWritableException ex) {
+        // Quietly absorb SSE text/event-stream response conversion failures
+        return ResponseEntity.ok().build();
     }
 
     @ExceptionHandler(SeparationOfDutyViolationException.class)
