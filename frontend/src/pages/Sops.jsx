@@ -13,7 +13,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import SopActivityLogModal from '../components/SopActivityLogModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { ENTITIES, getSops, getSopTemplates, deleteSop, getUsers, actionSop, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
+import { ENTITIES, getSops, getSopTemplates, deleteSop, getUsers, actionSop, activateSopTemplate, rejectSopTemplate, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
 import { useForm } from 'react-hook-form';
@@ -21,6 +21,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import CreateSopDrawer from '../components/CreateSOPDrawer';
 import CreateCompleteSOPModal from '../components/CreateCompleteSOPModal'
+
 
 // 1. Zod Validation Schema
 const rejectSopSchema = z.object({
@@ -157,6 +158,8 @@ export default function Sops() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [editingDraftTemplate, setEditingDraftTemplate] = useState(null);
+  const [isViewOnly, setIsViewOnly] = useState(false);
+
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
@@ -518,7 +521,11 @@ export default function Sops() {
   async function handleApproveSop(sop) {
     try {
       setSaving(true);
-      await actionSop(sop.id || sop.sopId, { action: 'APPROVE', actorId: currentUser?.id || 'usr-vivek-108' });
+      if (sop.isTemplate || sop.templateId) {
+        await activateSopTemplate(sop.templateId || sop.id, currentUser?.id || 'usr-vivek-108');
+      } else {
+        await actionSop(sop.id || sop.sopId, { action: 'APPROVE', actorId: currentUser?.id || 'usr-vivek-108' });
+      }
       window.dispatchEvent(new Event('sop-updated'));
       setSuccessMsg(`SOP "${sop.name || sop.title || sop.code}" approved successfully! Status is now ACTIVE for compliance task generation.`);
       await loadData();
@@ -534,11 +541,15 @@ export default function Sops() {
     if (!rejectingSop) return;
     try {
       setSaving(true);
-      await actionSop(rejectingSop.id || rejectingSop.sopId, {
-        action: 'REJECT',
-        comment: rejectionReasonInput || 'SOP draft requires revision by creator.',
-        actorId: currentUser?.id || 'usr-vivek-108'
-      });
+      if (rejectingSop.isTemplate || rejectingSop.templateId) {
+        await rejectSopTemplate(rejectingSop.templateId || rejectingSop.id, rejectionReasonInput || 'SOP blueprint requires revision by creator.');
+      } else {
+        await actionSop(rejectingSop.id || rejectingSop.sopId, {
+          action: 'REJECT',
+          comment: rejectionReasonInput || 'SOP draft requires revision by creator.',
+          actorId: currentUser?.id || 'usr-vivek-108'
+        });
+      }
       window.dispatchEvent(new Event('sop-updated'));
       setSuccessMsg(`SOP "${rejectingSop.name || rejectingSop.title || rejectingSop.code}" rejected back to creator with revision comments.`);
       setRejectingSop(null);
@@ -550,6 +561,7 @@ export default function Sops() {
       setSaving(false);
     }
   }
+
 
   async function handleFormSubmit(e) {
     e.preventDefault();
@@ -910,6 +922,7 @@ export default function Sops() {
                   className="inline-flex items-center gap-1.5 px-4 py-[7px] rounded-[6px] bg-[#2563eb] text-white text-[12.5px] font-semibold border-none cursor-pointer shadow-sm transition-all duration-150 hover:bg-[#1d4ed8]"
                   onClick={() => {
                     setEditingDraftTemplate(null);
+                    setIsViewOnly(false);
                     setShowCreateCompleteModal(true);
                   }}
                 >
@@ -948,7 +961,11 @@ export default function Sops() {
                     <tr
                       key={sop.id || sop.code}
                       className="cursor-pointer border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]"
-                      onClick={() => setViewingSop(sop)}
+                      onClick={() => {
+                        setEditingDraftTemplate(sop);
+                        setIsViewOnly(true);
+                        setShowCreateCompleteModal(true);
+                      }}
                     >
                       <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{sop.code}</td>
                       <td className="px-6 py-3.5 text-[13.5px] font-semibold text-text-primary align-middle">{sop.name || sop.title}</td>
@@ -1025,6 +1042,7 @@ export default function Sops() {
                               className="bg-[#2563eb] text-white border border-[#1d4ed8] rounded-[6px] px-2.5 py-[4px] cursor-pointer text-[12px] font-bold hover:bg-[#1d4ed8] transition shadow-sm inline-flex items-center gap-1"
                               onClick={() => {
                                 setEditingDraftTemplate(sop);
+                                setIsViewOnly(false);
                                 setShowCreateCompleteModal(true);
                               }}
                             >
@@ -1073,7 +1091,11 @@ export default function Sops() {
                           <button
                             type="button"
                             className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#334155] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1"
-                            onClick={() => setViewingSop(sop)}
+                            onClick={() => {
+                              setEditingDraftTemplate(sop);
+                              setIsViewOnly(true);
+                              setShowCreateCompleteModal(true);
+                            }}
                           >
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -1155,17 +1177,20 @@ export default function Sops() {
         <CreateSopDrawer
           isOpen={showCreateCompleteModal}
           editingTemplate={editingDraftTemplate}
+          isViewOnly={isViewOnly}
           currentUser={currentUser}
           userMap={userMap}
           creatableCategories={creatableCategories}
           onClose={() => {
             setShowCreateCompleteModal(false);
             setEditingDraftTemplate(null);
+            setIsViewOnly(false);
           }}
           onSuccess={(msg) => {
             setSuccessMsg(msg);
             setShowCreateCompleteModal(false);
             setEditingDraftTemplate(null);
+            setIsViewOnly(false);
             loadData();
           }}
         />

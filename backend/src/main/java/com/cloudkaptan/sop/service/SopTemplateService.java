@@ -33,6 +33,8 @@ public class SopTemplateService {
     private final TaskTemplateRepository taskTemplateRepository;
     private final CorporateEntityRepository corporateEntityRepository;
     private final UserRepository userRepository;
+    private final UserCategoryPermissionService categoryPermissionService;
+    private final NotificationPublisherService notificationPublisherService;
 
     // ─────────────────────────────────────────────────────────────────────────
     // CREATE / UPDATE TEMPLATE (Step 1 draft save)
@@ -174,8 +176,46 @@ public class SopTemplateService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // ACTIVATE (Step 3 — final save)
+    // LIFECYCLE TRANSITIONS (Step 3 — submit for approval & activation)
     // ─────────────────────────────────────────────────────────────────────────
+
+    @Transactional
+    public SopTemplateDto submitForApproval(UUID templateId, String actorId) {
+        SopTemplate template = getTemplateOrThrow(templateId);
+
+        if (template.getTaskTemplates().isEmpty()) {
+            throw new IllegalStateException("Cannot submit a template for approval with no task steps defined.");
+        }
+        if (template.getDefaultMakerIds().isEmpty() || template.getDefaultCheckerIds().isEmpty()) {
+            throw new IllegalStateException("Cannot submit a template without at least one Maker and one Checker assigned.");
+        }
+
+        template.setStatus(SopTemplateStatus.PENDING_APPROVAL);
+        SopTemplate saved = sopTemplateRepository.save(template);
+
+        try {
+            com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto catAssignments = categoryPermissionService.getCategoryAssignments(template.getProcessCategory());
+            List<String> approvers = (catAssignments != null && catAssignments.getApproverUserIds() != null && !catAssignments.getApproverUserIds().isEmpty())
+                    ? catAssignments.getApproverUserIds()
+                    : List.of("usr-vivek-108");
+
+            for (String approverId : approvers) {
+                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                        .recipientUserId(approverId)
+                        .eventType("SOP_SUBMITTED")
+                        .title("SOP Template Approval Required")
+                        .message("SOP Blueprint '" + saved.getTitle() + "' (" + saved.getTemplateCode() + ") has been submitted for approval.")
+                        .referenceEntityType("SOP_TEMPLATE")
+                        .referenceEntityId(saved.getTemplateId().toString())
+                        .build());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to publish approval notifications for SOP template [{}]: {}", templateId, e.getMessage());
+        }
+
+        log.info("Submitted SOP Template [{}] for approval — status=PENDING_APPROVAL", templateId);
+        return toDto(saved);
+    }
 
     @Transactional
     public SopTemplateDto activateTemplate(UUID templateId) {
@@ -194,6 +234,15 @@ public class SopTemplateService {
         template.setStatus(SopTemplateStatus.ACTIVE);
         SopTemplate saved = sopTemplateRepository.save(template);
         log.info("Activated SOP Template [{}] — scheduler will now generate SOP instances from this template", templateId);
+        return toDto(saved);
+    }
+
+    @Transactional
+    public SopTemplateDto rejectTemplate(UUID templateId, String comment) {
+        SopTemplate template = getTemplateOrThrow(templateId);
+        template.setStatus(SopTemplateStatus.REJECTED);
+        SopTemplate saved = sopTemplateRepository.save(template);
+        log.info("Rejected SOP Template [{}] with comment: {}", templateId, comment);
         return toDto(saved);
     }
 

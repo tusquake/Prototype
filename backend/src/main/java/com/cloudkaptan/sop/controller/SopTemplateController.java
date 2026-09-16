@@ -106,15 +106,37 @@ public class SopTemplateController {
 
     // ─── Lifecycle Transitions ────────────────────────────────────────────────
 
+    @PutMapping("/{templateId}/submit")
+    @Operation(summary = "Submit SOP Template for approval (Step 3 final save)",
+               description = "Promotes a DRAFT template to PENDING_APPROVAL and notifies assigned approvers.")
+    public ResponseEntity<ApiResponse<SopTemplateDto>> submitForApproval(
+            @PathVariable UUID templateId,
+            @RequestParam(name = "actorId", required = false) String actorId
+    ) {
+        SopTemplateDto submitted = sopTemplateService.submitForApproval(templateId, actorId);
+        return ResponseEntity.ok(ApiResponse.success(submitted, "SOP Template submitted for approval successfully. Status: PENDING_APPROVAL."));
+    }
+
     @PutMapping("/{templateId}/activate")
-    @Operation(summary = "Activate SOP Template (Step 3 — final save)",
-               description = "Promotes a DRAFT template to ACTIVE. The scheduler will begin generating SOP instances from effectiveFrom date.")
+    @Operation(summary = "Activate SOP Template",
+               description = "Promotes a PENDING_APPROVAL or DRAFT template to ACTIVE. The scheduler will begin generating SOP instances from effectiveFrom date.")
     public ResponseEntity<ApiResponse<SopTemplateDto>> activateTemplate(
             @PathVariable UUID templateId
     ) {
         SopTemplateDto activated = sopTemplateService.activateTemplate(templateId);
         return ResponseEntity.ok(ApiResponse.success(activated,
                 "SOP Template is now ACTIVE. The scheduler will generate SOP instances from " + activated.getEffectiveFrom() + "."));
+    }
+
+    @PutMapping("/{templateId}/reject")
+    @Operation(summary = "Reject SOP Template",
+               description = "Sets the template status to REJECTED with revision feedback.")
+    public ResponseEntity<ApiResponse<SopTemplateDto>> rejectTemplate(
+            @PathVariable UUID templateId,
+            @RequestParam(name = "comment", required = false) String comment
+    ) {
+        SopTemplateDto rejected = sopTemplateService.rejectTemplate(templateId, comment);
+        return ResponseEntity.ok(ApiResponse.success(rejected, "SOP Template rejected back to creator."));
     }
 
     @PutMapping("/{templateId}/retire")
@@ -127,3 +149,4 @@ public class SopTemplateController {
         return ResponseEntity.ok(ApiResponse.success(retired, "SOP Template retired. No further SOP instances will be generated."));
     }
 }
+

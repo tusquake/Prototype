@@ -1073,8 +1073,20 @@ export async function deleteTaskTemplateStep(templateId, taskTemplateId) {
   });
 }
 
+export async function submitSopTemplate(templateId, actorId = 'usr-manoj-042') {
+  return await fetchJson(`/sop-templates/${templateId}/submit?actorId=${encodeURIComponent(actorId)}`, {
+    method: 'PUT',
+  });
+}
+
 export async function activateSopTemplate(templateId, actorId = 'usr-manoj-042') {
   return await fetchJson(`/sop-templates/${templateId}/activate?actorId=${encodeURIComponent(actorId)}`, {
+    method: 'PUT',
+  });
+}
+
+export async function rejectSopTemplate(templateId, comment = '') {
+  return await fetchJson(`/sop-templates/${templateId}/reject?comment=${encodeURIComponent(comment)}`, {
     method: 'PUT',
   });
 }
@@ -1086,3 +1098,4 @@ export async function getSopTemplates() {
 export async function getSopTemplate(templateId) {
   return await fetchJson(`/sop-templates/${templateId}`);
 }
+
