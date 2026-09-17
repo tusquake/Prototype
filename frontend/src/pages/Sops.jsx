@@ -1139,17 +1139,17 @@ export default function Sops() {
                               <>
                                 <button
                                   type="button"
-                                  className="bg-[#f0fdf4] border border-[#16a34a] text-[#15803d] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-bold"
+                                  className="bg-[#f0fdf4] border border-[#16a34a] text-[#15803d] rounded-[6px] px-2.5 py-[4px] cursor-pointer text-[12px] font-bold hover:bg-[#dcfce7] transition shadow-sm inline-flex items-center gap-1"
                                   onClick={() => handleApproveSop(sop)}
                                 >
-                                  Approve
+                                  ✓ Approve
                                 </button>
                                 <button
                                   type="button"
-                                  className="bg-[#fff1f2] border border-[#e11d48] text-[#be123c] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-bold"
+                                  className="bg-[#fff1f2] border border-[#e11d48] text-[#be123c] rounded-[6px] px-2.5 py-[4px] cursor-pointer text-[12px] font-bold hover:bg-[#ffe4e6] transition shadow-sm inline-flex items-center gap-1"
                                   onClick={() => { setRejectingSop(sop); setRejectionReasonInput(''); }}
                                 >
-                                  Reject
+                                  ✕ Reject
                                 </button>
                               </>
                             )

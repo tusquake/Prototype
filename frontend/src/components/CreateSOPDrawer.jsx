@@ -462,6 +462,43 @@ export default function CreateSopDrawer({
   const [localUserMap, setLocalUserMap] = useState(userMap);
 
   const [taskTemplates, setTaskTemplates] = useState([]);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
+
+  const handleApproveSopTemplate = async () => {
+    const tId = templateId || editingTemplate?.templateId || editingTemplate?.id;
+    if (!tId) return;
+    try {
+      setIsProcessingAction(true);
+      setErrorMsg('');
+      await activateSopTemplate(tId, currentUser?.id || 'usr-vivek-108');
+      onSuccess(`SOP Template "${getValues('title') || editingTemplate?.title || 'Blueprint'}" approved successfully! Status is now ACTIVE.`);
+    } catch (err) {
+      setErrorMsg(err?.message || 'Failed to approve SOP Template.');
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
+  const handleRejectSopTemplate = async () => {
+    const tId = templateId || editingTemplate?.templateId || editingTemplate?.id;
+    if (!tId) return;
+    if (!rejectionReason.trim()) {
+      setErrorMsg('Please enter a rejection reason comment.');
+      return;
+    }
+    try {
+      setIsProcessingAction(true);
+      setErrorMsg('');
+      await rejectSopTemplate(tId, rejectionReason.trim());
+      onSuccess(`SOP Template rejected back to creator for revision.`);
+    } catch (err) {
+      setErrorMsg(err?.message || 'Failed to reject SOP Template.');
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
@@ -1578,6 +1615,57 @@ export default function CreateSopDrawer({
                     </button>
                   )}
                 </>
+              )}
+
+              {/* If SOP Template is in PENDING_APPROVAL status, render Approve & Reject controls */}
+              {editingTemplate?.status === 'PENDING_APPROVAL' && (
+                <div className="flex items-center gap-2 border-l border-slate-200 pl-3 ml-1">
+                  {!showRejectInput ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleApproveSopTemplate}
+                        disabled={isProcessingAction}
+                        className="rounded-lg bg-emerald-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-1.5"
+                      >
+                        ✓ {isProcessingAction ? 'Approving...' : 'Approve Template'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowRejectInput(true)}
+                        disabled={isProcessingAction}
+                        className="rounded-lg bg-red-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-red-700 disabled:opacity-50 inline-flex items-center gap-1.5"
+                      >
+                        ✕ Reject Template
+                      </button>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Reason for rejection..."
+                        value={rejectionReason}
+                        onChange={(e) => setRejectionReason(e.target.value)}
+                        className="rounded-lg border border-red-300 p-2 text-xs text-slate-800 outline-none focus:border-red-600 min-w-[200px]"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRejectSopTemplate}
+                        disabled={isProcessingAction || !rejectionReason.trim()}
+                        className="rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-red-700 disabled:opacity-50"
+                      >
+                        Confirm Reject
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowRejectInput(false)}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
