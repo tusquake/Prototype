@@ -16,6 +16,7 @@ import { useEntity } from '../context/EntityContext';
 const STATUS_OPTIONS = [
   { value: 'ALL', label: 'All Statuses' },
   { value: 'OPEN', label: 'Open' },
+  { value: 'LOCKED', label: 'Locked (Option A)' },
   { value: 'PENDING_REVIEW', label: 'Pending Review' },
   { value: 'APPROVED', label: 'Approved' },
   { value: 'REJECTED', label: 'Rejected' },

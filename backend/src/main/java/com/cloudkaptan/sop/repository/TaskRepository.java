@@ -24,6 +24,8 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
 
     Optional<Task> findByRecordNo(String recordNo);
 
+    List<Task> findBySop_SopIdOrderByRecordNoAsc(UUID sopId);
+
     @Query("""
         SELECT DISTINCT
             t.taskId as taskId,

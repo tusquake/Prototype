@@ -150,7 +150,53 @@ public class TaskWorkflowService {
             }
         }
 
+        // Option A Early Trigger: Unlock next dependent task as soon as Maker submits this task!
+        unlockNextDependentTaskOnSubmission(saved);
+
         return mapToDto(saved);
+    }
+
+    private void unlockNextDependentTaskOnSubmission(Task submittedTask) {
+        if (submittedTask == null || submittedTask.getSop() == null) return;
+        try {
+            List<Task> sopTasks = taskRepository.findBySop_SopIdOrderByRecordNoAsc(submittedTask.getSop().getSopId());
+            if (sopTasks == null || sopTasks.isEmpty()) return;
+
+            int currentIndex = -1;
+            for (int i = 0; i < sopTasks.size(); i++) {
+                if (sopTasks.get(i).getTaskId().equals(submittedTask.getTaskId())) {
+                    currentIndex = i;
+                    break;
+                }
+            }
+
+            if (currentIndex != -1 && currentIndex + 1 < sopTasks.size()) {
+                Task nextTask = sopTasks.get(currentIndex + 1);
+                if (nextTask.getStatus() == TaskStatus.LOCKED) {
+                    nextTask.setStatus(TaskStatus.OPEN);
+                    nextTask.setStartDate(java.time.LocalDate.now());
+                    Task unlocked = taskRepository.save(nextTask);
+                    log.info("Option A Early Trigger: Unlocked dependent Task [{}] ({}) immediately on submission of Task [{}]",
+                            unlocked.getRecordNo(), unlocked.getTaskId(), submittedTask.getRecordNo());
+
+                    List<String> makerIds = unlocked.getAssignedMakerIds();
+                    if (makerIds != null && !makerIds.isEmpty()) {
+                        for (String mId : makerIds) {
+                            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                                    .recipientUserId(mId)
+                                    .eventType("TASK_UNLOCKED")
+                                    .title("Dependent Task Unlocked")
+                                    .message("Task " + unlocked.getRecordNo() + " is now unlocked and ready for execution.")
+                                    .referenceEntityType("TASK")
+                                    .referenceEntityId(unlocked.getTaskId().toString())
+                                    .build());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to unlock next dependent task on submission: {}", e.getMessage());
+        }
     }
 
     @Transactional
