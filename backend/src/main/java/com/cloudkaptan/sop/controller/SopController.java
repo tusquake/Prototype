@@ -11,6 +11,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,16 +31,17 @@ public class SopController {
     private final SopService sopService;
 
     @GetMapping
-    @Operation(summary = "Get SOPs for user / entity", description = "Retrieves SOPs filtered by corporate entity codes, user ID, and role context.")
+    @Operation(summary = "Get paginated SOPs for user / entity", description = "Retrieves paginated SOPs filtered by corporate entity codes, user ID, and role context.")
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Successfully retrieved SOPs")
     })
-    public ResponseEntity<ApiResponse<List<SopDto>>> getSops(
+    public ResponseEntity<ApiResponse<Page<SopDto>>> getSops(
         @Parameter(description = "Corporate entity codes filter") @RequestParam(name = "entities", required = false) List<EntityCode> entities,
         @Parameter(description = "User ID") @RequestParam(name = "userId", required = false) String userId,
-        @Parameter(description = "User role") @RequestParam(name = "userRole", required = false) String userRole
+        @Parameter(description = "User role") @RequestParam(name = "userRole", required = false) String userRole,
+        @PageableDefault(size = 20) Pageable pageable
     ) {
-        return ResponseEntity.ok(ApiResponse.success(sopService.getSopsForUser(entities, userId, userRole)));
+        return ResponseEntity.ok(ApiResponse.success(sopService.getSopsForUser(entities, userId, userRole, pageable)));
     }
 
     @GetMapping("/{id}")

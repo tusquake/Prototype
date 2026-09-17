@@ -6,6 +6,8 @@ import com.cloudkaptan.sop.exception.ResourceNotFoundException;
 import com.cloudkaptan.sop.repository.UserNotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -90,6 +92,12 @@ public class UserNotificationService {
     public List<UserNotificationDto> getNotificationsForUser(String userId) {
         return userNotificationRepository.findByRecipientUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userId).stream()
                 .map(this::mapToDto).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<UserNotificationDto> getNotificationsForUser(String userId, Pageable pageable) {
+        return userNotificationRepository.findByRecipientUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userId, pageable)
+                .map(this::mapToDto);
     }
 
     @Transactional(readOnly = true)

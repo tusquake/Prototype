@@ -125,6 +125,15 @@ export async function fetchJson(endpoint, options = {}) {
     }
     const json = await res.json();
     if (json && typeof json === 'object' && 'success' in json && 'data' in json) {
+      if (json.success && json.data && typeof json.data === 'object' && Array.isArray(json.data.content)) {
+        const list = json.data.content;
+        list.page = json.data.number ?? 0;
+        list.size = json.data.size ?? list.length;
+        list.totalElements = json.data.totalElements ?? list.length;
+        list.totalPages = json.data.totalPages ?? 1;
+        list.last = json.data.last ?? true;
+        return list;
+      }
       return json.success ? json.data : null;
     }
     return json;

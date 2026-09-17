@@ -12,8 +12,10 @@ import com.cloudkaptan.sop.repository.TaskRepository;
 import com.cloudkaptan.sop.repository.UserRepository;
 import com.cloudkaptan.sop.repository.projection.TaskInboxView;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,12 +25,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-import java.util.Collections;
-
-import lombok.extern.slf4j.Slf4j;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -336,6 +333,18 @@ public class TaskWorkflowService {
     @Transactional(readOnly = true)
     public List<TaskDto> getTasks(List<EntityCode> entities) {
         return getTasksForUser(entities, null, "ADMIN");
+    }
+
+    @ApplyRowLevelSecurity
+    @Transactional
+    public Page<TaskDto> getTasksForUser(List<EntityCode> entities, String userId, String userRole, Pageable pageable) {
+        List<TaskDto> allDtos = getTasksForUser(entities, userId, userRole);
+        int start = (int) pageable.getOffset();
+        if (start >= allDtos.size()) {
+            return new PageImpl<>(List.of(), pageable, allDtos.size());
+        }
+        int end = Math.min(start + pageable.getPageSize(), allDtos.size());
+        return new PageImpl<>(allDtos.subList(start, end), pageable, allDtos.size());
     }
 
     @ApplyRowLevelSecurity

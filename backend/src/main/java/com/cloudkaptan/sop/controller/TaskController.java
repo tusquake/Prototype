@@ -33,16 +33,17 @@ public class TaskController {
     private final com.cloudkaptan.sop.service.TaskSchedulerService taskSchedulerService;
 
     @GetMapping
-    @Operation(summary = "Get tasks for user / entity", description = "Fetches compliance tasks filtered by entity code, user identity, and user role with automatic row-level security filtering.")
+    @Operation(summary = "Get paginated tasks for user / entity", description = "Fetches paginated compliance tasks filtered by entity code, user identity, and user role with automatic row-level security filtering.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Successfully retrieved task list")
     })
-    public ResponseEntity<com.cloudkaptan.sop.dto.ApiResponse<List<TaskDto>>> getTasks(
+    public ResponseEntity<com.cloudkaptan.sop.dto.ApiResponse<Page<TaskDto>>> getTasks(
         @Parameter(description = "Corporate entity codes filter") @RequestParam(name = "entities", required = false) List<EntityCode> entities,
         @Parameter(description = "User ID or email") @RequestParam(name = "userId", required = false) String userId,
-        @Parameter(description = "User role (ADMIN | MAKER | CHECKER | VIEWER)") @RequestParam(name = "userRole", required = false) String userRole
+        @Parameter(description = "User role (ADMIN | MAKER | CHECKER | VIEWER)") @RequestParam(name = "userRole", required = false) String userRole,
+        @PageableDefault(size = 20) Pageable pageable
     ) {
-        return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(taskWorkflowService.getTasksForUser(entities, userId, userRole)));
+        return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(taskWorkflowService.getTasksForUser(entities, userId, userRole, pageable)));
     }
 
     @GetMapping("/inbox")

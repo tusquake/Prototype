@@ -2,6 +2,8 @@ package com.cloudkaptan.sop.repository;
 
 import com.cloudkaptan.sop.domain.enums.SopTemplateStatus;
 import com.cloudkaptan.sop.entity.SopTemplate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,6 +22,8 @@ public interface SopTemplateRepository extends JpaRepository<SopTemplate, UUID> 
     boolean existsByTemplateCode(String templateCode);
 
     List<SopTemplate> findByStatusOrderByCreatedAtDesc(SopTemplateStatus status);
+
+    Page<SopTemplate> findByStatusOrderByCreatedAtDesc(SopTemplateStatus status, Pageable pageable);
 
     /**
      * Finds all ACTIVE templates whose effective window covers today.

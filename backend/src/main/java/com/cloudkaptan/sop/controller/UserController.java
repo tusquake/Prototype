@@ -8,6 +8,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,10 +29,11 @@ public class UserController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Successfully retrieved user list")
     })
-    public ResponseEntity<com.cloudkaptan.sop.dto.ApiResponse<List<UserDto>>> getUsers(
-        @Parameter(description = "Role filter (ADMIN | MAKER | CHECKER | VIEWER)") @RequestParam(name = "role", required = false) String role
+    public ResponseEntity<com.cloudkaptan.sop.dto.ApiResponse<Page<UserDto>>> getUsers(
+        @Parameter(description = "Role filter (ADMIN | MAKER | CHECKER | VIEWER)") @RequestParam(name = "role", required = false) String role,
+        @PageableDefault(size = 20) Pageable pageable
     ) {
-        return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(userService.getUsers(role)));
+        return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(userService.getUsers(role, pageable)));
     }
 
     @GetMapping("/me")

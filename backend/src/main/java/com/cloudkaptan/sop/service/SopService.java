@@ -23,6 +23,9 @@ import com.cloudkaptan.sop.repository.SopVersionRepository;
 import com.cloudkaptan.sop.entity.SopVersion;
 import com.cloudkaptan.sop.entity.SopEvent;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +62,18 @@ public class SopService {
     @Transactional(readOnly = true)
     public List<SopDto> getSops(List<EntityCode> entities) {
         return getSopsForUser(entities, null, "ADMIN");
+    }
+
+    @ApplyRowLevelSecurity
+    @Transactional(readOnly = true)
+    public Page<SopDto> getSopsForUser(List<EntityCode> entities, String userId, String userRole, Pageable pageable) {
+        List<SopDto> allDtos = getSopsForUser(entities, userId, userRole);
+        int start = (int) pageable.getOffset();
+        if (start >= allDtos.size()) {
+            return new PageImpl<>(List.of(), pageable, allDtos.size());
+        }
+        int end = Math.min(start + pageable.getPageSize(), allDtos.size());
+        return new PageImpl<>(allDtos.subList(start, end), pageable, allDtos.size());
     }
 
     @ApplyRowLevelSecurity

@@ -80,6 +80,13 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     """)
     List<Task> findTasksByEntities(@Param("entities") List<EntityCode> entities);
 
+    @Query("""
+        SELECT t FROM Task t
+        WHERE (:entities IS NULL OR t.entity.entityCode IN :entities)
+        ORDER BY t.createdAt DESC
+    """)
+    Page<Task> findTasksByEntities(@Param("entities") List<EntityCode> entities, Pageable pageable);
+
     long countByStatusAndEntity_EntityCodeIn(TaskStatus status, List<EntityCode> entities);
 
     long countByEntity_EntityCodeIn(List<EntityCode> entities);

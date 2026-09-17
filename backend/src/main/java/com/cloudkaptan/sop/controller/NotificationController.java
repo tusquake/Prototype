@@ -8,6 +8,9 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -36,13 +39,14 @@ public class NotificationController {
     }
 
     @GetMapping("/user/{userId}")
-    @Operation(summary = "Get user notifications", description = "Retrieves stored notifications for a user ordered by timestamp descending.")
+    @Operation(summary = "Get paginated user notifications", description = "Retrieves stored notifications for a user ordered by timestamp descending.")
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Successfully retrieved notifications")
     })
-    public ResponseEntity<ApiResponse<List<UserNotificationDto>>> getUserNotifications(
-            @Parameter(description = "User ID") @PathVariable("userId") String userId) {
-        return ResponseEntity.ok(ApiResponse.success(userNotificationService.getNotificationsForUser(userId)));
+    public ResponseEntity<ApiResponse<Page<UserNotificationDto>>> getUserNotifications(
+            @Parameter(description = "User ID") @PathVariable("userId") String userId,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(userNotificationService.getNotificationsForUser(userId, pageable)));
     }
 
     @GetMapping("/user/{userId}/unread-count")

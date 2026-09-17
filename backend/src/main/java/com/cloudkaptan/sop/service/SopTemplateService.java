@@ -2,6 +2,7 @@ package com.cloudkaptan.sop.service;
 
 import com.cloudkaptan.sop.domain.enums.SopTemplateStatus;
 import com.cloudkaptan.sop.domain.state.soptemplate.SopTemplateContext;
+import com.cloudkaptan.sop.dto.AuditLogDto;
 import com.cloudkaptan.sop.dto.CreateSopTemplateRequest;
 import com.cloudkaptan.sop.dto.CreateTaskTemplateRequest;
 import com.cloudkaptan.sop.dto.SopTemplateDto;
@@ -16,6 +17,8 @@ import com.cloudkaptan.sop.repository.TaskTemplateRepository;
 import com.cloudkaptan.sop.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -128,6 +131,7 @@ public class SopTemplateService {
         template.getTaskTemplates().add(taskTemplate);
 
         SopTemplate saved = sopTemplateRepository.save(template);
+        logTemplateAudit(saved, null, "ADD_TASK_TEMPLATE", "Added task step blueprint sequence " + nextSequence + " (" + request.getTaskName() + ")");
         log.info("Added task step [{}] to SOP Template [{}]", nextSequence, templateId);
         return toDto(saved);
     }
@@ -151,6 +155,7 @@ public class SopTemplateService {
 
         taskTemplateRepository.save(task);
         SopTemplate template = getTemplateOrThrow(templateId);
+        logTemplateAudit(template, null, "UPDATE_TASK_TEMPLATE", "Updated task step blueprint: " + task.getTaskName());
         log.info("Updated task template [{}] on SOP Template [{}]", taskTemplateId, templateId);
         return toDto(template);
     }
@@ -169,6 +174,7 @@ public class SopTemplateService {
         }
 
         SopTemplate saved = sopTemplateRepository.save(template);
+        logTemplateAudit(saved, null, "DELETE_TASK_TEMPLATE", "Removed task step blueprint from SOP Template");
         log.info("Deleted task template [{}] from SOP Template [{}]", taskTemplateId, templateId);
         return toDto(saved);
     }
@@ -284,10 +290,45 @@ public class SopTemplateService {
     }
 
     @Transactional(readOnly = true)
+    public Page<SopTemplateDto> getAllTemplates(Pageable pageable) {
+        return sopTemplateRepository.findAll(pageable).map(this::toDto);
+    }
+
+    @Transactional(readOnly = true)
     public List<SopTemplateDto> getByStatus(SopTemplateStatus status) {
         return sopTemplateRepository.findByStatusOrderByCreatedAtDesc(status).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<SopTemplateDto> getByStatus(SopTemplateStatus status, Pageable pageable) {
+        return sopTemplateRepository.findByStatusOrderByCreatedAtDesc(status, pageable).map(this::toDto);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AuditLogDto> getTemplateAuditLogs(UUID templateId, Pageable pageable) {
+        SopTemplate template = getTemplateOrThrow(templateId);
+        return auditLogRepository.findByEntityTypeAndEntityIdOrderByTimestampDesc("SOP_TEMPLATE", template.getTemplateId().toString(), pageable)
+                .map(a -> {
+                    String actorName = userRepository.findById(a.getActorId())
+                            .map(User::getFullName)
+                            .orElse(a.getActorId());
+                    String actorEmail = userRepository.findById(a.getActorId())
+                            .map(User::getEmail)
+                            .orElse("");
+                    return AuditLogDto.builder()
+                            .auditId(a.getAuditId())
+                            .actorId(a.getActorId())
+                            .actorName(actorName)
+                            .actorEmail(actorEmail)
+                            .action(a.getAction())
+                            .entityType(a.getEntityType())
+                            .entityId(a.getEntityId())
+                            .correlationId(a.getCorrelationId())
+                            .timestamp(a.getTimestamp())
+                            .build();
+                });
     }
 
     private SopTemplate getTemplateOrThrow(UUID templateId) {

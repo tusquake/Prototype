@@ -2,6 +2,7 @@ package com.cloudkaptan.sop.controller;
 
 import com.cloudkaptan.sop.domain.enums.SopTemplateStatus;
 import com.cloudkaptan.sop.dto.ApiResponse;
+import com.cloudkaptan.sop.dto.AuditLogDto;
 import com.cloudkaptan.sop.dto.CreateSopTemplateRequest;
 import com.cloudkaptan.sop.dto.CreateTaskTemplateRequest;
 import com.cloudkaptan.sop.dto.SopTemplateDto;
@@ -11,6 +12,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -38,14 +42,15 @@ public class SopTemplateController {
     }
 
     @GetMapping
-    @Operation(summary = "List SOP Templates",
-               description = "Returns all SOP Templates, optionally filtered by status.")
-    public ResponseEntity<ApiResponse<List<SopTemplateDto>>> listTemplates(
-            @RequestParam(name = "status", required = false) SopTemplateStatus status
+    @Operation(summary = "List SOP Templates with pagination",
+               description = "Returns paginated list of SOP Templates, optionally filtered by status.")
+    public ResponseEntity<ApiResponse<Page<SopTemplateDto>>> listTemplates(
+            @RequestParam(name = "status", required = false) SopTemplateStatus status,
+            @PageableDefault(size = 20) Pageable pageable
     ) {
-        List<SopTemplateDto> templates = (status != null)
-                ? sopTemplateService.getByStatus(status)
-                : sopTemplateService.getAllTemplates();
+        Page<SopTemplateDto> templates = (status != null)
+                ? sopTemplateService.getByStatus(status, pageable)
+                : sopTemplateService.getAllTemplates(pageable);
         return ResponseEntity.ok(ApiResponse.success(templates));
     }
 
@@ -55,6 +60,16 @@ public class SopTemplateController {
             @PathVariable UUID templateId
     ) {
         return ResponseEntity.ok(ApiResponse.success(sopTemplateService.getById(templateId)));
+    }
+
+    @GetMapping("/{templateId}/audit-logs")
+    @Operation(summary = "Get SOP Template audit trail history",
+               description = "Retrieves paginated audit log timeline for a specific SOP Template blueprint.")
+    public ResponseEntity<ApiResponse<Page<AuditLogDto>>> getTemplateAuditLogs(
+            @PathVariable UUID templateId,
+            @PageableDefault(size = 20) Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(sopTemplateService.getTemplateAuditLogs(templateId, pageable)));
     }
 
     @PutMapping("/{templateId}")

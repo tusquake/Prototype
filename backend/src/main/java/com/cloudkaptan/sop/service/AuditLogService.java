@@ -6,6 +6,8 @@ import com.cloudkaptan.sop.entity.User;
 import com.cloudkaptan.sop.repository.AuditLogRepository;
 import com.cloudkaptan.sop.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +26,12 @@ public class AuditLogService {
         return auditLogRepository.findAllByOrderByTimestampDesc().stream()
             .map(this::mapToDto)
             .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AuditLogDto> getAllAuditLogs(Pageable pageable) {
+        return auditLogRepository.findAllByOrderByTimestampDesc(pageable)
+            .map(this::mapToDto);
     }
 
     private AuditLogDto mapToDto(AuditLog auditLog) {

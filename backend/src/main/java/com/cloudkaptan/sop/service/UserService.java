@@ -6,6 +6,9 @@ import com.cloudkaptan.sop.entity.User;
 import com.cloudkaptan.sop.exception.ResourceNotFoundException;
 import com.cloudkaptan.sop.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +23,17 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<UserDto> getAllUsers() {
         return getUsers(null);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<UserDto> getUsers(String role, Pageable pageable) {
+        List<UserDto> all = getUsers(role);
+        int start = (int) pageable.getOffset();
+        if (start >= all.size()) {
+            return new PageImpl<>(List.of(), pageable, all.size());
+        }
+        int end = Math.min(start + pageable.getPageSize(), all.size());
+        return new PageImpl<>(all.subList(start, end), pageable, all.size());
     }
 
     @Transactional(readOnly = true)
