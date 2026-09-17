@@ -13,7 +13,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import SopActivityLogModal from '../components/SopActivityLogModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { ENTITIES, getSops, getSopTemplates, deleteSop, getUsers, actionSop, activateSopTemplate, rejectSopTemplate, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
+import { ENTITIES, getSops, getSopTemplates, deleteSop, getUsers, actionSop, activateSopTemplate, rejectSopTemplate, instantiateSopTemplate, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
 import { useForm } from 'react-hook-form';
@@ -539,6 +539,20 @@ export default function Sops() {
       await loadData();
     } catch (err) {
       setErrorMsg(err.message || 'Failed to approve SOP');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleInstantiateTemplate(sop) {
+    try {
+      setSaving(true);
+      const tId = sop.templateId || sop.id;
+      await instantiateSopTemplate(tId);
+      setSuccessMsg(`SOP Instance & Tasks spawned successfully from template "${sop.name || sop.title}"! Switch to "SOP Instances (Generated)" tab or "Tasks" page to view.`);
+      await loadData();
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to instantiate SOP template');
     } finally {
       setSaving(false);
     }
@@ -1153,6 +1167,16 @@ export default function Sops() {
                                 </button>
                               </>
                             )
+                          )}
+                          {sop.isTemplate && sop.status === 'ACTIVE' && (
+                            <button
+                              type="button"
+                              className="bg-indigo-50 border border-indigo-300 text-indigo-700 rounded-[6px] px-2.5 py-[4px] cursor-pointer text-[12px] font-bold hover:bg-indigo-100 transition shadow-sm inline-flex items-center gap-1"
+                              onClick={() => handleInstantiateTemplate(sop)}
+                              title="Instantiate SOP Instance and tasks immediately for demo"
+                            >
+                              ⚡ Instantiate SOP (Demo)
+                            </button>
                           )}
                           <button
                             type="button"

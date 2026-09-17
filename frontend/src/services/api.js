@@ -219,6 +219,8 @@ export function mapTask(dto) {
     status: dto.status || 'OPEN',
     canUserSubmit: dto.canUserSubmit,
     canUserApprove: dto.canUserApprove,
+    requiredDocumentNames: dto.requiredDocumentNames || dto.requiredDocs || [],
+    requiredDocs: dto.requiredDocumentNames || dto.requiredDocs || [],
     history: historyList,
   };
 }
@@ -1109,5 +1111,11 @@ export async function getSopTemplates() {
 
 export async function getSopTemplate(templateId) {
   return await fetchJson(`/sop-templates/${templateId}`);
+}
+
+export async function instantiateSopTemplate(templateId) {
+  return await fetchJson(`/sop-templates/${templateId}/instantiate`, {
+    method: 'POST',
+  });
 }
 

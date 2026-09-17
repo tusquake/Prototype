@@ -17,9 +17,9 @@ import java.time.OffsetDateTime;
 public class AuditLog {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "audit_id", nullable = false, updatable = false)
-    private Long auditId;
+    private java.util.UUID auditId;
 
     @Column(name = "actor_id", length = 64, nullable = false, updatable = false)
     private String actorId;

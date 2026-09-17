@@ -12,7 +12,7 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuditLogDto {
-    private Long auditId;
+    private java.util.UUID auditId;
     private String actorId;
     private String actorName;
     private String actorEmail;

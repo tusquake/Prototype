@@ -36,6 +36,7 @@ public class SopTemplateService {
     private final UserRepository userRepository;
     private final UserCategoryPermissionService categoryPermissionService;
     private final NotificationPublisherService notificationPublisherService;
+    private final TaskSchedulerService taskSchedulerService;
 
     @Transactional
     public SopTemplateDto createTemplate(CreateSopTemplateRequest request) {
@@ -223,7 +224,21 @@ public class SopTemplateService {
 
         SopTemplate saved = sopTemplateRepository.save(template);
         log.info("Activated SOP Template [{}]", templateId);
+
+        // Automatically spawn SOP Instance & Task Instances immediately upon approval!
+        try {
+            taskSchedulerService.instantiateSingleSopTemplate(saved, java.time.LocalDate.now());
+        } catch (Exception e) {
+            log.warn("Auto-instantiation on template approval failed for template [{}]: {}", templateId, e.getMessage());
+        }
+
         return toDto(saved);
+    }
+
+    @Transactional
+    public void instantiateTemplate(UUID templateId) {
+        SopTemplate template = getTemplateOrThrow(templateId);
+        taskSchedulerService.instantiateSingleSopTemplate(template, java.time.LocalDate.now());
     }
 
     @Transactional
