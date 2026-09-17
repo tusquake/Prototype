@@ -1,6 +1,8 @@
 package com.cloudkaptan.sop.controller;
 
 import com.cloudkaptan.sop.domain.enums.EntityCode;
+import com.cloudkaptan.sop.domain.enums.SopFrequency;
+import com.cloudkaptan.sop.domain.enums.SopStatus;
 import com.cloudkaptan.sop.dto.ApiResponse;
 import com.cloudkaptan.sop.dto.CreateSopRequest;
 import com.cloudkaptan.sop.dto.SopDto;
@@ -31,17 +33,21 @@ public class SopController {
     private final SopService sopService;
 
     @GetMapping
-    @Operation(summary = "Get paginated SOPs for user / entity", description = "Retrieves paginated SOPs filtered by corporate entity codes, user ID, and role context.")
+    @Operation(summary = "Get paginated SOPs with multi-filtering", description = "Retrieves paginated SOPs filtered by corporate entity codes, status, process category, frequency, title/code search, user ID, and role context.")
     @ApiResponses({
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Successfully retrieved SOPs")
     })
     public ResponseEntity<ApiResponse<Page<SopDto>>> getSops(
         @Parameter(description = "Corporate entity codes filter") @RequestParam(name = "entities", required = false) List<EntityCode> entities,
+        @Parameter(description = "SOP status filter (ACTIVE, PENDING_APPROVAL, DRAFT, REJECTED)") @RequestParam(name = "status", required = false) SopStatus status,
+        @Parameter(description = "Process category filter") @RequestParam(name = "category", required = false) String category,
+        @Parameter(description = "SOP frequency filter") @RequestParam(name = "frequency", required = false) SopFrequency frequency,
+        @Parameter(description = "Search query for SOP title or code") @RequestParam(name = "search", required = false) String search,
         @Parameter(description = "User ID") @RequestParam(name = "userId", required = false) String userId,
         @Parameter(description = "User role") @RequestParam(name = "userRole", required = false) String userRole,
         @PageableDefault(size = 20) Pageable pageable
     ) {
-        return ResponseEntity.ok(ApiResponse.success(sopService.getSopsForUser(entities, userId, userRole, pageable)));
+        return ResponseEntity.ok(ApiResponse.success(sopService.getSopsForUser(entities, status, category, frequency, search, userId, userRole, pageable)));
     }
 
     @GetMapping("/{id}")

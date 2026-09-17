@@ -1,5 +1,7 @@
 package com.cloudkaptan.sop.controller;
 
+import com.cloudkaptan.sop.domain.enums.EntityCode;
+import com.cloudkaptan.sop.domain.enums.SopFrequency;
 import com.cloudkaptan.sop.domain.enums.SopTemplateStatus;
 import com.cloudkaptan.sop.dto.ApiResponse;
 import com.cloudkaptan.sop.dto.AuditLogDto;
@@ -9,6 +11,7 @@ import com.cloudkaptan.sop.dto.SopTemplateDto;
 import com.cloudkaptan.sop.dto.SopTemplateStatusUpdateRequest;
 import com.cloudkaptan.sop.service.SopTemplateService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -42,15 +45,17 @@ public class SopTemplateController {
     }
 
     @GetMapping
-    @Operation(summary = "List SOP Templates with pagination",
-               description = "Returns paginated list of SOP Templates, optionally filtered by status.")
+    @Operation(summary = "List SOP Templates with multi-filtering",
+               description = "Returns paginated list of SOP Templates, optionally filtered by status, entityCode, processCategory, frequency, and title/code search query.")
     public ResponseEntity<ApiResponse<Page<SopTemplateDto>>> listTemplates(
-            @RequestParam(name = "status", required = false) SopTemplateStatus status,
+            @Parameter(description = "SOP Template status filter (ACTIVE, PENDING_APPROVAL, DRAFT, REJECTED)") @RequestParam(name = "status", required = false) SopTemplateStatus status,
+            @Parameter(description = "Corporate entity code filter") @RequestParam(name = "entityCode", required = false) EntityCode entityCode,
+            @Parameter(description = "Process category filter") @RequestParam(name = "category", required = false) String category,
+            @Parameter(description = "Frequency filter") @RequestParam(name = "frequency", required = false) SopFrequency frequency,
+            @Parameter(description = "Search query for template title or code") @RequestParam(name = "search", required = false) String search,
             @PageableDefault(size = 20) Pageable pageable
     ) {
-        Page<SopTemplateDto> templates = (status != null)
-                ? sopTemplateService.getByStatus(status, pageable)
-                : sopTemplateService.getAllTemplates(pageable);
+        Page<SopTemplateDto> templates = sopTemplateService.getFilteredTemplates(status, entityCode, category, frequency, search, pageable);
         return ResponseEntity.ok(ApiResponse.success(templates));
     }
 

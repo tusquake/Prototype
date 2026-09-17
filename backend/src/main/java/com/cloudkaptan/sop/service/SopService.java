@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -67,7 +68,15 @@ public class SopService {
     @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
     public Page<SopDto> getSopsForUser(List<EntityCode> entities, String userId, String userRole, Pageable pageable) {
-        List<SopDto> allDtos = getSopsForUser(entities, userId, userRole);
+        return getSopsForUser(entities, null, null, null, null, userId, userRole, pageable);
+    }
+
+    @ApplyRowLevelSecurity
+    @Transactional(readOnly = true)
+    public Page<SopDto> getSopsForUser(List<EntityCode> entities, SopStatus status, String processCategory,
+                                       com.cloudkaptan.sop.domain.enums.SopFrequency frequency, String search,
+                                       String userId, String userRole, Pageable pageable) {
+        List<SopDto> allDtos = getSopsForUser(entities, status, processCategory, frequency, search, userId, userRole);
         int start = (int) pageable.getOffset();
         if (start >= allDtos.size()) {
             return new PageImpl<>(List.of(), pageable, allDtos.size());
@@ -79,12 +88,34 @@ public class SopService {
     @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
     public List<SopDto> getSopsForUser(List<EntityCode> entities, String userId, String userRole) {
+        return getSopsForUser(entities, null, null, null, null, userId, userRole);
+    }
+
+    @ApplyRowLevelSecurity
+    @Transactional(readOnly = true)
+    public List<SopDto> getSopsForUser(List<EntityCode> entities, SopStatus status, String processCategory,
+                                       com.cloudkaptan.sop.domain.enums.SopFrequency frequency, String search,
+                                       String userId, String userRole) {
         List<Sop> sops = (entities == null || entities.isEmpty())
                 ? sopRepository.findAll()
                 : sopRepository.findByEntityIn(entities);
 
+        // Pre-filter by status, category, frequency, search
+        Stream<Sop> stream = sops.stream().filter(sop -> {
+            if (status != null && sop.getStatus() != status) return false;
+            if (processCategory != null && !processCategory.isBlank() && !processCategory.equalsIgnoreCase(sop.getProcessCategory())) return false;
+            if (frequency != null && sop.getFrequency() != frequency) return false;
+            if (search != null && !search.isBlank()) {
+                String q = search.trim().toLowerCase();
+                boolean matchTitle = sop.getTitle() != null && sop.getTitle().toLowerCase().contains(q);
+                boolean matchCode = sop.getSopCode() != null && sop.getSopCode().toLowerCase().contains(q);
+                if (!matchTitle && !matchCode) return false;
+            }
+            return true;
+        });
+
         if ("ADMIN".equalsIgnoreCase(userRole) || userId == null || userId.isBlank()) {
-            return sops.stream().map(this::mapToDto).toList();
+            return stream.map(this::mapToDto).toList();
         }
 
         final String inputId = userId.trim();
@@ -100,7 +131,7 @@ public class SopService {
         // Fetch accessible categories safely
         List<String> accessibleCategories = categoryPermissionService.getUserAccessibleCategories(dbUserId);
 
-        List<Sop> filteredSops = sops.stream()
+        List<Sop> filteredSops = stream
                 .filter(sop -> {
                     String cat = sop.getProcessCategory();
                     boolean categoryAllowed = cat != null && accessibleCategories.contains(cat);

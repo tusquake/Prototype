@@ -295,6 +295,39 @@ public class SopTemplateService {
     }
 
     @Transactional(readOnly = true)
+    public Page<SopTemplateDto> getFilteredTemplates(SopTemplateStatus status,
+                                                    com.cloudkaptan.sop.domain.enums.EntityCode entityCode,
+                                                    String category,
+                                                    com.cloudkaptan.sop.domain.enums.SopFrequency frequency,
+                                                    String search,
+                                                    Pageable pageable) {
+        List<SopTemplate> templates = sopTemplateRepository.findAll();
+        List<SopTemplateDto> filtered = templates.stream()
+                .filter(t -> {
+                    if (status != null && t.getStatus() != status) return false;
+                    if (entityCode != null && (t.getEntity() == null || t.getEntity().getEntityCode() != entityCode)) return false;
+                    if (category != null && !category.isBlank() && !category.equalsIgnoreCase(t.getProcessCategory())) return false;
+                    if (frequency != null && t.getFrequency() != frequency) return false;
+                    if (search != null && !search.isBlank()) {
+                        String q = search.trim().toLowerCase();
+                        boolean matchTitle = t.getTitle() != null && t.getTitle().toLowerCase().contains(q);
+                        boolean matchCode = t.getTemplateCode() != null && t.getTemplateCode().toLowerCase().contains(q);
+                        if (!matchTitle && !matchCode) return false;
+                    }
+                    return true;
+                })
+                .map(this::toDto)
+                .toList();
+
+        int start = (int) pageable.getOffset();
+        if (start >= filtered.size()) {
+            return new org.springframework.data.domain.PageImpl<>(List.of(), pageable, filtered.size());
+        }
+        int end = Math.min(start + pageable.getPageSize(), filtered.size());
+        return new org.springframework.data.domain.PageImpl<>(filtered.subList(start, end), pageable, filtered.size());
+    }
+
+    @Transactional(readOnly = true)
     public List<SopTemplateDto> getByStatus(SopTemplateStatus status) {
         return sopTemplateRepository.findByStatusOrderByCreatedAtDesc(status).stream()
                 .map(this::toDto)
