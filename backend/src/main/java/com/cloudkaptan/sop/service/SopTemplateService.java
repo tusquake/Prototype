@@ -323,6 +323,18 @@ public class SopTemplateService {
 
         String createdByIdStr = (template.getCreatedBy() != null) ? template.getCreatedBy().getUserId() : null;
 
+        List<String> approverIds = new ArrayList<>();
+        try {
+            com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto catAssignments = categoryPermissionService.getCategoryAssignments(template.getProcessCategory());
+            if (catAssignments != null && catAssignments.getApproverUserIds() != null && !catAssignments.getApproverUserIds().isEmpty()) {
+                approverIds.addAll(catAssignments.getApproverUserIds());
+            } else {
+                approverIds.add("usr-vivek-108");
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch category approvers for template [{}]: {}", template.getTemplateId(), e.getMessage());
+        }
+
         return SopTemplateDto.builder()
                 .templateId(template.getTemplateId())
                 .templateCode(template.getTemplateCode())
@@ -338,6 +350,7 @@ public class SopTemplateService {
                 .effectiveUntil(template.getEffectiveUntil())
                 .status(template.getStatus())
                 .createdById(createdByIdStr)
+                .assignedApproverIds(approverIds)
                 .createdAt(template.getCreatedAt())
                 .updatedAt(template.getUpdatedAt())
                 .defaultMakerIds(template.getDefaultMakerIds())

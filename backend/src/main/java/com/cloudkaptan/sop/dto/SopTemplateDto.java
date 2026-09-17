@@ -35,6 +35,8 @@ public class SopTemplateDto {
     private List<String> defaultCheckerIds;
     private List<TaskTemplateDto> taskTemplates;
     private String createdById;
+    private List<String> assignedApproverIds;
+    private List<String> assignedApproverNames;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }
