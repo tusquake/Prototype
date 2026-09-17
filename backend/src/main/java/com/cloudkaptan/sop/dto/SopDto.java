@@ -49,4 +49,5 @@ public class SopDto {
     private LocalDate startDate;
     private LocalDate dueDate;
     private List<SopEventDto> history;
+    private List<TaskDto> tasks;
 }

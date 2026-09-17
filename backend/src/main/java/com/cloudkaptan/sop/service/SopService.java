@@ -1,6 +1,7 @@
 package com.cloudkaptan.sop.service;
 
 import com.cloudkaptan.sop.config.security.ApplyRowLevelSecurity;
+import com.cloudkaptan.sop.config.security.SopSecurityEvaluator;
 import com.cloudkaptan.sop.domain.enums.EntityCode;
 import com.cloudkaptan.sop.domain.enums.SopStatus;
 import com.cloudkaptan.sop.domain.enums.UserRole;
@@ -49,8 +50,10 @@ public class SopService {
     private final SopEventRepository sopEventRepository;
     private final NotificationPublisherService notificationPublisherService;
     private final UserNotificationRepository userNotificationRepository;
-    private final com.cloudkaptan.sop.config.security.SopSecurityEvaluator sopSecurityEvaluator;
     private final UserCategoryPermissionService categoryPermissionService;
+    private final com.cloudkaptan.sop.repository.TaskRepository taskRepository;
+    private final TaskWorkflowService taskWorkflowService;
+    private final SopSecurityEvaluator sopSecurityEvaluator;
 
     @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
@@ -832,6 +835,14 @@ public class SopService {
         LocalDate dueD = sop.getDueDate() != null ? sop.getDueDate()
                 : (activeVersion != null && activeVersion.getDueDateTime() != null ? activeVersion.getDueDateTime().toLocalDate() : null);
 
+        List<TaskDto> taskList = new java.util.ArrayList<>();
+        try {
+            List<com.cloudkaptan.sop.entity.Task> tasks = taskRepository.findBySop_SopIdOrderByRecordNoAsc(sop.getSopId());
+            taskList = tasks.stream().map(taskWorkflowService::mapToDto).toList();
+        } catch (Exception e) {
+            log.warn("Could not fetch tasks for SOP [{}]: {}", sop.getSopId(), e.getMessage());
+        }
+
         return SopDto.builder()
                 .sopId(sop.getSopId())
                 .sopCode(sop.getSopCode())
@@ -862,6 +873,7 @@ public class SopService {
                 .startDate(startD)
                 .dueDate(dueD)
                 .history(historyList)
+                .tasks(taskList)
                 .build();
     }
 
