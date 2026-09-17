@@ -1180,7 +1180,7 @@ export default function Sops() {
                           )}
                           <button
                             type="button"
-                            className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#334155] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1"
+                            className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#334155] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1 hover:bg-slate-200 transition"
                             onClick={() => {
                               setEditingDraftTemplate(sop);
                               setIsViewOnly(true);
@@ -1192,6 +1192,14 @@ export default function Sops() {
                               <circle cx="12" cy="12" r="3" />
                             </svg>
                             View
+                          </button>
+                          <button
+                            type="button"
+                            className="bg-[#f8fafc] border border-[#94a3b8] text-[#475569] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-bold hover:bg-[#e2e8f0] transition shadow-xs inline-flex items-center gap-1"
+                            onClick={() => setViewingSopHistory(sop)}
+                            title="View Audit Log & Blueprint History"
+                          >
+                            📜 Audit Log
                           </button>
                         </div>
                       </td>

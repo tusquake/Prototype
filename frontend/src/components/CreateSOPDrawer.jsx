@@ -3,6 +3,7 @@ import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import UserPickerModal from './UserPickerModal';
+import SopActivityLogModal from './SopActivityLogModal';
 import {
   getUsersByPermission,
   getProcessCategories,
@@ -520,6 +521,7 @@ export default function CreateSopDrawer({
   const [selectedQuarterMonth, setSelectedQuarterMonth] = useState(1);
   const [selectedAnnualMonth, setSelectedAnnualMonth] = useState('MAR');
   const [selectedDailyMode, setSelectedDailyMode] = useState('BUSINESS_DAYS');
+  const [showAuditModal, setShowAuditModal] = useState(false);
 
   const getScheduleSummary = () => {
     if (!isRecurring) {
@@ -1014,7 +1016,19 @@ export default function CreateSopDrawer({
                 : 'Design master blueprints with ETA days and recurring scheduling rules.'}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:bg-white/25">✕</button>
+          <div className="flex items-center gap-2">
+            {editingTemplate && (
+              <button
+                type="button"
+                onClick={() => setShowAuditModal(true)}
+                className="rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-white/20"
+                title="View Blueprint Audit Trail"
+              >
+                📜 Audit Log
+              </button>
+            )}
+            <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:bg-white/25">✕</button>
+          </div>
         </div>
 
         {/* Wizard Progress Bar */}
@@ -1761,6 +1775,12 @@ export default function CreateSopDrawer({
           setShowCreateTaskModal(false);
           setEditingTaskStep(null);
         }}
+      />
+
+      <SopActivityLogModal
+        isOpen={showAuditModal}
+        sop={editingTemplate}
+        onClose={() => setShowAuditModal(false)}
       />
     </div>
   );

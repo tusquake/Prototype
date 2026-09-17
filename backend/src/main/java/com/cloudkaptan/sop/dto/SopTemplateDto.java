@@ -39,4 +39,5 @@ public class SopTemplateDto {
     private List<String> assignedApproverNames;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
+    private List<TaskEventDto> history;
 }

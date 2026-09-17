@@ -37,6 +37,7 @@ public class SopTemplateService {
     private final UserCategoryPermissionService categoryPermissionService;
     private final NotificationPublisherService notificationPublisherService;
     private final TaskSchedulerService taskSchedulerService;
+    private final com.cloudkaptan.sop.repository.AuditLogRepository auditLogRepository;
 
     @Transactional
     public SopTemplateDto createTemplate(CreateSopTemplateRequest request) {
@@ -79,6 +80,7 @@ public class SopTemplateService {
         }
 
         SopTemplate saved = sopTemplateRepository.save(template);
+        logTemplateAudit(saved, request.getCreatedById(), "CREATE_TEMPLATE", "Created SOP Template blueprint in DRAFT status");
         log.info("Created SOP Template [{}] ({}) in DRAFT status", saved.getTemplateCode(), saved.getTemplateId());
         return toDto(saved);
     }
@@ -109,6 +111,7 @@ public class SopTemplateService {
         }
 
         SopTemplate saved = sopTemplateRepository.save(template);
+        logTemplateAudit(saved, null, "UPDATE_TEMPLATE", "Updated SOP Template blueprint settings");
         log.info("Updated SOP Template [{}]", saved.getTemplateId());
         return toDto(saved);
     }
@@ -212,6 +215,7 @@ public class SopTemplateService {
             log.warn("Failed to publish approval notifications for SOP template [{}]: {}", templateId, e.getMessage());
         }
 
+        logTemplateAudit(saved, actorId, "SUBMIT_FOR_APPROVAL", "Submitted SOP Template blueprint for category approval");
         log.info("Submitted SOP Template [{}] for approval", templateId);
         return toDto(saved);
     }
@@ -223,6 +227,7 @@ public class SopTemplateService {
         context.approve();
 
         SopTemplate saved = sopTemplateRepository.save(template);
+        logTemplateAudit(saved, null, "APPROVE_TEMPLATE", "Approved and Activated SOP Template blueprint");
         log.info("Activated SOP Template [{}]", templateId);
 
         // Automatically spawn SOP Instance & Task Instances immediately upon approval!
@@ -238,6 +243,7 @@ public class SopTemplateService {
     @Transactional
     public void instantiateTemplate(UUID templateId) {
         SopTemplate template = getTemplateOrThrow(templateId);
+        logTemplateAudit(template, null, "INSTANTIATE_TEMPLATE", "Manually triggered SOP instance generation");
         taskSchedulerService.instantiateSingleSopTemplate(template, java.time.LocalDate.now());
     }
 
@@ -248,6 +254,7 @@ public class SopTemplateService {
         context.deactivate();
 
         SopTemplate saved = sopTemplateRepository.save(template);
+        logTemplateAudit(saved, null, "DEACTIVATE_TEMPLATE", "Deactivated SOP Template blueprint");
         log.info("Deactivated SOP Template [{}]", templateId);
         return toDto(saved);
     }
@@ -259,7 +266,8 @@ public class SopTemplateService {
         context.reject(comment);
 
         SopTemplate saved = sopTemplateRepository.save(template);
-        log.info("Rejected SOP Template [{}] with comment: {}", templateId, comment);
+        logTemplateAudit(saved, null, "REJECT_TEMPLATE", comment != null ? comment : "Rejected SOP Template blueprint");
+        log.info("Rejected SOP Template [{}]", templateId);
         return toDto(saved);
     }
 
@@ -342,6 +350,27 @@ public class SopTemplateService {
             log.warn("Could not fetch category approvers for template [{}]: {}", template.getTemplateId(), e.getMessage());
         }
 
+        List<com.cloudkaptan.sop.dto.TaskEventDto> historyList = new ArrayList<>();
+        try {
+            List<com.cloudkaptan.sop.entity.AuditLog> audits = auditLogRepository
+                    .findByEntityTypeAndEntityIdOrderByTimestampDesc("SOP_TEMPLATE", template.getTemplateId().toString());
+            for (com.cloudkaptan.sop.entity.AuditLog a : audits) {
+                String actorName = userRepository.findById(a.getActorId())
+                        .map(User::getFullName)
+                        .orElse(a.getActorId());
+                historyList.add(com.cloudkaptan.sop.dto.TaskEventDto.builder()
+                        .eventId(0L)
+                        .actorId(a.getActorId())
+                        .actorName(actorName)
+                        .action(a.getAction())
+                        .comment(a.getCorrelationId())
+                        .timestamp(a.getTimestamp())
+                        .build());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to load audit history for template [{}]: {}", template.getTemplateId(), e.getMessage());
+        }
+
         return SopTemplateDto.builder()
                 .templateId(template.getTemplateId())
                 .templateCode(template.getTemplateCode())
@@ -364,7 +393,26 @@ public class SopTemplateService {
                 .defaultMakerIds(template.getDefaultMakerIds())
                 .defaultCheckerIds(template.getDefaultCheckerIds())
                 .taskTemplates(taskDtos)
+                .history(historyList)
                 .build();
+    }
+
+    private void logTemplateAudit(SopTemplate template, String actorId, String action, String comment) {
+        try {
+            String actId = (actorId != null && !actorId.isBlank())
+                    ? actorId
+                    : (template.getCreatedBy() != null ? template.getCreatedBy().getUserId() : "usr-manoj-042");
+
+            auditLogRepository.save(com.cloudkaptan.sop.entity.AuditLog.builder()
+                    .actorId(actId)
+                    .action(action)
+                    .entityType("SOP_TEMPLATE")
+                    .entityId(template.getTemplateId().toString())
+                    .correlationId(comment != null ? comment : UUID.randomUUID().toString())
+                    .build());
+        } catch (Exception e) {
+            log.warn("Failed to log template audit for [{}]: {}", template.getTemplateId(), e.getMessage());
+        }
     }
 
     private TaskTemplateDto toTaskDto(TaskTemplate task) {
