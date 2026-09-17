@@ -55,20 +55,40 @@ resource "google_cloud_run_v2_service" "backend" {
         value = var.rate_limit_auth_capacity
       }
       env {
-        name  = "GCS_ENABLED"
-        value = "true"
-      }
-      env {
-        name  = "GCS_BUCKET_NAME"
-        value = google_storage_bucket.task_documents.name
+        name  = "APP_MESSAGING_PROVIDER"
+        value = var.app_messaging_provider
       }
       env {
         name  = "GCP_PROJECT_ID"
         value = var.project_id
       }
       env {
+        name  = "GCP_PUBSUB_NOTIFICATION_TOPIC"
+        value = google_pubsub_topic.notification_topic.name
+      }
+      env {
+        name  = "SPRING_PROFILES_ACTIVE"
+        value = var.spring_profiles_active
+      }
+      env {
+        name  = "GCP_GCS_BUCKET_NAME"
+        value = google_storage_bucket.task_documents.name
+      }
+      env {
+        name  = "GCS_BUCKET_NAME"
+        value = google_storage_bucket.task_documents.name
+      }
+      env {
+        name  = "APP_STORAGE_TYPE"
+        value = var.gcs_storage_type
+      }
+      env {
         name  = "STORAGE_TYPE"
         value = var.gcs_storage_type
+      }
+      env {
+        name  = "GCS_ENABLED"
+        value = "true"
       }
 
       resources {
@@ -95,6 +115,7 @@ resource "google_cloud_run_v2_service" "backend" {
     google_sql_database_instance.postgres,
     google_artifact_registry_repository.backend_repo,
     google_storage_bucket.task_documents,
+    google_pubsub_topic.notification_topic,
   ]
 }
 

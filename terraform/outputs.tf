@@ -34,3 +34,14 @@ output "task_documents_bucket_url" {
   value       = "gs://${google_storage_bucket.task_documents.name}"
 }
 
+output "pubsub_notification_topic" {
+  description = "GCP Pub/Sub notification topic name"
+  value       = google_pubsub_topic.notification_topic.name
+}
+
+output "pubsub_notification_subscription" {
+  description = "GCP Pub/Sub notification subscription name"
+  value       = google_pubsub_subscription.notification_sub.name
+}
+
+

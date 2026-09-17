@@ -35,8 +35,8 @@ resource "google_storage_bucket" "task_documents" {
   }
 
   cors {
-    origin          = ["https://${var.domain_name}", "http://localhost:5173", "http://localhost:3010"]
-    method          = ["GET", "POST", "PUT", "DELETE", "HEAD"]
+    origin          = ["http://136.69.60.68", "http://localhost:5173", "https://${var.domain_name}"]
+    method          = ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"]
     response_header = ["*"]
     max_age_seconds = 3600
   }

@@ -37,3 +37,32 @@ resource "google_storage_bucket_iam_member" "backend_task_docs_storage_admin" {
   member = "serviceAccount:${google_service_account.backend_sa.email}"
 }
 
+# Required for GCS V4 Signed URL Generation
+resource "google_project_iam_member" "sa_token_creator" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountTokenCreator"
+  member  = "serviceAccount:${google_service_account.backend_sa.email}"
+}
+
+# Project-level Storage Admin access
+resource "google_project_iam_member" "sa_storage_admin" {
+  project = var.project_id
+  role    = "roles/storage.admin"
+  member  = "serviceAccount:${google_service_account.backend_sa.email}"
+}
+
+# Pub/Sub Publisher role for notifications
+resource "google_project_iam_member" "sa_pubsub_publisher" {
+  project = var.project_id
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_service_account.backend_sa.email}"
+}
+
+# Pub/Sub Subscriber role for consuming notifications
+resource "google_project_iam_member" "sa_pubsub_subscriber" {
+  project = var.project_id
+  role    = "roles/pubsub.subscriber"
+  member  = "serviceAccount:${google_service_account.backend_sa.email}"
+}
+
+

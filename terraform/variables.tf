@@ -67,7 +67,7 @@ variable "rate_limit_auth_capacity" {
 variable "task_documents_bucket_name" {
   description = "GCS bucket name for task working paper documents & attachments"
   type        = string
-  default     = "finsop-task-documents-bucket"
+  default     = "finsop-task-documents-finance-sop-portal"
 }
 
 variable "gcs_storage_type" {
@@ -75,4 +75,29 @@ variable "gcs_storage_type" {
   type        = string
   default     = "gcs"
 }
+
+variable "pubsub_notification_topic_name" {
+  description = "GCP Pub/Sub topic name for notification events"
+  type        = string
+  default     = "finsop-notification-topic"
+}
+
+variable "pubsub_notification_sub_name" {
+  description = "GCP Pub/Sub subscription name attached to notification topic"
+  type        = string
+  default     = "finsop-notification-sub"
+}
+
+variable "app_messaging_provider" {
+  description = "Messaging provider implementation (pubsub | local)"
+  type        = string
+  default     = "pubsub"
+}
+
+variable "spring_profiles_active" {
+  description = "Spring Boot active environment profile"
+  type        = string
+  default     = "prod"
+}
+
 
