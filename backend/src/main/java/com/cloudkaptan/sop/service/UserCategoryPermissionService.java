@@ -124,29 +124,43 @@ public class UserCategoryPermissionService {
         // Fetch previous assignments for diff calculation
         CategoryAccessAssignmentDto prev = getCategoryAssignments(category);
  
-        // 1. Collect all candidate user IDs mentioned in request
+        // 1. Resolve candidate user IDs mentioned in request to canonical DB user IDs
+        Set<String> rawUserIds = new HashSet<>();
+        if (dto.getCreatorUserIds() != null) rawUserIds.addAll(dto.getCreatorUserIds());
+        if (dto.getApproverUserIds() != null) rawUserIds.addAll(dto.getApproverUserIds());
+        if (dto.getMakerUserIds() != null) rawUserIds.addAll(dto.getMakerUserIds());
+        if (dto.getCheckerUserIds() != null) rawUserIds.addAll(dto.getCheckerUserIds());
+
+        Set<String> creatorResolved = dto.getCreatorUserIds() != null
+                ? dto.getCreatorUserIds().stream().map(this::resolveUserId).collect(Collectors.toSet())
+                : Collections.emptySet();
+        Set<String> approverResolved = dto.getApproverUserIds() != null
+                ? dto.getApproverUserIds().stream().map(this::resolveUserId).collect(Collectors.toSet())
+                : Collections.emptySet();
+        Set<String> makerResolved = dto.getMakerUserIds() != null
+                ? dto.getMakerUserIds().stream().map(this::resolveUserId).collect(Collectors.toSet())
+                : Collections.emptySet();
+        Set<String> checkerResolved = dto.getCheckerUserIds() != null
+                ? dto.getCheckerUserIds().stream().map(this::resolveUserId).collect(Collectors.toSet())
+                : Collections.emptySet();
+
         Set<String> allUserIds = new HashSet<>();
-        if (dto.getCreatorUserIds() != null)
-            allUserIds.addAll(dto.getCreatorUserIds());
-        if (dto.getApproverUserIds() != null)
-            allUserIds.addAll(dto.getApproverUserIds());
-        if (dto.getMakerUserIds() != null)
-            allUserIds.addAll(dto.getMakerUserIds());
-        if (dto.getCheckerUserIds() != null)
-            allUserIds.addAll(dto.getCheckerUserIds());
- 
+        for (String raw : rawUserIds) {
+            allUserIds.add(resolveUserId(raw));
+        }
+
         // Also fetch existing users for this category to revoke if unticked
         List<UserCategoryPermission> existingList = permissionRepository.findByProcessCategoryIgnoreCase(category);
         for (UserCategoryPermission p : existingList) {
-            allUserIds.add(p.getUserId());
+            allUserIds.add(resolveUserId(p.getUserId()));
         }
- 
+
         // 2. Update permissions for each user
         for (String uId : allUserIds) {
-            boolean isCreator = dto.getCreatorUserIds() != null && dto.getCreatorUserIds().contains(uId);
-            boolean isApprover = dto.getApproverUserIds() != null && dto.getApproverUserIds().contains(uId);
-            boolean isMaker = dto.getMakerUserIds() != null && dto.getMakerUserIds().contains(uId);
-            boolean isChecker = dto.getCheckerUserIds() != null && dto.getCheckerUserIds().contains(uId);
+            boolean isCreator = creatorResolved.contains(uId);
+            boolean isApprover = approverResolved.contains(uId);
+            boolean isMaker = makerResolved.contains(uId);
+            boolean isChecker = checkerResolved.contains(uId);
  
             Optional<UserCategoryPermission> existing = permissionRepository.findByUserIdAndProcessCategory(uId,
                     category);
@@ -323,6 +337,12 @@ public class UserCategoryPermissionService {
         if (inputId == null || inputId.isBlank()) return inputId;
         return userRepository.findById(inputId)
                 .or(() -> userRepository.findByEmail(inputId))
+                .or(() -> userRepository.findAll().stream()
+                        .filter(u -> (u.getFullName() != null && u.getFullName().equalsIgnoreCase(inputId))
+                                || (u.getUserId() != null && (u.getUserId().equalsIgnoreCase(inputId)
+                                || inputId.toLowerCase().startsWith(u.getUserId().toLowerCase())
+                                || u.getUserId().toLowerCase().startsWith(inputId.toLowerCase()))))
+                        .findFirst())
                 .map(User::getUserId)
                 .orElse(inputId);
     }
