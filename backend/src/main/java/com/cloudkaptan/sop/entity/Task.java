@@ -16,8 +16,7 @@ import java.util.UUID;
 @Table(
     name = "tasks",
     uniqueConstraints = {
-        @UniqueConstraint(name = "uq_sop_period", columnNames = {"sop_id", "period_key"}),
-        @UniqueConstraint(name = "uq_sop_version_period", columnNames = {"sop_version_id", "period_key"})
+        @UniqueConstraint(name = "uq_sop_task_template", columnNames = {"sop_id", "task_template_id"})
     }
 )
 @Getter
