@@ -361,14 +361,58 @@ public class SopTemplateService {
                 .build();
     }
 
+    public static int getEffectiveDueDayOffset(Integer customOffset, com.cloudkaptan.sop.domain.enums.SopFrequency frequency, java.time.LocalDate startDate) {
+        if (customOffset != null && customOffset > 0) {
+            return customOffset;
+        }
+        if (frequency == null) {
+            return 15;
+        }
+        java.time.LocalDate start = (startDate != null) ? startDate : java.time.LocalDate.now();
+        return switch (frequency) {
+            case DAILY -> 1;
+            case WEEKLY -> 7;
+            case MONTHLY -> (int) java.time.temporal.ChronoUnit.DAYS.between(start, start.plusMonths(1));
+            case QUARTERLY -> (int) java.time.temporal.ChronoUnit.DAYS.between(start, start.plusMonths(3));
+            case ANNUAL -> (int) java.time.temporal.ChronoUnit.DAYS.between(start, start.plusYears(1));
+        };
+    }
+
     public SopTemplateDto toDto(SopTemplate template) {
         String entityCodeStr = (template.getEntity() != null && template.getEntity().getEntityCode() != null)
                 ? template.getEntity().getEntityCode().name()
                 : null;
 
-        List<TaskTemplateDto> taskDtos = (template.getTaskTemplates() != null)
-                ? template.getTaskTemplates().stream().map(this::toTaskDto).collect(Collectors.toList())
-                : new ArrayList<>();
+        List<TaskTemplateDto> taskDtos = new ArrayList<>();
+        if (template.getTaskTemplates() != null && !template.getTaskTemplates().isEmpty()) {
+            List<TaskTemplate> sorted = template.getTaskTemplates().stream()
+                    .sorted(java.util.Comparator.comparingInt(TaskTemplate::getStepSequence))
+                    .toList();
+
+            int lastCalculatedEndDay = -1;
+
+            for (int i = 0; i < sorted.size(); i++) {
+                TaskTemplate tt = sorted.get(i);
+                int startDay;
+                if (i == 0 || "INDEPENDENT".equalsIgnoreCase(tt.getDependencyMode()) || tt.getStepSequence() == 1) {
+                    startDay = (tt.getEtaStartDay() != null) ? tt.getEtaStartDay() : 0;
+                } else {
+                    startDay = lastCalculatedEndDay + 1;
+                }
+
+                int duration = (tt.getEtaEndDay() != null && tt.getEtaEndDay() > (tt.getEtaStartDay() != null ? tt.getEtaStartDay() : 0))
+                        ? (tt.getEtaEndDay() - (tt.getEtaStartDay() != null ? tt.getEtaStartDay() : 0))
+                        : ((tt.getSlaHours() != null && tt.getSlaHours() / 24 > 0) ? tt.getSlaHours() / 24 : 4);
+
+                int endDay = startDay + duration;
+                lastCalculatedEndDay = endDay;
+
+                TaskTemplateDto taskDto = toTaskDto(tt);
+                taskDto.setCalculatedStartDay(startDay);
+                taskDto.setCalculatedEndDay(endDay);
+                taskDtos.add(taskDto);
+            }
+        }
 
         String createdByIdStr = (template.getCreatedBy() != null) ? template.getCreatedBy().getUserId() : null;
 
@@ -412,6 +456,8 @@ public class SopTemplateService {
             log.warn("Failed to load audit history for template [{}]: {}", template.getTemplateId(), e.getMessage());
         }
 
+        int effectiveDueDayOffset = getEffectiveDueDayOffset(template.getDueDayOffset(), template.getFrequency(), template.getEffectiveFrom());
+
         return SopTemplateDto.builder()
                 .templateId(template.getTemplateId())
                 .templateCode(template.getTemplateCode())
@@ -420,7 +466,7 @@ public class SopTemplateService {
                 .processCategory(template.getProcessCategory())
                 .entityCode(entityCodeStr)
                 .frequency(template.getFrequency())
-                .dueDayOffset(template.getDueDayOffset())
+                .dueDayOffset(effectiveDueDayOffset)
                 .isRecurring(template.getIsRecurring())
                 .recurrenceConfig(template.getRecurrenceConfig())
                 .effectiveFrom(template.getEffectiveFrom())

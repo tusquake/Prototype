@@ -33,6 +33,12 @@ public class TaskTemplateDto {
      */
     private Integer etaEndDay;
 
+    /**
+     * Relative calculated day offsets for sequential blueprint steps
+     */
+    private Integer calculatedStartDay;
+    private Integer calculatedEndDay;
+
     private Integer slaHours;
     private List<String> makerIds;
     private List<String> checkerIds;

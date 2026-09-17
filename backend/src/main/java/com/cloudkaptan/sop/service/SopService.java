@@ -846,9 +846,12 @@ public class SopService {
 
         SopVersion activeVersion = sopVersionRepository.findActiveVersionBySopId(sop.getSopId()).orElse(null);
         LocalDate startD = sop.getStartDate() != null ? sop.getStartDate()
-                : (activeVersion != null && activeVersion.getStartDateTime() != null ? activeVersion.getStartDateTime().toLocalDate() : null);
+                : (activeVersion != null && activeVersion.getStartDateTime() != null ? activeVersion.getStartDateTime().toLocalDate() : LocalDate.now());
+
+        int effectiveDueDayOffset = SopTemplateService.getEffectiveDueDayOffset(sop.getDueDayOffset(), sop.getFrequency(), startD);
+
         LocalDate dueD = sop.getDueDate() != null ? sop.getDueDate()
-                : (activeVersion != null && activeVersion.getDueDateTime() != null ? activeVersion.getDueDateTime().toLocalDate() : null);
+                : (activeVersion != null && activeVersion.getDueDateTime() != null ? activeVersion.getDueDateTime().toLocalDate() : startD.plusDays(effectiveDueDayOffset));
 
         List<TaskDto> taskList = new java.util.ArrayList<>();
         try {
@@ -868,7 +871,7 @@ public class SopService {
                 .entityCode(sop.getEntity() != null ? sop.getEntity().getEntityCode() : null)
                 .entityName(sop.getEntity() != null ? sop.getEntity().getEntityName() : null)
                 .frequency(sop.getFrequency())
-                .dueDayOffset(sop.getDueDayOffset())
+                .dueDayOffset(effectiveDueDayOffset)
                 .isRecurring(Boolean.TRUE.equals(sop.getIsRecurring()))
                 .defaultMakerIds(mIds)
                 .defaultMakerNames(mNames)

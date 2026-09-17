@@ -201,7 +201,8 @@ public class TaskSchedulerService {
         LocalDate sopStartDate = (template.getEffectiveFrom() != null && template.getEffectiveFrom().isAfter(today))
                 ? template.getEffectiveFrom()
                 : today;
-        LocalDate sopDueDate = sopStartDate.plusDays(template.getDueDayOffset() != null ? template.getDueDayOffset() : 15);
+        int effectiveDueDayOffset = SopTemplateService.getEffectiveDueDayOffset(template.getDueDayOffset(), template.getFrequency(), sopStartDate);
+        LocalDate sopDueDate = sopStartDate.plusDays(effectiveDueDayOffset);
 
         Sop sopInstance = Sop.builder()
                 .sopCode(sopCode)
@@ -211,7 +212,7 @@ public class TaskSchedulerService {
                 .entity(template.getEntity())
                 .frequency(template.getFrequency())
                 .isRecurring(template.getIsRecurring())
-                .dueDayOffset(template.getDueDayOffset())
+                .dueDayOffset(effectiveDueDayOffset)
                 .startDate(sopStartDate)
                 .dueDate(sopDueDate)
                 .defaultMakerIds(template.getDefaultMakerIds() != null ? new ArrayList<>(template.getDefaultMakerIds()) : new ArrayList<>())
@@ -235,16 +236,17 @@ public class TaskSchedulerService {
 
             for (TaskTemplate taskTemplate : sortedSteps) {
                 try {
-                    int durationDays = (taskTemplate.getEtaEndDay() != null && taskTemplate.getEtaEndDay() > 0)
-                            ? taskTemplate.getEtaEndDay()
-                            : 7;
+                    int startOffset = (taskTemplate.getEtaStartDay() != null) ? taskTemplate.getEtaStartDay() : 0;
+                    int durationDays = (taskTemplate.getEtaEndDay() != null && taskTemplate.getEtaEndDay() > startOffset)
+                            ? (taskTemplate.getEtaEndDay() - startOffset)
+                            : ((taskTemplate.getSlaHours() != null && taskTemplate.getSlaHours() / 24 > 0) ? taskTemplate.getSlaHours() / 24 : 4);
 
                     LocalDate taskStartDate;
                     LocalDate taskDueDate;
                     TaskStatus initialStatus;
 
                     if (previousTask == null || "INDEPENDENT".equalsIgnoreCase(taskTemplate.getDependencyMode()) || taskTemplate.getStepSequence() == 1) {
-                        taskStartDate = sopStartDate;
+                        taskStartDate = sopStartDate.plusDays(startOffset);
                         taskDueDate = taskStartDate.plusDays(durationDays);
                         initialStatus = TaskStatus.OPEN;
                     } else {
