@@ -158,12 +158,8 @@ function CreateTaskModal({
       setTaskError('Task Name is required.');
       return;
     }
-    if (etaStartDay < 0) {
-      setTaskError('ETA Target Start Day cannot be negative.');
-      return;
-    }
-    if (etaEndDay < etaStartDay) {
-      setTaskError('ETA Completion Deadline Day cannot be earlier than Target Start Day.');
+    if (etaEndDay <= 0) {
+      setTaskError('ETA Days must be at least 1 day.');
       return;
     }
     if (taskMakers.length === 0) {
@@ -275,41 +271,24 @@ function CreateTaskModal({
           {/* User-friendly ETA Days Section */}
           <div className="space-y-2 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
             <h4 className="text-xs font-bold uppercase tracking-wider text-blue-900">Task Timeline & ETA Days</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[11px] font-semibold uppercase text-slate-700 mb-1">
-                  Target Start Day (ETA) *
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-500">Day</span>
-                  <input
-                    type="number"
-                    min={0}
-                    disabled={isViewOnly}
-                    value={etaStartDay}
-                    onChange={(e) => setEtaStartDay(Number(e.target.value))}
-                    className="w-full rounded-lg border border-slate-300 bg-white p-2 text-xs font-bold text-slate-800 focus:border-blue-600 focus:outline-none disabled:bg-slate-100"
-                  />
-                </div>
-                <span className="text-[10px] text-slate-500">Day 0 = SOP Start Date</span>
+            <div>
+              <label className="block text-[11px] font-semibold uppercase text-blue-800 mb-1">
+                ETA Days (Task Duration / Deadline) *
+              </label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-blue-700">Days</span>
+                <input
+                  type="number"
+                  min={1}
+                  disabled={isViewOnly}
+                  value={etaEndDay}
+                  onChange={(e) => setEtaEndDay(Number(e.target.value))}
+                  className="w-full rounded-lg border border-blue-300 bg-white p-2 text-xs font-bold text-slate-800 focus:border-blue-600 focus:outline-none disabled:bg-slate-100"
+                />
               </div>
-              <div>
-                <label className="block text-[11px] font-semibold uppercase text-blue-800 mb-1">
-                  Completion Deadline (ETA) *
-                </label>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-blue-700">Day</span>
-                  <input
-                    type="number"
-                    min={0}
-                    disabled={isViewOnly}
-                    value={etaEndDay}
-                    onChange={(e) => setEtaEndDay(Number(e.target.value))}
-                    className="w-full rounded-lg border border-blue-300 bg-white p-2 text-xs font-bold text-slate-800 focus:border-blue-600 focus:outline-none disabled:bg-slate-100"
-                  />
-                </div>
-                <span className="text-[10px] text-slate-500">By Day {etaEndDay} of SOP period</span>
-              </div>
+              <span className="text-[10px] text-slate-500 mt-1 block">
+                Task starts on SOP Start Date (or after preceding task completion) and must finish within {etaEndDay} days.
+              </span>
             </div>
           </div>
 
@@ -1517,8 +1496,7 @@ export default function CreateSopDrawer({
                               </div>
 
                               <div className="flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-slate-500 pl-8">
-                                <span className="flex items-center gap-1"><span className="text-slate-400">ETA Target Start:</span> <strong className="text-slate-700">Day {task.etaStartDay}</strong></span>
-                                <span className="flex items-center gap-1"><span className="text-slate-400">ETA Deadline:</span> <strong className="text-slate-700">Day {task.etaEndDay}</strong></span>
+                                <span className="flex items-center gap-1"><span className="text-slate-400">ETA Duration:</span> <strong className="text-slate-700">{task.etaEndDay} Days</strong></span>
                                 <span className="flex items-center gap-1"><span className="text-slate-400">SLA:</span> <strong className="text-slate-700">{task.slaHours} hrs</strong></span>
                                 <span className="flex items-center gap-1"><span className="text-slate-400">Makers:</span> <strong className="text-slate-700">{task.makers.length || defaultMakerIds.length} assigned</strong></span>
                               </div>
@@ -1804,7 +1782,7 @@ function GanttTimelineChart({ tasks = [], dueDayOffset = 15 }) {
       <div className="grid grid-cols-12 border-b border-slate-200 pb-2 text-[10px] font-bold uppercase text-slate-400">
         <div className="col-span-4">Task Step (ETA Relative)</div>
         <div className="col-span-8 relative flex justify-between px-2">
-          <span>Day 0 (SOP Start)</span>
+          <span>SOP Start Date</span>
           <span>Relative ETA Timeline</span>
           <span>Day {maxDays} (Period Completion)</span>
         </div>
@@ -1834,7 +1812,7 @@ function GanttTimelineChart({ tasks = [], dueDayOffset = 15 }) {
                     minWidth: '54px',
                   }}
                 >
-                  <span className="truncate">Day {task.etaStartDay} → Day {task.etaEndDay}</span>
+                  <span className="truncate">ETA: {task.etaEndDay} Days</span>
                   {task.requiredDocs?.length > 0 && (
                     <span className="ml-1 rounded bg-black/25 px-1 text-[9px]">
                       Docs: {task.requiredDocs.length}
