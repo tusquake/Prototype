@@ -304,8 +304,16 @@ export default function TaskActionModal({
     return true;
   });
 
+  const reqDocsList = task.requiredDocumentNames || task.requiredDocs || [];
+  const reqDocsCount = reqDocsList.length;
+  const uploadedDocsCount = (taskDocs || []).length;
+
   function triggerConfirm(actionType) {
     setToastError('');
+    if (actionType === 'SUBMIT' && reqDocsCount > 0 && uploadedDocsCount < reqDocsCount) {
+      setToastError(`Submission requirement: This task step requires at least ${reqDocsCount} evidence document(s) to be uploaded before submission (Uploaded: ${uploadedDocsCount}/${reqDocsCount}).`);
+      return;
+    }
     if (actionType === 'APPROVE' && hasUnapprovedDocs) {
       setToastError('Task cannot be approved until all attached evidence documents are individually approved (✓) by the Checker.');
       return;

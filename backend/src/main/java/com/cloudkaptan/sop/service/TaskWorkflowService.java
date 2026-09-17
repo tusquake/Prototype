@@ -49,6 +49,7 @@ public class TaskWorkflowService {
     private final TaskSchedulerService taskSchedulerService;
     private final com.cloudkaptan.sop.repository.TaskDocumentRepository taskDocumentRepository;
     private final com.cloudkaptan.sop.repository.ProcessCategoryRepository processCategoryRepository;
+    private final com.cloudkaptan.sop.repository.TaskTemplateRepository taskTemplateRepository;
 
     @Transactional
     public TaskDto processTaskAction(UUID taskId, com.cloudkaptan.sop.dto.TaskActionRequest request) {
@@ -805,6 +806,16 @@ public class TaskWorkflowService {
         boolean isApprovableStatus = task.getStatus() == TaskStatus.PENDING_REVIEW;
         Boolean canUserApprove = isApprovableStatus && (isAssignedChecker || isManagerWithReadOrWriteAccess || isAdmin) && (!isSelfMaker || isAdmin);
 
+        List<String> reqDocs = new java.util.ArrayList<>();
+        if (task.getTaskTemplateId() != null) {
+            taskTemplateRepository.findById(task.getTaskTemplateId())
+                .ifPresent(tt -> {
+                    if (tt.getRequiredDocumentNames() != null) {
+                        reqDocs.addAll(tt.getRequiredDocumentNames());
+                    }
+                });
+        }
+
         return TaskDto.builder()
             .taskId(task.getTaskId())
             .version(task.getVersion())
@@ -851,6 +862,7 @@ public class TaskWorkflowService {
             .history(historyList)
             .reassignmentHistory(reassignList)
             .documents(documentList)
+            .requiredDocumentNames(reqDocs)
             .build();
     }
 }

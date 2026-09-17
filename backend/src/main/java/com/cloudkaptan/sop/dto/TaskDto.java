@@ -57,4 +57,5 @@ public class TaskDto {
     private List<TaskEventDto> history;
     private List<TaskReassignmentHistoryDto> reassignmentHistory;
     private List<TaskDocumentDto> documents;
+    private List<String> requiredDocumentNames;
 }
