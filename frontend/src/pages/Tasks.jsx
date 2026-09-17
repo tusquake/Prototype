@@ -8,6 +8,7 @@ import Pagination from '../components/Pagination';
 import TableSkeleton from '../components/TableSkeleton';
 import TaskActionModal from '../components/TaskActionModal';
 import ConfirmationModal from '../components/ConfirmationModal';
+import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
 import { ENTITIES, getTasks, submitTask, approveTask, rejectTask, deleteTask, getProcessCategories, getUserAccessibleCategories, getUsersByPermission, getUsers } from '../services/api';
 import { useEntity } from '../context/EntityContext';
