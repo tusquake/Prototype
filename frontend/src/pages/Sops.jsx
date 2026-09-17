@@ -166,6 +166,7 @@ export default function Sops() {
   const [currentPage, setCurrentPage] = useState(1);
   const [editingDraftTemplate, setEditingDraftTemplate] = useState(null);
   const [isViewOnly, setIsViewOnly] = useState(false);
+  const [activeTabSection, setActiveTabSection] = useState('TEMPLATES'); // 'TEMPLATES' | 'INSTANCES'
 
 
   // Filter States
@@ -700,6 +701,9 @@ export default function Sops() {
     selectedStatus !== 'ALL';
 
   const filtered = sopList.filter(s => {
+    if (activeTabSection === 'TEMPLATES' && !s.isTemplate) return false;
+    if (activeTabSection === 'INSTANCES' && s.isTemplate) return false;
+
     if (!selectedEntities.includes(s.entityCode)) return false;
 
     // Non-admin users: hide raw PENDING_CREATION stubs unless assigned to currentUser
@@ -761,7 +765,56 @@ export default function Sops() {
     <>
       <div className="p-6 md:px-8 w-full max-w-full box-border">
 
-        <Toast message={successMsg} type="success" onClose={() => setSuccessMsg('')} />
+        {/* SOP Management Section Tabs */}
+        <div className="flex items-center gap-3 mb-5 border-b border-[#e2e8f0] pb-3">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTabSection('TEMPLATES');
+              setCurrentPage(1);
+            }}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-bold transition-all cursor-pointer ${
+              activeTabSection === 'TEMPLATES'
+                ? 'bg-[#2563eb] text-white shadow-sm'
+                : 'bg-white text-[#475569] border border-[#cbd5e1] hover:bg-[#f8fafc] hover:text-[#0f172a]'
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+            </svg>
+            <span>SOP Templates (Blueprints)</span>
+            <span className={`px-2 py-0.5 text-[11px] rounded-full font-bold ${
+              activeTabSection === 'TEMPLATES' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+            }`}>
+              {sopList.filter(s => s.isTemplate).length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTabSection('INSTANCES');
+              setCurrentPage(1);
+            }}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-[13px] font-bold transition-all cursor-pointer ${
+              activeTabSection === 'INSTANCES'
+                ? 'bg-[#2563eb] text-white shadow-sm'
+                : 'bg-white text-[#475569] border border-[#cbd5e1] hover:bg-[#f8fafc] hover:text-[#0f172a]'
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <span>SOP Instances (Generated)</span>
+            <span className={`px-2 py-0.5 text-[11px] rounded-full font-bold ${
+              activeTabSection === 'INSTANCES' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+            }`}>
+              {sopList.filter(s => !s.isTemplate).length}
+            </span>
+          </button>
+        </div>
 
         {/* SOP Filter Toolbar */}
         <div className="relative z-10 flex flex-wrap items-end gap-3 mb-6 bg-bg-surface p-[16px_20px] rounded-[12px] border border-[#e2e8f0] shadow-[0_1px_3px_rgba(0,0,0,0.04)] w-full box-border overflow-visible">
@@ -920,7 +973,7 @@ export default function Sops() {
                 <line x1="16" y1="13" x2="8" y2="13" />
                 <line x1="16" y1="17" x2="8" y2="17" />
               </svg>
-              Master Operating Procedures
+              {activeTabSection === 'TEMPLATES' ? 'Master SOP Templates (Blueprints)' : 'Generated SOP Instances'}
             </span>
             {(isAdmin || (Array.isArray(creatableCategories) && creatableCategories.length > 0)) && (
               <div className="flex gap-2.5 items-center">
@@ -937,7 +990,7 @@ export default function Sops() {
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  <span>Create SOP</span>
+                  <span>Create SOP Template</span>
                 </button>
               </div>
             )}
@@ -963,7 +1016,13 @@ export default function Sops() {
                   {loading ? (
                     <TableSkeleton rows={4} columns={10} />
                   ) : filtered.length === 0 ? (
-                    <tr><td colSpan={10} className="text-center p-12 text-[#94a3b8] text-[13.5px]">No SOPs assigned for creation or approval.</td></tr>
+                    <tr>
+                      <td colSpan={10} className="text-center p-12 text-[#94a3b8] text-[13.5px]">
+                        {activeTabSection === 'TEMPLATES'
+                          ? 'No SOP Templates (Blueprints) found matching your criteria.'
+                          : 'No generated SOP Instances found matching your criteria.'}
+                      </td>
+                    </tr>
                   ) : paginatedSops.map(sop => (
                     <tr
                       key={sop.id || sop.code}
