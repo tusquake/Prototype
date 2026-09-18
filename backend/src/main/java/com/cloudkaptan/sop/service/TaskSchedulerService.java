@@ -22,8 +22,14 @@ import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.cloud.tasks.v2.HttpRequest;
 import com.google.cloud.tasks.v2.QueueName;
 import com.google.protobuf.ByteString;
+import com.google.cloud.tasks.v2.CloudTasksClient;
+import com.google.cloud.tasks.v2.HttpMethod;
+import com.google.cloud.tasks.v2.HttpRequest;
+import com.google.cloud.tasks.v2.QueueName;
+import com.google.protobuf.ByteString;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -66,10 +72,13 @@ public class TaskSchedulerService {
 
         // ─── PATH 1: Legacy SOP-version based generation (backward compat) ────
         // generateFromSopVersions(today);
+        // generateFromSopVersions(today);
 
+        // ─── PATH 2: New SOP Template-based generation via CLOUD TASKS ────────
         // ─── PATH 2: New SOP Template-based generation via CLOUD TASKS ────────
         generateFromSopTemplates(today);
 
+        log.info("Scheduled task generation cycle dispatched for date [{}].", today);
         log.info("Scheduled task generation cycle dispatched for date [{}].", today);
     }
 
@@ -89,6 +98,8 @@ public class TaskSchedulerService {
                         ? sop.getStartDate()
                         : ((version.getStartDateTime() != null) ? version.getStartDateTime().toLocalDate()
                                 : entityToday);
+                        : ((version.getStartDateTime() != null) ? version.getStartDateTime().toLocalDate()
+                                : entityToday);
 
                 if (sopStartDate.isAfter(entityToday)) {
                     continue;
@@ -97,6 +108,8 @@ public class TaskSchedulerService {
                 RecurrenceStrategy strategy = recurrenceStrategyFactory.getStrategy(version.getFrequency());
                 String periodKey = strategy.calculatePeriodKey(entityToday);
 
+                if (Boolean.FALSE.equals(version.getIsRecurring())
+                        && taskRepository.existsBySop_SopId(sop.getSopId())) {
                 if (Boolean.FALSE.equals(version.getIsRecurring())
                         && taskRepository.existsBySop_SopId(sop.getSopId())) {
                     continue;
@@ -109,6 +122,8 @@ public class TaskSchedulerService {
                             : ((version.getDueDateTime() != null) ? version.getDueDateTime().toLocalDate()
                                     : taskStartDate
                                             .plusDays(sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7));
+                                    : taskStartDate
+                                            .plusDays(sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7));
 
                     String recordNo = String.format("%s-%s", sop.getSopCode(), periodKey);
 
@@ -116,6 +131,10 @@ public class TaskSchedulerService {
                             ? new ArrayList<>(sop.getDefaultMakerIds())
                             : new ArrayList<>(List.of("usr-tushar-304"));
 
+                    List<String> checkerPool = (sop.getDefaultCheckerIds() != null
+                            && !sop.getDefaultCheckerIds().isEmpty())
+                                    ? new ArrayList<>(sop.getDefaultCheckerIds())
+                                    : new ArrayList<>(List.of("usr-prayasa-410"));
                     List<String> checkerPool = (sop.getDefaultCheckerIds() != null
                             && !sop.getDefaultCheckerIds().isEmpty())
                                     ? new ArrayList<>(sop.getDefaultCheckerIds())
@@ -150,6 +169,8 @@ public class TaskSchedulerService {
             } catch (Exception e) {
                 log.error("(Legacy) Failed to generate task for SOP Version [{}]: {}", version.getVersionId(),
                         e.getMessage(), e);
+                log.error("(Legacy) Failed to generate task for SOP Version [{}]: {}", version.getVersionId(),
+                        e.getMessage(), e);
             }
         }
         log.info("(Legacy) Idempotently created [{}] tasks from SOP versions.", generatedCount);
@@ -169,7 +190,18 @@ public class TaskSchedulerService {
 
         try (CloudTasksClient client = CloudTasksClient.create()) {
             int queuedCount = 0;
+        String queuePath = QueueName.of(projectId, locationId, queueId).toString();
 
+        try (CloudTasksClient client = CloudTasksClient.create()) {
+            int queuedCount = 0;
+
+            for (SopTemplate template : schedulableTemplates) {
+                try {
+                    // Pre-check if already generated to save Cloud Task enqueue costs
+                    RecurrenceStrategy strategy = recurrenceStrategyFactory.getStrategy(template.getFrequency());
+                    String periodKey = strategy.calculatePeriodKey(today);
+                    boolean sopInstanceExists = sopRepository
+                            .findBySopCode(buildSopCode(template.getTemplateCode(), periodKey)).isPresent();
             for (SopTemplate template : schedulableTemplates) {
                 try {
                     // Pre-check if already generated to save Cloud Task enqueue costs
@@ -181,7 +213,41 @@ public class TaskSchedulerService {
                     if (sopInstanceExists) {
                         continue;
                     }
+                    if (sopInstanceExists) {
+                        continue;
+                    }
 
+                    // Build JSON payload for the worker
+                    String payload = String.format("{\"templateId\":\"%s\",\"executionDate\":\"%s\"}",
+                            template.getTemplateId(), today);
+
+                    // Idempotent Task Name (Prevents duplicate queueing on the same day)
+                    String taskName = String.format("%s/tasks/soptpl-%s-%s",
+                            queuePath, template.getTemplateId(), today);
+
+                    HttpRequest httpRequest = HttpRequest.newBuilder()
+                            .setUrl(backendWorkerUrl)
+                            .setHttpMethod(HttpMethod.POST)
+                            .putHeaders("Content-Type", "application/json")
+                            .setBody(ByteString.copyFromUtf8(payload))
+                            .build();
+
+                    com.google.cloud.tasks.v2.Task cloudTask = com.google.cloud.tasks.v2.Task.newBuilder()
+                            .setName(taskName)
+                            .setHttpRequest(httpRequest)
+                            .build();
+
+                    client.createTask(queuePath, cloudTask);
+                    queuedCount++;
+                    log.info("Enqueued Cloud Task for Template [{}]", template.getTemplateCode());
+
+                } catch (com.google.api.gax.rpc.AlreadyExistsException e) {
+                    log.debug("Task for Template [{}] already queued in Cloud Tasks for today.",
+                            template.getTemplateCode());
+                } catch (Exception e) {
+                    log.error("(Template) Failed to enqueue template [{}]: {}", template.getTemplateId(),
+                            e.getMessage(), e);
+                }
                     // Build JSON payload for the worker
                     String payload = String.format("{\"templateId\":\"%s\",\"executionDate\":\"%s\"}",
                             template.getTemplateId(), today);
@@ -218,11 +284,24 @@ public class TaskSchedulerService {
 
         } catch (Exception e) {
             log.error("Failed to initialize Cloud Tasks Client: {}", e.getMessage(), e);
+            log.info("(Template) Dispatched [{}] templates to Cloud Tasks.", queuedCount);
+
+        } catch (Exception e) {
+            log.error("Failed to initialize Cloud Tasks Client: {}", e.getMessage(), e);
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // SHARED WORKER LOGIC - Kept intact for both Cloud Tasks & Manual triggers
+    // ─────────────────────────────────────────────────────────────────────────
     @Transactional
     public Sop instantiateSingleSopTemplate(SopTemplate template, LocalDate today) {
+        if (template == null)
+            return null;
+
+        RecurrenceStrategy strategy = recurrenceStrategyFactory
+                .getStrategy(template.getFrequency() != null ? template.getFrequency()
+                        : com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY);
         if (template == null)
             return null;
 
@@ -232,6 +311,7 @@ public class TaskSchedulerService {
         String periodKey = strategy.calculatePeriodKey(today);
         String sopCode = buildSopCode(template.getTemplateCode(), periodKey);
 
+
         if (sopRepository.findBySopCode(sopCode).isPresent()) {
             periodKey = periodKey + "-" + (System.currentTimeMillis() % 10000);
             sopCode = buildSopCode(template.getTemplateCode(), periodKey);
@@ -240,6 +320,9 @@ public class TaskSchedulerService {
         LocalDate sopStartDate = (template.getEffectiveFrom() != null && template.getEffectiveFrom().isAfter(today))
                 ? template.getEffectiveFrom()
                 : today;
+
+        int effectiveDueDayOffset = SopTemplateService.getEffectiveDueDayOffset(template.getDueDayOffset(),
+                template.getFrequency(), sopStartDate);
 
         int effectiveDueDayOffset = SopTemplateService.getEffectiveDueDayOffset(template.getDueDayOffset(),
                 template.getFrequency(), sopStartDate);
@@ -261,12 +344,18 @@ public class TaskSchedulerService {
                 .defaultCheckerIds(
                         template.getDefaultCheckerIds() != null ? new ArrayList<>(template.getDefaultCheckerIds())
                                 : new ArrayList<>())
+                .defaultMakerIds(template.getDefaultMakerIds() != null ? new ArrayList<>(template.getDefaultMakerIds())
+                        : new ArrayList<>())
+                .defaultCheckerIds(
+                        template.getDefaultCheckerIds() != null ? new ArrayList<>(template.getDefaultCheckerIds())
+                                : new ArrayList<>())
                 .status(SopStatus.ACTIVE)
                 .templateId(template.getTemplateId())
                 .createdBy(template.getCreatedBy())
                 .build();
 
         Sop savedSop = sopRepository.save(sopInstance);
+        log.info("(Template Worker) Generated SOP instance [{}] for period [{}]", sopCode, periodKey);
         log.info("(Template Worker) Generated SOP instance [{}] for period [{}]", sopCode, periodKey);
 
         List<TaskTemplate> taskTemplates = template.getTaskTemplates();
@@ -285,11 +374,19 @@ public class TaskSchedulerService {
                                     : ((taskTemplate.getSlaHours() != null && taskTemplate.getSlaHours() / 24 > 0)
                                             ? taskTemplate.getSlaHours() / 24
                                             : 4);
+                    int durationDays = (taskTemplate.getEtaEndDay() != null
+                            && taskTemplate.getEtaEndDay() > startOffset)
+                                    ? (taskTemplate.getEtaEndDay() - startOffset)
+                                    : ((taskTemplate.getSlaHours() != null && taskTemplate.getSlaHours() / 24 > 0)
+                                            ? taskTemplate.getSlaHours() / 24
+                                            : 4);
 
                     LocalDate taskStartDate;
                     LocalDate taskDueDate;
                     TaskStatus initialStatus;
 
+                    if (previousTask == null || "INDEPENDENT".equalsIgnoreCase(taskTemplate.getDependencyMode())
+                            || taskTemplate.getStepSequence() == 1) {
                     if (previousTask == null || "INDEPENDENT".equalsIgnoreCase(taskTemplate.getDependencyMode())
                             || taskTemplate.getStepSequence() == 1) {
                         taskStartDate = sopStartDate.plusDays(startOffset);
@@ -312,7 +409,19 @@ public class TaskSchedulerService {
                                     : (template.getDefaultMakerIds() != null
                                             ? new ArrayList<>(template.getDefaultMakerIds())
                                             : new ArrayList<>());
+                    List<String> taskMakers = (taskTemplate.getMakerIds() != null
+                            && !taskTemplate.getMakerIds().isEmpty())
+                                    ? new ArrayList<>(taskTemplate.getMakerIds())
+                                    : (template.getDefaultMakerIds() != null
+                                            ? new ArrayList<>(template.getDefaultMakerIds())
+                                            : new ArrayList<>());
 
+                    List<String> taskCheckers = (taskTemplate.getCheckerIds() != null
+                            && !taskTemplate.getCheckerIds().isEmpty())
+                                    ? new ArrayList<>(taskTemplate.getCheckerIds())
+                                    : (template.getDefaultCheckerIds() != null
+                                            ? new ArrayList<>(template.getDefaultCheckerIds())
+                                            : new ArrayList<>());
                     List<String> taskCheckers = (taskTemplate.getCheckerIds() != null
                             && !taskTemplate.getCheckerIds().isEmpty())
                                     ? new ArrayList<>(taskTemplate.getCheckerIds())
@@ -349,6 +458,7 @@ public class TaskSchedulerService {
                     }
                 } catch (Exception te) {
                     log.error("(Template Worker) Failed to generate task step [{}] for SOP [{}]: {}",
+                    log.error("(Template Worker) Failed to generate task step [{}] for SOP [{}]: {}",
                             taskTemplate.getStepSequence(), sopCode, te.getMessage(), te);
                 }
             }
@@ -361,6 +471,8 @@ public class TaskSchedulerService {
     }
 
     private void notifyMakers(Task task, String sopTitle) {
+        if (task.getAssignedMakerIds() == null || task.getAssignedMakerIds().isEmpty())
+            return;
         if (task.getAssignedMakerIds() == null || task.getAssignedMakerIds().isEmpty())
             return;
         for (String makerId : task.getAssignedMakerIds()) {
