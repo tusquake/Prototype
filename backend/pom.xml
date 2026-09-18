@@ -24,20 +24,12 @@
         <lombok.version>1.18.34</lombok.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
 
-        <!-- FIX: pin one BOM version instead of hand-picking gax/grpc versions.
-             The BOM keeps gax, grpc-*, and protobuf-* mutually compatible so
-             Maven can never resolve a mixed grpc-core/grpc-api graph again. -->
+        <!-- The BOM keeps gax, grpc-*, and protobuf-* mutually compatible -->
         <google-cloud-libraries-bom.version>26.47.0</google-cloud-libraries-bom.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
-            <!-- FIX: replaces the manual gax / gax-grpc version overrides.
-                 This BOM manages compatible versions for every com.google.api,
-                 com.google.cloud, io.grpc, and com.google.protobuf artifact,
-                 which is what actually caused the NoClassDefFoundError
-                 (io/grpc/InternalGlobalInterceptors): grpc-core and grpc-api
-                 were resolving to two different, incompatible versions. -->
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
@@ -49,11 +41,6 @@
     </dependencyManagement>
 
     <dependencies>
-        <!-- REMOVED: explicit com.google.api:gax and gax-grpc version overrides.
-             The libraries-bom above now supplies matching, tested versions of
-             gax, gax-grpc, and every io.grpc:* transitive dependency, so no
-             version needs to be declared here. -->
-
         <!-- Spring Boot Starters -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -147,16 +134,20 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Google Cloud Storage SDK (version now supplied by libraries-bom) -->
+        <!-- Google Cloud SDKs (versions managed by libraries-bom) -->
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-storage</artifactId>
         </dependency>
-
-        <!-- Google Cloud Pub/Sub SDK (version now supplied by libraries-bom) -->
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-pubsub</artifactId>
+        </dependency>
+        
+        <!-- NEW: Google Cloud Tasks SDK -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-tasks</artifactId>
         </dependency>
 
         <!-- Springdoc OpenAPI Swagger UI -->
