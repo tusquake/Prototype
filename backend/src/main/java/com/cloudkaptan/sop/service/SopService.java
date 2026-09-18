@@ -56,6 +56,7 @@ public class SopService {
     private final UserNotificationRepository userNotificationRepository;
     private final UserCategoryPermissionService categoryPermissionService;
     private final com.cloudkaptan.sop.repository.TaskRepository taskRepository;
+    private final com.cloudkaptan.sop.repository.TaskEventRepository taskEventRepository;
     private final TaskWorkflowService taskWorkflowService;
     private final SopSecurityEvaluator sopSecurityEvaluator;
 
@@ -810,22 +811,45 @@ public class SopService {
                 .map(id -> userRepository.findById(id).map(User::getFullName).orElse(id))
                 .toList();
 
-        List<com.cloudkaptan.sop.entity.SopEvent> rawEvents = sopEventRepository
-                .findBySop_SopIdOrderByTimestampAsc(sop.getSopId());
+        List<SopEventDto> historyList = new java.util.ArrayList<>();
+        try {
+            List<com.cloudkaptan.sop.entity.SopEvent> rawSopEvents = sopEventRepository
+                    .findBySop_SopIdOrderByTimestampAsc(sop.getSopId());
+            for (com.cloudkaptan.sop.entity.SopEvent e : rawSopEvents) {
+                historyList.add(SopEventDto.builder()
+                        .eventId(e.getEventId())
+                        .action(e.getAction())
+                        .fromStatus(e.getFromStatus() != null ? e.getFromStatus().name() : null)
+                        .toStatus(e.getToStatus() != null ? e.getToStatus().name() : null)
+                        .actorId(e.getActor() != null ? e.getActor().getUserId() : null)
+                        .actorName(e.getActor() != null ? e.getActor().getFullName() : "System")
+                        .actorRole(e.getActor() != null ? (e.getActor().getRole() != null ? e.getActor().getRole().name() : "USER") : "SYSTEM")
+                        .comment(e.getComment())
+                        .timestamp(e.getTimestamp())
+                        .build());
+            }
 
-        List<SopEventDto> historyList = rawEvents.stream().map(e -> SopEventDto.builder()
-                .eventId(e.getEventId())
-                .action(e.getAction())
-                .fromStatus(e.getFromStatus() != null ? e.getFromStatus().name() : null)
-                .toStatus(e.getToStatus() != null ? e.getToStatus().name() : null)
-                .actorId(e.getActor() != null ? e.getActor().getUserId() : null)
-                .actorName(e.getActor() != null ? e.getActor().getFullName() : "System")
-                .actorRole(
-                        e.getActor() != null ? (e.getActor().getRole() != null ? e.getActor().getRole().name() : "USER")
-                                : "SYSTEM")
-                .comment(e.getComment())
-                .timestamp(e.getTimestamp())
-                .build()).toList();
+            List<com.cloudkaptan.sop.entity.TaskEvent> rawTaskEvents = taskEventRepository
+                    .findByTask_Sop_SopIdOrderByTimestampAsc(sop.getSopId());
+            for (com.cloudkaptan.sop.entity.TaskEvent te : rawTaskEvents) {
+                String taskRef = (te.getTask() != null) ? te.getTask().getRecordNo() : "Task";
+                historyList.add(SopEventDto.builder()
+                        .eventId(te.getEventId())
+                        .action("[" + taskRef + "] " + te.getAction())
+                        .fromStatus(te.getFromStatus() != null ? te.getFromStatus().name() : null)
+                        .toStatus(te.getToStatus() != null ? te.getToStatus().name() : null)
+                        .actorId(te.getActor() != null ? te.getActor().getUserId() : null)
+                        .actorName(te.getActor() != null ? te.getActor().getFullName() : "System")
+                        .actorRole(te.getActor() != null ? (te.getActor().getRole() != null ? te.getActor().getRole().name() : "USER") : "SYSTEM")
+                        .comment("Task " + taskRef + ": " + te.getAction())
+                        .timestamp(te.getTimestamp())
+                        .build());
+            }
+
+            historyList.sort(java.util.Comparator.comparing(SopEventDto::getTimestamp, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
+        } catch (Exception e) {
+            log.warn("Failed to load combined event history for SOP [{}]: {}", sop.getSopId(), e.getMessage());
+        }
 
         // Resolve Creator List with fallback to Category Assignments
         List<String> creatorIdsList = (sop.getAssignedCreatorIds() != null && !sop.getAssignedCreatorIds().isEmpty())

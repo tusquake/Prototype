@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface TaskEventRepository extends JpaRepository<TaskEvent, Long> {
 
     List<TaskEvent> findByTask_TaskIdOrderByTimestampAsc(UUID taskId);
+
+    List<TaskEvent> findByTask_Sop_SopIdOrderByTimestampAsc(UUID sopId);
 }
