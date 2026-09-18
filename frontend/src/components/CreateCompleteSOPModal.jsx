@@ -736,6 +736,7 @@ export default function SopDrawer({
                             className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm"
                           >
                             <div className="flex items-center gap-2">
+                              <span className="text-blue-600">📄</span>
                               <span className="font-semibold text-slate-700">{doc}</span>
                               {assignment && (
                                 <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
@@ -837,7 +838,7 @@ export default function SopDrawer({
 
                   {taskError && (
                     <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs font-semibold text-red-600">
-                      {taskError}
+                      ⚠️ {taskError}
                     </div>
                   )}
 
@@ -994,6 +995,7 @@ export default function SopDrawer({
                               className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm"
                             >
                               <div className="flex items-center gap-2">
+                                <span className="text-blue-600">📄</span>
                                 <span className="font-semibold text-slate-700">{doc}</span>
                               </div>
                               <button
@@ -1159,14 +1161,14 @@ export default function SopDrawer({
                                 </div>
 
                                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
-                                  <span>{task.startDate} → {task.endDate}</span>
+                                  <span>📅 {task.startDate} → {task.endDate}</span>
                                   {isDependent ? (
                                     <span className="font-semibold text-amber-700">
-                                      Linked to Step {idx}
+                                      🔗 Linked to Step {idx}
                                     </span>
                                   ) : (
                                     <span className="font-semibold text-emerald-700">
-                                      Independent
+                                      ⚡ Independent
                                     </span>
                                   )}
                                 </div>
@@ -1178,7 +1180,7 @@ export default function SopDrawer({
                                         key={d}
                                         className="rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700"
                                       >
-                                        {d}
+                                        📄 {d}
                                       </span>
                                     ))}
                                   </div>
@@ -1419,7 +1421,7 @@ function GanttTimelineChart({ tasks = [], sopEndDate = '' }) {
                   <span className="truncate">{task.title}</span>
                   {task.requiredDocs?.length > 0 && (
                     <span className="ml-1 rounded bg-black/25 px-1 text-[9px]">
-                      Docs: {task.requiredDocs.length}
+                      📄{task.requiredDocs.length}
                     </span>
                   )}
                 </div>

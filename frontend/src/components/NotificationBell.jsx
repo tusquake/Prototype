@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   getUserNotifications,
   getUnreadNotificationCount,
@@ -8,9 +8,8 @@ import {
   deleteNotification,
 } from '../services/api';
 
-export default function NotificationBell({ currentUser }) {
+export default function NotificationBell({ currentUser, isCollapsed }) {
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -157,7 +156,8 @@ export default function NotificationBell({ currentUser }) {
     <div className="relative w-full" ref={popoverRef}>
       <button
         type="button"
-        className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-[12.5px] font-medium transition-all ${showPopover
+        className={`flex w-full items-center rounded-lg border py-2 text-[12.5px] font-medium transition-all ${isCollapsed ? 'justify-center px-0' : 'gap-2.5 px-3'
+          } ${showPopover
             ? 'border-white/20 bg-white/10 text-white'
             : 'border-white/10 bg-white/[0.04] text-slate-400 hover:border-white/20 hover:bg-white/10 hover:text-white'
           }`}
@@ -175,17 +175,23 @@ export default function NotificationBell({ currentUser }) {
             </span>
           )}
         </div>
-        <span className="flex-1 text-left">Notifications</span>
-        {unreadCount > 0 && (
-          <span className="rounded-full bg-sky-500/12 px-1.75 py-0.5 text-[10.5px] font-semibold text-sky-400">
-            {unreadCount} unread
-          </span>
+
+        {/* Hide text and pill when sidebar is collapsed */}
+        {!isCollapsed && (
+          <>
+            <span className="flex-1 text-left whitespace-nowrap">Notifications</span>
+            {unreadCount > 0 && (
+              <span className="rounded-full bg-sky-500/12 px-1.75 py-0.5 text-[10.5px] font-semibold text-sky-400 whitespace-nowrap">
+                {unreadCount} unread
+              </span>
+            )}
+          </>
         )}
       </button>
 
       {/* Clean White Notification Drawer / Popover */}
       {showPopover && (
-        <div className="absolute bottom-[calc(100%+8px)] left-0 z-[100] w-[280px] overflow-hidden rounded-xl border border-slate-300 bg-white shadow-[0_12px_30px_-5px_rgba(0,0,0,0.15),0_4px_10px_-2px_rgba(0,0,0,0.05)] animate-[fadeInNotif_0.15s_ease-out]">
+        <div className={`absolute bottom-[calc(100%+8px)] z-[100] w-[280px] overflow-hidden rounded-xl border border-slate-300 bg-white shadow-[0_12px_30px_-5px_rgba(0,0,0,0.15),0_4px_10px_-2px_rgba(0,0,0,0.05)] animate-[fadeInNotif_0.15s_ease-out] ${isCollapsed ? 'left-full ml-2' : 'left-0'}`}>
           <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3.5 py-3">
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-bold tracking-tight text-slate-900">Notifications</span>
@@ -229,8 +235,8 @@ export default function NotificationBell({ currentUser }) {
                   <div
                     key={item.notificationId}
                     className={`group relative flex gap-2.5 rounded-lg border-b border-slate-100 p-2.5 transition-all cursor-pointer hover:bg-slate-50 ${isUnread
-                        ? 'border-l-[3px] border-l-sky-600 bg-sky-50/50'
-                        : 'border-l-[3px] border-l-transparent bg-white'
+                      ? 'border-l-[3px] border-l-sky-600 bg-sky-50/50'
+                      : 'border-l-[3px] border-l-transparent bg-white'
                       }`}
                     onClick={() => handleNotificationClick(item)}
                   >

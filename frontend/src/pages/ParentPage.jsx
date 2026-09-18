@@ -20,14 +20,19 @@ export default function ParentPage() {
             headerDescription = 'Action items assigned to you as Checker or Maker pool.';
             showEntityPills = true;
             break;
-        case '/tasks':
-            headerTitle = 'Task List';
-            headerDescription = 'Compliance tasks assigned to your Maker/Checker pool.';
+        // case '/tasks':
+        //     headerTitle = 'Task List';
+        //     headerDescription = 'Compliance tasks assigned to your Maker/Checker pool.';
+        //     showEntityPills = true;
+        //     break;
+        case '/sop-management':
+            headerTitle = 'SOP Management';
+            headerDescription = 'Manage and Configure Standard operating procedures.';
             showEntityPills = true;
             break;
-        case '/sops':
-            headerTitle = 'SOP Management';
-            headerDescription = 'Standard operating procedures configured per corporate entity.';
+        case '/sop-activity':
+            headerTitle = 'SOP Activity';
+            headerDescription = 'List of Standard operating procedures created.';
             showEntityPills = true;
             break;
         case '/audit':
@@ -51,14 +56,26 @@ export default function ParentPage() {
 
     return (
         <>
-            <div className="flex min-h-screen w-full">
+            <div className="flex h-screen w-full overflow-hidden bg-bg-base">
+
+                {/* Sidebar handles its own collapsed state internally now */}
                 <Sidebar />
-                <div className="flex-1 min-w-0">
-                    <main className="ml-[248px] flex-1 min-w-0 bg-bg-base">
-                        <Header title={headerTitle} description={headerDescription} showEntityPills={showEntityPills} />
-                        <Outlet />
+
+                {/* 2. flex-1 makes this take ALL remaining width automatically */}
+                {/* 3. overflow-y-auto allows only this content area to scroll */}
+                <div className="flex flex-1 flex-col min-w-0 overflow-y-auto">
+                    <main className="flex flex-col flex-1 min-w-0">
+                        <Header
+                            title={headerTitle}
+                            description={headerDescription}
+                            showEntityPills={showEntityPills}
+                        />
+                        <div className="flex-1 p-1"> {/* Add padding for your content if needed */}
+                            <Outlet />
+                        </div>
                     </main>
                 </div>
+
             </div>
         </>
     )

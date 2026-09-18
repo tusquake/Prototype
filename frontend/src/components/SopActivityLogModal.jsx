@@ -119,20 +119,16 @@ export default function SopActivityLogModal({ isOpen, onClose, sop }) {
             {synthesizedEvents.map((event, idx) => {
               const act = (event.action || '').toUpperCase();
               const actionLabel = act.includes('ASSIGN') ? 'Access Granted by Admin' :
-                act.includes('SUBMIT') ? 'SOP Draft Submitted for Approval' :
-                  act.includes('APPROVE') || act.includes('ACTIVATE') ? 'SOP Approved & Activated' :
+                act.includes('SUBMIT') ? 'SOP Draft Submitted' :
+                  act.includes('APPROVE') ? 'SOP Approved & Activated' :
                     act.includes('REJECT') ? 'SOP Draft Rejected' :
-                      act.includes('INSTANTIATE') ? 'SOP Instance & Tasks Spawned' :
-                        act.includes('DEACTIVATE') ? 'SOP Blueprint Deactivated' :
-                          act.includes('UPDATE') || act.includes('EDIT') ? 'SOP Blueprint Modified' :
-                            act.includes('CREATE') ? 'SOP Blueprint Created' : event.action;
+                      act.includes('UPDATE') || act.includes('EDIT') ? 'SOP Modified & Re-submitted' :
+                        act.includes('CREATE') ? 'SOP Created' : event.action;
 
-              const badgeCls = (act.includes('APPROVE') || act.includes('ACTIVATE')) ? 'bg-green-50 text-green-600 border-green-300' :
+              const badgeCls = act.includes('APPROVE') ? 'bg-green-50 text-green-600 border-green-300' :
                 act.includes('REJECT') ? 'bg-red-50 text-red-600 border-red-300' :
-                  act.includes('INSTANTIATE') ? 'bg-purple-50 text-purple-600 border-purple-300' :
-                    act.includes('DEACTIVATE') ? 'bg-amber-50 text-amber-600 border-amber-300' :
-                      act.includes('SUBMIT') || act.includes('UPDATE') || act.includes('EDIT') ? 'bg-blue-50 text-blue-600 border-blue-300' :
-                        act.includes('ASSIGN') ? 'bg-blue-50 text-blue-700 border-blue-400' : 'bg-purple-50 text-purple-600 border-purple-300';
+                  act.includes('SUBMIT') || act.includes('UPDATE') || act.includes('EDIT') ? 'bg-blue-50 text-blue-600 border-blue-300' :
+                    act.includes('ASSIGN') ? 'bg-blue-50 text-blue-700 border-blue-400' : 'bg-purple-50 text-purple-600 border-purple-300';
 
               const isNotLast = idx !== synthesizedEvents.length - 1;
 

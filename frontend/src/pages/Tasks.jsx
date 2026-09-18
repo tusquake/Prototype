@@ -8,15 +8,14 @@ import Pagination from '../components/Pagination';
 import TableSkeleton from '../components/TableSkeleton';
 import TaskActionModal from '../components/TaskActionModal';
 import ConfirmationModal from '../components/ConfirmationModal';
-import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
 import { ENTITIES, getTasks, submitTask, approveTask, rejectTask, deleteTask, getProcessCategories, getUserAccessibleCategories, getUsersByPermission, getUsers } from '../services/api';
 import { useEntity } from '../context/EntityContext';
+import Toast from '../components/Toast';
 
 const STATUS_OPTIONS = [
   { value: 'ALL', label: 'All Statuses' },
   { value: 'OPEN', label: 'Open' },
-  { value: 'LOCKED', label: 'Locked (Option A)' },
   { value: 'PENDING_REVIEW', label: 'Pending Review' },
   { value: 'APPROVED', label: 'Approved' },
   { value: 'REJECTED', label: 'Rejected' },

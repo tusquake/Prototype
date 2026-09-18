@@ -22,8 +22,8 @@ const INITIAL_FORM = {
   sopCode: '',
   title: '',
   description: '',
-  processCategory: '',
-  entityCode: '',
+  processCategory: 'Tax Compliance',
+  entityCode: 'CK_INDIA',
   frequency: 'MONTHLY',
   startDateTime: formatForDateInput(new Date()),
   dueDateTime: formatForDateInput(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)),
@@ -66,7 +66,13 @@ export default function CreateSOPModal({ isOpen, targetCategory, editingSop, loc
     if (Array.isArray(allCategories) && allCategories.length > 0) {
       processCategoryOptions = allCategories.filter(c => c.value !== 'ALL');
     } else {
-      processCategoryOptions = [];
+      processCategoryOptions = [
+        { value: 'Tax Compliance', label: 'Tax Compliance' },
+        { value: 'Treasury & Cash Management', label: 'Treasury & Cash Management' },
+        { value: 'Financial Reporting', label: 'Financial Reporting' },
+        { value: 'Fixed Assets', label: 'Fixed Assets' },
+        { value: 'Payroll & Statutory', label: 'Payroll & Statutory' },
+      ];
     }
   } else if (Array.isArray(creatableCategories) && creatableCategories.length > 0) {
     processCategoryOptions = creatableCategories.map(cat => ({
@@ -74,7 +80,9 @@ export default function CreateSOPModal({ isOpen, targetCategory, editingSop, loc
       label: cat
     }));
   } else {
-    processCategoryOptions = [];
+    processCategoryOptions = [
+      { value: 'Tax Compliance', label: 'Tax Compliance' }
+    ];
   }
 
   const [permittedMakers, setPermittedMakers] = useState(null);
@@ -97,8 +105,8 @@ export default function CreateSOPModal({ isOpen, targetCategory, editingSop, loc
       setFormData({
         ...INITIAL_FORM,
         sopCode: lockedAssignment.code || lockedAssignment.sopCode || '',
-        processCategory: lockedAssignment.process || lockedAssignment.processCategory || '',
-        entityCode: lockedAssignment.entityCode || '',
+        processCategory: lockedAssignment.process || lockedAssignment.processCategory || 'Tax Compliance',
+        entityCode: lockedAssignment.entityCode || 'CK_INDIA',
         title: '',
         description: '',
         startDateTime: formatForDateTimeLocal(new Date()),
@@ -119,8 +127,8 @@ export default function CreateSOPModal({ isOpen, targetCategory, editingSop, loc
         sopCode: editingSop.code || editingSop.sopCode || '',
         title: editingSop.name || editingSop.title || '',
         description: editingSop.description || '',
-        processCategory: editingSop.process || editingSop.processCategory || '',
-        entityCode: editingSop.entityCode || '',
+        processCategory: editingSop.process || editingSop.processCategory || 'Tax Compliance',
+        entityCode: editingSop.entityCode || 'CK_INDIA',
         frequency: editingSop.frequency || 'MONTHLY',
         startDate: startD,
         dueDate: dueD,
@@ -136,7 +144,7 @@ export default function CreateSOPModal({ isOpen, targetCategory, editingSop, loc
         const catCandidate = targetCategory || prev.processCategory;
         const validCat = (catCandidate && processCategoryOptions.some(o => o.value === catCandidate))
           ? catCandidate
-          : (targetCategory || processCategoryOptions[0]?.value || '');
+          : (targetCategory || processCategoryOptions[0]?.value || 'Tax Compliance');
         return {
           ...INITIAL_FORM,
           sopCode: prev.sopCode || '',

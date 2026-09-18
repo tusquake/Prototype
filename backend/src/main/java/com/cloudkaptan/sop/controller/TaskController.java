@@ -88,13 +88,14 @@ public class TaskController {
 
     @PostMapping("/generate-scheduled")
     @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('fin_sop_admin')")
-    @Operation(summary = "Trigger scheduled task cycle generation", description = "Manually triggers automated generation of tasks for active SOPs for the current compliance period.")
+    @Operation(summary = "Trigger scheduled task cycle generation", description = "Manually triggers the orchestrator to enqueue automated task generation for active SOPs via Cloud Tasks.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Scheduled tasks generated successfully")
+        @ApiResponse(responseCode = "200", description = "Scheduled tasks dispatched to background queue successfully")
     })
     public ResponseEntity<com.cloudkaptan.sop.dto.ApiResponse<Void>> generateScheduledTasks() {
         taskSchedulerService.generateScheduledTasks();
-        return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(null, "Scheduled tasks generated successfully"));
+        // Updated message to reflect the new asynchronous Cloud Tasks architecture
+        return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(null, "Scheduled task generation dispatched to background queue successfully"));
     }
 
     @PutMapping("/{id}/reassign")
@@ -129,4 +130,3 @@ public class TaskController {
         ));
     }
 }
-

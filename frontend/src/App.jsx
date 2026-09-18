@@ -6,6 +6,7 @@ import ParentPage from './pages/ParentPage';
 import Tasks from './pages/Tasks';
 import Inbox from './pages/Inbox';
 import Sops from './pages/Sops';
+import SopInstances from './pages/SopsInstances';
 import AuditLogs from './pages/AuditLogs';
 import { getSession } from './auth/auth';
 import './index.css';
@@ -61,14 +62,14 @@ export default function App() {
             </ProtectedRoute>
           ),
         },
-        {
-          path: "/tasks",
-          element: (
-            <ProtectedRoute>
-              <Tasks />
-            </ProtectedRoute>
-          ),
-        },
+        // {
+        //   path: "/tasks",
+        //   element: (
+        //     <ProtectedRoute>
+        //       <Tasks />
+        //     </ProtectedRoute>
+        //   ),
+        // },
         {
           path: "/inbox",
           element: (
@@ -78,10 +79,18 @@ export default function App() {
           ),
         },
         {
-          path: "/sops",
+          path: "/sop-management",
           element: (
             <ProtectedRoute>
               <Sops />
+            </ProtectedRoute>
+          ),
+        },
+        {
+          path: "/sop-activity",
+          element: (
+            <ProtectedRoute>
+             <SopInstances/>
             </ProtectedRoute>
           ),
         },

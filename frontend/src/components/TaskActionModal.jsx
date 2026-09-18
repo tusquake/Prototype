@@ -304,16 +304,8 @@ export default function TaskActionModal({
     return true;
   });
 
-  const reqDocsList = task.requiredDocumentNames || task.requiredDocs || [];
-  const reqDocsCount = reqDocsList.length;
-  const uploadedDocsCount = (taskDocs || []).length;
-
   function triggerConfirm(actionType) {
     setToastError('');
-    if (actionType === 'SUBMIT' && reqDocsCount > 0 && uploadedDocsCount < reqDocsCount) {
-      setToastError(`Submission requirement: This task step requires at least ${reqDocsCount} evidence document(s) to be uploaded before submission (Uploaded: ${uploadedDocsCount}/${reqDocsCount}).`);
-      return;
-    }
     if (actionType === 'APPROVE' && hasUnapprovedDocs) {
       setToastError('Task cannot be approved until all attached evidence documents are individually approved (✓) by the Checker.');
       return;
@@ -539,38 +531,6 @@ export default function TaskActionModal({
                 </span>
               </div>
             </div>
-
-            {/* Required Evidence & Mandatory Documents Checklist Card */}
-            {((task.requiredDocumentNames && task.requiredDocumentNames.length > 0) || (task.requiredDocs && task.requiredDocs.length > 0)) && (
-              <div className="flex flex-col gap-2 rounded-xl border border-indigo-200 bg-indigo-50/70 p-4">
-                <div className="flex items-center gap-2">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                    <path d="M9 15l2 2 4-4" />
-                  </svg>
-                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-900">
-                    Required Evidence &amp; Mandatory Documents Checklist
-                  </span>
-                </div>
-                <p className="text-[11.5px] text-indigo-700">
-                  The following evidence documents are required to complete and verify this task step:
-                </p>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {(task.requiredDocumentNames || task.requiredDocs || []).map((docName, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-semibold text-indigo-950 shadow-xs"
-                    >
-                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-extrabold text-indigo-700">
-                        ✓
-                      </span>
-                      <span>{docName}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Attached Working Papers & Evidence Documents Section with Drag & Drop */}
             <div

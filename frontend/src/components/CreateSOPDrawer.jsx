@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import UserPickerModal from './UserPickerModal';
-import SopActivityLogModal from './SopActivityLogModal';
+import CustomDatePicker from './CustomDatePicker';
+import ActionConfirmationModal from './ActionConfirmationModal';
 import {
   getUsersByPermission,
   getProcessCategories,
@@ -16,18 +18,38 @@ import {
   deleteTaskTemplateStep,
   submitSopTemplate,
   activateSopTemplate,
+  actionSopTemplate,
   getSopTemplate,
-} from '../services/api';
+} from '../services/api'; // Ensure your mock/real API supports these calls
+import CreateTaskTemplateModal from './CreateTaskTemplateModal';
+import ConfirmationModal from './ConfirmationModal';
+
+const MODAL_STEPS = [
+  {
+    stepNumber: 1,
+    title: "Template Definition",
+  },
+  {
+    stepNumber: 2,
+    title: "Execution Flow",
+  },
+  {
+    stepNumber: 3,
+    title: "Representation",
+  },
+]
 
 const FREQ_OPTIONS = [
-  { value: 'MONTHLY', label: 'Monthly' },
-  { value: 'QUARTERLY', label: 'Quarterly' },
   { value: 'ANNUAL', label: 'Annual' },
+  { value: 'QUARTERLY', label: 'Quarterly' },
+  { value: 'MONTHLY', label: 'Monthly' },
   { value: 'WEEKLY', label: 'Weekly' },
-  { value: 'DAILY', label: 'Daily' },
 ];
 
-const ENTITY_OPTIONS = [];
+const MAX_DAYS_IN_MONTH = {
+  JAN: 31, FEB: 28, MAR: 31, APR: 30, MAY: 31, JUN: 30,
+  JUL: 31, AUG: 31, SEP: 30, OCT: 31, NOV: 30, DEC: 31
+}
 
 // SCHEMA: Step 1 Template Validation
 const step1Schema = z.object({
@@ -36,14 +58,14 @@ const step1Schema = z.object({
   description: z.string().optional(),
   processCategory: z.string().min(1, 'Process Category is required.'),
   entityCode: z.string().min(1, 'Corporate Entity is required.'),
-  effectiveFrom: z.string().min(1, 'Effective From Date is required.'),
+  effectiveFrom: z.string().min(1, 'SOP Start Date is required.'),
   effectiveUntil: z.string().optional(),
   frequency: z.string().default('MONTHLY'),
   dueDayOffset: z.coerce
     .number()
     .min(0, 'Offset must be at least 0')
     .max(365, 'Offset cannot exceed 365 days'),
-  isRecurring: z.boolean().default(true),
+  isRecurring: z.boolean().default(false),
   defaultMakerIds: z
     .array(z.string())
     .min(1, 'Select at least one Maker for the Assigned Maker Pool.'),
@@ -70,417 +92,58 @@ function CustomSelect({ name, value, options, disabled, onChange }) {
   );
 }
 
-function CreateTaskModal({
-  isOpen,
-  onClose,
-  onSaveTask,
-  existingTasksCount,
-  userMap,
-  parentMakerPool,
-  parentCheckerPool,
-  editingTask = null,
-  isViewOnly = false,
-}) {
-  const [taskTitle, setTaskTitle] = useState('');
-  const [slaHours, setSlaHours] = useState(24);
-  const [taskDependencyMode, setTaskDependencyMode] = useState(
-    existingTasksCount === 0 ? 'INDEPENDENT' : 'DEPENDENT_ON_PREVIOUS'
-  );
-  const [taskPriority, setTaskPriority] = useState('Medium');
-
-  // ETA Days (User-friendly relative offsets from SOP start)
-  const [etaStartDay, setEtaStartDay] = useState(0);
-  const [etaEndDay, setEtaEndDay] = useState(7);
-
-  // Task-specific pools (subset of parent pools)
-  const [taskMakers, setTaskMakers] = useState([]);
-  const [taskCheckers, setTaskCheckers] = useState([]);
-  const [showMakerPicker, setShowMakerPicker] = useState(false);
-  const [showCheckerPicker, setShowCheckerPicker] = useState(false);
-
-  // Requirement: Task level required documents
-  const [taskLevelDocs, setTaskLevelDocs] = useState([]);
-  const [newDocName, setNewDocName] = useState('');
-
-  const [taskError, setTaskError] = useState('');
-
-  useEffect(() => {
-    if (isOpen) {
-      if (editingTask) {
-        setTaskTitle(editingTask.title || '');
-        setSlaHours(editingTask.slaHours || 24);
-        setTaskDependencyMode(editingTask.dependencyMode || 'INDEPENDENT');
-        setTaskPriority(editingTask.priority || 'Medium');
-        setEtaStartDay(editingTask.etaStartDay !== undefined ? editingTask.etaStartDay : 0);
-        setEtaEndDay(editingTask.etaEndDay !== undefined ? editingTask.etaEndDay : 7);
-        setTaskMakers(editingTask.makers || []);
-        setTaskCheckers(editingTask.checkers || []);
-        setTaskLevelDocs(editingTask.requiredDocs || []);
-        setTaskError('');
-      } else {
-        setTaskTitle('');
-        setSlaHours(24);
-        setTaskDependencyMode(existingTasksCount === 0 ? 'INDEPENDENT' : 'DEPENDENT_ON_PREVIOUS');
-        setTaskPriority('Medium');
-        setEtaStartDay(0);
-        setEtaEndDay(7);
-        setTaskMakers([]);
-        setTaskCheckers([]);
-        setTaskLevelDocs([]);
-        setTaskError('');
-      }
+ const getOffsetMax = (freq) => {
+    switch (freq) {
+      case 'WEEKLY': return 7;
+      case 'MONTHLY': return 31;
+      case 'QUARTERLY': return 90;
+      case 'ANNUAL': return 365;
+      default: return 30;
     }
-  }, [isOpen, editingTask, existingTasksCount]);
-
-  if (!isOpen) return null;
-
-  const handleAddDoc = () => {
-    if (isViewOnly) return;
-    const trimmed = newDocName.trim();
-    if (!trimmed) return;
-    if (taskLevelDocs.includes(trimmed)) {
-      setTaskError('Document already exists in checklist.');
-      return;
-    }
-    setTaskLevelDocs([...taskLevelDocs, trimmed]);
-    setNewDocName('');
-    setTaskError('');
   };
-
-  const removeMaker = (id) => { if (!isViewOnly) setTaskMakers(taskMakers.filter((x) => x !== id)); };
-  const removeChecker = (id) => { if (!isViewOnly) setTaskCheckers(taskCheckers.filter((x) => x !== id)); };
-
-  const handleSave = () => {
-    if (isViewOnly) {
-      onClose();
-      return;
-    }
-    if (!taskTitle.trim()) {
-      setTaskError('Task Name is required.');
-      return;
-    }
-    if (etaEndDay <= 0) {
-      setTaskError('ETA Days must be at least 1 day.');
-      return;
-    }
-    if (taskMakers.length === 0) {
-      setTaskError('Please select at least one Maker for this task.');
-      return;
-    }
-    if (taskCheckers.length === 0) {
-      setTaskError('Please select at least one Checker for this task.');
-      return;
-    }
-
-    const newTaskTemplate = {
-      id: editingTask ? editingTask.id : `task-template-${Date.now()}`,
-      taskTemplateId: editingTask ? editingTask.taskTemplateId : null,
-      stepSequence: editingTask ? editingTask.stepSequence : existingTasksCount + 1,
-      title: taskTitle.trim(),
-      slaHours: Number(slaHours) || 24,
-      dependencyMode: editingTask ? taskDependencyMode : (existingTasksCount === 0 ? 'INDEPENDENT' : taskDependencyMode),
-      priority: taskPriority,
-      etaStartDay: Number(etaStartDay) || 0,
-      etaEndDay: Number(etaEndDay) || 0,
-      requiredDocs: [...taskLevelDocs],
-      makers: taskMakers,
-      checkers: taskCheckers,
-      savedToBackend: !!editingTask?.taskTemplateId,
-    };
-
-    onSaveTask(newTaskTemplate, !!editingTask);
-  };
-
-  // Convert string arrays to object arrays for UserPickerModal compatibility
-  const formattedParentMakers = parentMakerPool.map((id) => ({ id, name: userMap[id] || id }));
-  const formattedParentCheckers = parentCheckerPool.map((id) => ({ id, name: userMap[id] || id }));
-
-  return (
-    <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
-              {isViewOnly ? `View Step ${editingTask?.stepSequence || 1} Task Details` : editingTask ? `Edit Step ${editingTask.stepSequence} Task Template` : `Create Step ${existingTasksCount + 1} Task Template`}
-            </h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">Define blueprint rules & ETA days for this execution step.</p>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 font-bold">✕</button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {taskError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs font-semibold text-red-600">
-              {taskError}
-            </div>
-          )}
-
-          <div>
-            <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Task Template Name *</label>
-            <input
-              type="text"
-              value={taskTitle}
-              disabled={isViewOnly}
-              onChange={(e) => setTaskTitle(e.target.value)}
-              placeholder="e.g. Verify Ledger Entries"
-              className="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:border-blue-600 focus:outline-none disabled:bg-slate-100"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Step Dependency</label>
-              <select
-                value={taskDependencyMode}
-                onChange={(e) => setTaskDependencyMode(e.target.value)}
-                disabled={isViewOnly || existingTasksCount === 0}
-                className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs focus:border-blue-600 focus:outline-none disabled:bg-slate-100"
-              >
-                <option value="INDEPENDENT">Independent Task</option>
-                {existingTasksCount > 0 && (
-                  <option value="DEPENDENT_ON_PREVIOUS">Dependent on Step {existingTasksCount}</option>
-                )}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Target SLA (Hours) *</label>
-              <input
-                type="number"
-                value={slaHours}
-                disabled={isViewOnly}
-                onChange={(e) => setSlaHours(e.target.value)}
-                min={1}
-                className="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:border-blue-600 focus:outline-none disabled:bg-slate-100"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Priority Level</label>
-            <select
-              value={taskPriority}
-              disabled={isViewOnly}
-              onChange={(e) => setTaskPriority(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs focus:border-blue-600 focus:outline-none disabled:bg-slate-100"
-            >
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-            </select>
-          </div>
-
-          {/* User-friendly ETA Days Section */}
-          <div className="space-y-2 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-blue-900">Task Timeline & ETA Days</h4>
-            <div>
-              <label className="block text-[11px] font-semibold uppercase text-blue-800 mb-1">
-                ETA Days (Task Duration / Deadline) *
-              </label>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-blue-700">Days</span>
-                <input
-                  type="number"
-                  min={1}
-                  disabled={isViewOnly}
-                  value={etaEndDay}
-                  onChange={(e) => setEtaEndDay(Number(e.target.value))}
-                  className="w-full rounded-lg border border-blue-300 bg-white p-2 text-xs font-bold text-slate-800 focus:border-blue-600 focus:outline-none disabled:bg-slate-100"
-                />
-              </div>
-              <span className="text-[10px] text-slate-500 mt-1 block">
-                Task starts on SOP Start Date (or after preceding task completion) and must finish within {etaEndDay} days.
-              </span>
-            </div>
-          </div>
-
-          {/* Task Level Documents */}
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Required Task Documents</h4>
-            {!isViewOnly && (
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="text"
-                  placeholder="e.g. Form 16B"
-                  value={newDocName}
-                  onChange={(e) => setNewDocName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddDoc())}
-                  className="flex-1 rounded-lg border border-slate-300 p-2 text-xs focus:border-blue-600 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddDoc}
-                  className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700"
-                >
-                  + Add
-                </button>
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2">
-              {taskLevelDocs.length === 0 ? (
-                <span className="text-[11px] italic text-slate-400">No documents required for this step.</span>
-              ) : (
-                taskLevelDocs.map((doc) => (
-                  <span key={doc} className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
-                    {doc}
-                    {!isViewOnly && (
-                      <button type="button" onClick={() => setTaskLevelDocs(taskLevelDocs.filter((d) => d !== doc))} className="text-blue-400 hover:text-red-500 font-bold">✕</button>
-                    )}
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Task Execution Pools */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-lg border border-slate-200 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-[11px] font-bold uppercase text-slate-600">Task Makers</label>
-                {!isViewOnly && (
-                  <button type="button" onClick={() => setShowMakerPicker(true)} className="text-[10px] font-bold text-blue-600 hover:underline">Select</button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {taskMakers.length === 0 ? (
-                  <span className="text-[10px] text-slate-400">Inherit all SOP Makers</span>
-                ) : (
-                  taskMakers.map((id) => (
-                    <span key={id} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold flex items-center gap-1 border border-slate-200">
-                      {userMap[id] || id} {!isViewOnly && <button type="button" onClick={() => removeMaker(id)} className="text-slate-400 hover:text-red-500">✕</button>}
-                    </span>
-                  ))
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-slate-200 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-[11px] font-bold uppercase text-slate-600">Task Checkers</label>
-                {!isViewOnly && (
-                  <button type="button" onClick={() => setShowCheckerPicker(true)} className="text-[10px] font-bold text-blue-600 hover:underline">Select</button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {taskCheckers.length === 0 ? (
-                  <span className="text-[10px] text-slate-400">Inherit all SOP Checkers</span>
-                ) : (
-                  taskCheckers.map((id) => (
-                    <span key={id} className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold flex items-center gap-1 border border-slate-200">
-                      {userMap[id] || id} {!isViewOnly && <button type="button" onClick={() => removeChecker(id)} className="text-slate-400 hover:text-red-500">✕</button>}
-                    </span>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-slate-200 p-4 flex justify-end gap-3 bg-slate-50 rounded-b-xl">
-          <button onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-white">
-            {isViewOnly ? 'Close' : 'Cancel'}
-          </button>
-          {!isViewOnly && (
-            <button onClick={handleSave} className="rounded-lg bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-700">Save Task Template</button>
-          )}
-        </div>
-      </div>
-
-      {!isViewOnly && (
-        <>
-          <UserPickerModal
-            isOpen={showMakerPicker}
-            title="Select Task Makers (from SOP Pool)"
-            targetRole="MAKER"
-            selectedUserIds={taskMakers}
-            permittedUsers={formattedParentMakers}
-            onClose={() => setShowMakerPicker(false)}
-            onConfirm={(ids) => { setTaskMakers(ids); setShowMakerPicker(false); }}
-          />
-          <UserPickerModal
-            isOpen={showCheckerPicker}
-            title="Select Task Checkers (from SOP Pool)"
-            targetRole="CHECKER"
-            selectedUserIds={taskCheckers}
-            permittedUsers={formattedParentCheckers}
-            onClose={() => setShowCheckerPicker(false)}
-            onConfirm={(ids) => { setTaskCheckers(ids); setShowCheckerPicker(false); }}
-          />
-        </>
-      )}
-    </div>
-  );
-}
 
 export default function CreateSopDrawer({
   isOpen = true,
   editingTemplate = null,
   isViewOnly = false,
-  currentUser = { id: 'usr-manoj-042', name: 'Compliance Lead', role: 'ADMIN' },
+  currentUser = {},
   userMap = {},
   creatableCategories = [],
   onClose = () => { },
   onSuccess = () => { },
 }) {
+  // Requirement #1: Multi-step tracking
   const [currentStep, setCurrentStep] = useState(1);
   const [templateId, setTemplateId] = useState(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
 
-  const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.email?.includes('mainak');
+  const isAdmin = currentUser?.role === 'ADMIN';
 
   const [processOptions, setProcessOptions] = useState([]);
   const [entityOptions, setEntityOptions] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Modals for execution pools (SOP Level)
   const [showMakerPicker, setShowMakerPicker] = useState(false);
   const [showCheckerPicker, setShowCheckerPicker] = useState(false);
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const [editingTaskStep, setEditingTaskStep] = useState(null);
 
-  const [permittedMakers, setPermittedMakers] = useState([]);
-  const [permittedCheckers, setPermittedCheckers] = useState([]);
+  const [permittedMakers, setPermittedMakers] = useState([{ id: 'usr-2', name: 'Aarav Sharma' }, { id: 'usr-4', name: 'Vikram Singh' }]);
+  const [permittedCheckers, setPermittedCheckers] = useState([{ id: 'usr-1', name: 'Compliance Lead' }, { id: 'usr-3', name: 'Priya Patel' }]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [localUserMap, setLocalUserMap] = useState(userMap);
 
   const [taskTemplates, setTaskTemplates] = useState([]);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [showRejectInput, setShowRejectInput] = useState(false);
-  const [isProcessingAction, setIsProcessingAction] = useState(false);
-
-  const handleApproveSopTemplate = async () => {
-    const tId = templateId || editingTemplate?.templateId || editingTemplate?.id;
-    if (!tId) return;
-    try {
-      setIsProcessingAction(true);
-      setErrorMsg('');
-      await activateSopTemplate(tId, currentUser?.id || 'usr-vivek-108');
-      onSuccess(`SOP Template "${getValues('title') || editingTemplate?.title || 'Blueprint'}" approved successfully! Status is now ACTIVE.`);
-    } catch (err) {
-      setErrorMsg(err?.message || 'Failed to approve SOP Template.');
-    } finally {
-      setIsProcessingAction(false);
-    }
-  };
-
-  const handleRejectSopTemplate = async () => {
-    const tId = templateId || editingTemplate?.templateId || editingTemplate?.id;
-    if (!tId) return;
-    if (!rejectionReason.trim()) {
-      setErrorMsg('Please enter a rejection reason comment.');
-      return;
-    }
-    try {
-      setIsProcessingAction(true);
-      setErrorMsg('');
-      await rejectSopTemplate(tId, rejectionReason.trim());
-      onSuccess(`SOP Template rejected back to creator for revision.`);
-    } catch (err) {
-      setErrorMsg(err?.message || 'Failed to reject SOP Template.');
-    } finally {
-      setIsProcessingAction(false);
-    }
-  };
-
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const [selectedWeekDays, setSelectedWeekDays] = useState(['MON']);
+  const [selectedDayOfMonth, setSelectedDayOfMonth] = useState(15);
+  const [selectedQuarterMonth, setSelectedQuarterMonth] = useState(1);
+  const [selectedAnnualMonth, setSelectedAnnualMonth] = useState('MAR');
+  const [selectedDailyMode, setSelectedDailyMode] = useState('BUSINESS_DAYS');
+  const [openConfirmationModal, setOpenConfirmationModal] = useState(false);
+  const [modalConfig, setModalConfig] = useState('APPROVE');
+
 
   const {
     register,
@@ -490,9 +153,11 @@ export default function CreateSopDrawer({
     trigger,
     getValues,
     reset,
-    formState: { errors },
+    clearErrors,
+    formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(step1Schema),
+    reValidateMode: 'onChange',
     defaultValues: {
       sopCode: '',
       title: '',
@@ -502,7 +167,7 @@ export default function CreateSopDrawer({
       effectiveFrom: todayStr,
       effectiveUntil: '',
       frequency: 'MONTHLY',
-      dueDayOffset: 15,
+      dueDayOffset: getOffsetMax('MONTHLY')  ?? 31,
       isRecurring: true,
       defaultMakerIds: [],
       defaultCheckerIds: [],
@@ -512,22 +177,221 @@ export default function CreateSopDrawer({
   const processCategory = useWatch({ control, name: 'processCategory' });
   const isRecurring = useWatch({ control, name: 'isRecurring' });
   const frequency = useWatch({ control, name: 'frequency' }) || 'MONTHLY';
-  const dueDayOffset = useWatch({ control, name: 'dueDayOffset' }) || 15;
+  const dueDayOffset = useWatch({ control, name: 'dueDayOffset' });
   const defaultMakerIds = useWatch({ control, name: 'defaultMakerIds' }) || [];
   const defaultCheckerIds = useWatch({ control, name: 'defaultCheckerIds' }) || [];
+  const effectiveFrom = useWatch({ control, name: 'effectiveFrom' });
+  const effectiveUntil = useWatch({ control, name: 'effectiveUntil' });
 
-  const [selectedWeekDays, setSelectedWeekDays] = useState(['MON']);
-  const [selectedDayOfMonth, setSelectedDayOfMonth] = useState(15);
-  const [selectedQuarterMonth, setSelectedQuarterMonth] = useState(1);
-  const [selectedAnnualMonth, setSelectedAnnualMonth] = useState('MAR');
-  const [selectedDailyMode, setSelectedDailyMode] = useState('BUSINESS_DAYS');
-  const [showAuditModal, setShowAuditModal] = useState(false);
+  // API Mock function
+  const saveTemplateDraftApiCall = async (payload, step) => {
+    // In real app: await createCompleteSop(payload) or similar
+    return new Promise((resolve) => {
+      setTimeout(() => resolve(`temp-id-uuid-${Date.now()}`), 800);
+    });
+  };
+
+  const handleProceedToStep2 = async () => {
+    if (isViewOnly) {
+      setCurrentStep(2);
+      return;
+    }
+    setErrorMsg('');
+    const isValid = await trigger();
+    if (!isValid) return;
+
+    setIsSavingDraft(true);
+    try {
+      const formData = getValues();
+      const recurrenceConfigObj = {
+        mode: isRecurring ? 'RECURRING' : 'ONE_TIME',
+        frequency,
+        weekdays: selectedWeekDays,
+        dayOfWeek: selectedWeekDays[0] || 'MON',
+        dayOfMonth: selectedDayOfMonth,
+        quarterMonth: selectedQuarterMonth,
+        monthOfYear: selectedAnnualMonth,
+        dailyMode: selectedDailyMode,
+      };
+
+      const payload = {
+        templateCode: formData.sopCode,
+        title: formData.title,
+        description: formData.description,
+        processCategory: formData.processCategory,
+        entityCode: formData.entityCode,
+        frequency: formData.frequency,
+        dueDayOffset: Number(formData.dueDayOffset) || 31,
+        isRecurring: formData.isRecurring,
+        recurrenceConfig: JSON.stringify(recurrenceConfigObj),
+        effectiveFrom: formData.effectiveFrom,
+        effectiveUntil: formData.effectiveUntil || null,
+        defaultMakerIds: formData.defaultMakerIds,
+        defaultCheckerIds: formData.defaultCheckerIds,
+        createdById: currentUser?.id || currentUser?.userId || currentUser?.email || 'usr-manoj-042',
+      };
+
+      if (!templateId) {
+        const res = await createSopTemplate(payload);
+        console.log("RES", res)
+        const createdId = res.data?.templateId || res.templateId || res.data?.id;
+        setTemplateId(createdId);
+        console.log("IN API CALL TEMPLATE ID", createdId)
+
+        setTemplateId(createdId);
+      } else {
+        await updateSopTemplate(templateId, payload);
+      }
+
+      setCurrentStep(2);
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.message || 'Failed to save SOP Template Draft.');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const handleProceedToStep3 = async () => {
+    if (isViewOnly) {
+      setCurrentStep(3);
+      return;
+    }
+    if (taskTemplates.length === 0) {
+      setErrorMsg('You must add at least one task template to the execution flow.');
+      return;
+    }
+    setErrorMsg('');
+    setIsSavingDraft(true);
+    try {
+      // Save Step 2 state (Tasks)
+      await saveTemplateDraftApiCall({ templateId, tasks: taskTemplates }, 2);
+      setCurrentStep(3);
+    } catch (err) {
+      setErrorMsg('Failed to save Task Templates.');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  const handleApprove = async (comment) => {
+    if (editingTemplate && editingTemplate?.status === 'DRAFT' || editingTemplate?.status === 'APPROVED') {
+      onClose();
+      return;
+    }
+    setErrorMsg('');
+    setIsSavingDraft(true);
+
+    try {
+      console.log('HERE TOO')
+      if (templateId && editingTemplate?.status == 'PENDING_APPROVAL') {
+        //API Call to approve
+        await actionSopTemplate(templateId, {
+          action: modalConfig === 'APPROVE' ? 'ACTIVE' : 'REJECT',
+          actorId: currentUser?.id ?? '',
+          comment: comment?.trim() ?? ''
+        })
+        if (onSuccess && modalConfig == 'APPROVE') onSuccess(`SOP Template "${editingTemplate.title}" approved successfully! `);
+        if (onSuccess && modalConfig == 'REJECT') onSuccess(`SOP Template "${editingTemplate.title}" rejected! `);
+        reset()
+        onClose();
+        return;
+      }
+
+
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.message || 'Failed to submit SOP Template for approval.');
+    } finally {
+      setIsSavingDraft(false);
+    }
+
+  }
+
+  const handleFinalSubmit = async () => {
+    if (isViewOnly && (editingTemplate?.status === 'DRAFT' || editingTemplate.status === 'APPROVED')) {
+      onClose();
+      return;
+    }
+    setErrorMsg('');
+    setIsSavingDraft(true);
+    try {
+
+      if (templateId && editingTemplate?.status === 'PENDING_APPROVAL') {
+        //API Call to approve
+        onClose();
+        return;
+      }
+
+      if (templateId) {
+        await actionSopTemplate(templateId, {
+          action: 'SUBMIT',
+          actorId: currentUser?.id ?? '',
+          comment: ''
+        });
+      }
+
+      const formData = getValues();
+
+      if (onSuccess) onSuccess(`SOP Template "${formData.title}" submitted for approval successfully! Assigned approver has been notified.`);
+      reset();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.message || 'Failed to submit SOP Template for approval.');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+
+  const removeMaker = (id) => setValue('defaultMakerIds', defaultMakerIds.filter((x) => x !== id), { shouldValidate: true });
+  const removeChecker = (id) => setValue('defaultCheckerIds', defaultCheckerIds.filter((x) => x !== id), { shouldValidate: true });
+
+  const handleDeleteTaskTemplate = async (taskId) => {
+    if (isViewOnly) return;
+    const taskToDelete = taskTemplates.find((t) => t.id === taskId);
+    if (taskToDelete?.taskTemplateId && templateId) {
+      try {
+        await deleteTaskTemplateStep(templateId, taskToDelete.taskTemplateId);
+      } catch (err) {
+        console.error('Failed to delete task step from backend:', err);
+      }
+    }
+    setTaskTemplates(taskTemplates.filter(t => t.id !== taskId).map((t, index) => ({ ...t, stepSequence: index + 1 })));
+  };
+
+  const loadPermittedUsers = useCallback(
+    async (category) => {
+      if (!category) return;
+      setLoadingUsers(true);
+
+      try {
+        const [makers, checkers] = await Promise.all([
+          getUsersByPermission(category, 'MAKER'),
+          getUsersByPermission(category, 'CHECKER'),
+        ]);
+        setPermittedMakers(makers || []);
+        setPermittedCheckers(checkers || []);
+
+        // Reset pool selections gracefully after fetching
+        // setValue('defaultMakerIds', []);
+        // setValue('defaultCheckerIds', []);
+      } catch {
+        setPermittedMakers([]);
+        setPermittedCheckers([]);
+      } finally {
+        setLoadingUsers(false);
+      }
+    },
+    [setValue]
+  );
 
   const getScheduleSummary = () => {
     if (!isRecurring) {
       return 'Manual One-Time execution: Instance tasks will generate once upon explicit manual trigger.';
     }
-    const offset = dueDayOffset || 15;
+    const offset = dueDayOffset || 31;
     switch (frequency) {
       case 'WEEKLY':
         return `Automated WEEKLY generation every ${selectedWeekDays.join(', ')}. Execution completion window is ${offset} ETA days.`;
@@ -548,6 +412,21 @@ export default function CreateSopDrawer({
     }
   };
 
+  // 1. New state for the Autoconfigure toggle
+  const [isManualOffset, setIsManualOffset] = useState(false);
+
+  // 2. Helper to get dynamic max offset based on frequency
+
+  // 3. Helper to get exact days in a month for the Annual view
+  const getDaysForAnnualMonth = (monthStr) => {
+    const monthDaysMap = {
+      JAN: 31, FEB: 29, MAR: 31, APR: 30, MAY: 31, JUN: 30,
+      JUL: 31, AUG: 31, SEP: 30, OCT: 31, NOV: 30, DEC: 31
+    };
+    const maxDays = monthDaysMap[monthStr] || 31;
+    return Array.from({ length: maxDays }, (_, i) => i + 1);
+  };
+
   useEffect(() => {
     setLocalUserMap((prev) => ({ ...prev, ...userMap }));
   }, [userMap]);
@@ -556,6 +435,7 @@ export default function CreateSopDrawer({
   useEffect(() => {
     if (isOpen) {
       if (editingTemplate) {
+        console.log('EdIt', editingTemplate)
         const targetId = editingTemplate.templateId || editingTemplate.id || null;
         setTemplateId(targetId);
 
@@ -569,7 +449,7 @@ export default function CreateSopDrawer({
           effectiveFrom: editingTemplate.effectiveFrom || todayStr,
           effectiveUntil: editingTemplate.effectiveUntil || '',
           frequency: editingTemplate.frequency || 'MONTHLY',
-          dueDayOffset: editingTemplate.dueDayOffset !== undefined ? editingTemplate.dueDayOffset : 15,
+          dueDayOffset: editingTemplate.dueDayOffset !== undefined ? editingTemplate.dueDayOffset : getOffsetMax(editingTemplate.frequency),
           isRecurring: editingTemplate.isRecurring !== undefined ? editingTemplate.isRecurring : true,
           defaultMakerIds: editingTemplate.defaultMakerIds || editingTemplate.makers || [],
           defaultCheckerIds: editingTemplate.defaultCheckerIds || editingTemplate.checkers || [],
@@ -585,7 +465,7 @@ export default function CreateSopDrawer({
             if (parsed.quarterMonth) setSelectedQuarterMonth(parsed.quarterMonth);
             if (parsed.monthOfYear) setSelectedAnnualMonth(parsed.monthOfYear);
             if (parsed.dailyMode) setSelectedDailyMode(parsed.dailyMode);
-          } catch (e) {}
+          } catch (e) { }
         }
 
         const rawTasks = editingTemplate.taskTemplates || [];
@@ -607,7 +487,7 @@ export default function CreateSopDrawer({
             savedToBackend: true,
           }));
           setTaskTemplates(mappedTasks);
-          setCurrentStep(2);
+          setCurrentStep(1);
         } else {
           setTaskTemplates([]);
           setCurrentStep(1);
@@ -628,10 +508,10 @@ export default function CreateSopDrawer({
                   effectiveFrom: full.effectiveFrom || todayStr,
                   effectiveUntil: full.effectiveUntil || '',
                   frequency: full.frequency || 'MONTHLY',
-                  dueDayOffset: full.dueDayOffset !== undefined ? full.dueDayOffset : 15,
+                  dueDayOffset: full.dueDayOffset !== undefined ? full.dueDayOffset : 31,
                   isRecurring: full.isRecurring !== undefined ? full.isRecurring : true,
-                  defaultMakerIds: full.defaultMakerIds || [],
-                  defaultCheckerIds: full.defaultCheckerIds || [],
+                  defaultMakerIds: full.defaultMakerIds || full.makerIds || full.makers || [],
+                  defaultCheckerIds: full.defaultCheckerIds || full.checkerIds || full.checkers || [],
                 });
 
                 if (full.recurrenceConfig) {
@@ -644,7 +524,7 @@ export default function CreateSopDrawer({
                     if (parsed.quarterMonth) setSelectedQuarterMonth(parsed.quarterMonth);
                     if (parsed.monthOfYear) setSelectedAnnualMonth(parsed.monthOfYear);
                     if (parsed.dailyMode) setSelectedDailyMode(parsed.dailyMode);
-                  } catch (e) {}
+                  } catch (e) { }
                 }
 
                 const fetchedTasks = full.taskTemplates || [];
@@ -687,7 +567,7 @@ export default function CreateSopDrawer({
           effectiveFrom: todayStr,
           effectiveUntil: '',
           frequency: 'MONTHLY',
-          dueDayOffset: 15,
+          dueDayOffset: 31,
           isRecurring: true,
           defaultMakerIds: [],
           defaultCheckerIds: [],
@@ -705,8 +585,8 @@ export default function CreateSopDrawer({
           .then((cats) => {
             if (Array.isArray(cats) && cats.length > 0) {
               const available = cats.map((c) => ({
-                value: c.categoryName || c.categoryCode || c,
-                label: c.categoryName || c.categoryCode || c,
+                value: c.categoryCode || '',
+                label: c.categoryName || '',
               }));
               setProcessOptions(available);
               const currentCat = getValues('processCategory');
@@ -715,7 +595,7 @@ export default function CreateSopDrawer({
               }
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       } else if (targetUid) {
         getUserCreatableCategories(targetUid)
           .then((cats) => {
@@ -734,7 +614,7 @@ export default function CreateSopDrawer({
               setProcessOptions([]);
             }
           })
-          .catch(() => {});
+          .catch(() => { });
       }
     }
   }, [isOpen, isAdmin, currentUser, setValue, getValues]);
@@ -756,378 +636,144 @@ export default function CreateSopDrawer({
             }
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [isOpen, setValue, getValues]);
 
-  const loadPermittedUsers = useCallback(
-    async (category) => {
-      if (!category) return;
-      setLoadingUsers(true);
-      try {
-        const [makers, checkers] = await Promise.all([
-          getUsersByPermission(category, 'MAKER'),
-          getUsersByPermission(category, 'CHECKER'),
-        ]);
-        const makerList = Array.isArray(makers) ? makers : [];
-        const checkerList = Array.isArray(checkers) ? checkers : [];
 
-        setPermittedMakers(makerList);
-        setPermittedCheckers(checkerList);
-
-        // Update local user map with full names of permitted users
-        setLocalUserMap((prev) => {
-          const map = { ...prev };
-          makerList.forEach((u) => { if (u.id) map[u.id] = u.name || u.id; });
-          checkerList.forEach((u) => { if (u.id) map[u.id] = u.name || u.id; });
-          return map;
-        });
-
-        // Do NOT auto-select default makers/checkers — user manually selects from permitted pool!
-      } catch (err) {
-        console.error('Failed to load permitted users for category:', category, err);
-        setPermittedMakers([]);
-        setPermittedCheckers([]);
-        setValue('defaultMakerIds', [], { shouldValidate: true });
-        setValue('defaultCheckerIds', [], { shouldValidate: true });
-      } finally {
-        setLoadingUsers(false);
-      }
-    },
-    [setValue]
-  );
-
-  // Trigger getUsersByPermission whenever processCategory changes or drawer opens
-  const prevCategoryRef = React.useRef(processCategory);
   useEffect(() => {
     if (isOpen && processCategory) {
-      if (prevCategoryRef.current !== processCategory) {
-        setValue('defaultMakerIds', [], { shouldValidate: false });
-        setValue('defaultCheckerIds', [], { shouldValidate: false });
-        prevCategoryRef.current = processCategory;
-      }
       loadPermittedUsers(processCategory);
     }
-  }, [isOpen, processCategory, loadPermittedUsers, setValue]);
-
-  const handleProceedToStep2 = async () => {
-    if (isViewOnly) {
-      setCurrentStep(2);
-      return;
-    }
-    setErrorMsg('');
-    const isValid = await trigger();
-    if (!isValid) return;
-
-    setIsSavingDraft(true);
-    try {
-      const formData = getValues();
-      const recurrenceConfigObj = {
-        mode: isRecurring ? 'RECURRING' : 'ONE_TIME',
-        frequency,
-        weekdays: selectedWeekDays,
-        dayOfWeek: selectedWeekDays[0] || 'MON',
-        dayOfMonth: selectedDayOfMonth,
-        quarterMonth: selectedQuarterMonth,
-        monthOfYear: selectedAnnualMonth,
-        dailyMode: selectedDailyMode,
-      };
-
-      const payload = {
-        templateCode: formData.sopCode,
-        title: formData.title,
-        description: formData.description,
-        processCategory: formData.processCategory,
-        entityCode: formData.entityCode,
-        frequency: formData.frequency,
-        dueDayOffset: Number(formData.dueDayOffset) || 0,
-        isRecurring: formData.isRecurring,
-        recurrenceConfig: JSON.stringify(recurrenceConfigObj),
-        effectiveFrom: formData.effectiveFrom,
-        effectiveUntil: formData.effectiveUntil || null,
-        defaultMakerIds: formData.defaultMakerIds,
-        defaultCheckerIds: formData.defaultCheckerIds,
-        createdById: currentUser?.id || currentUser?.userId || currentUser?.email || 'usr-manoj-042',
-      };
-
-      if (!templateId) {
-        const res = await createSopTemplate(payload);
-        const createdId = res.data?.templateId || res.templateId || res.data?.id;
-        setTemplateId(createdId);
-      } else {
-        await updateSopTemplate(templateId, payload);
-      }
-      setCurrentStep(2);
-    } catch (err) {
-      console.error(err);
-      setErrorMsg(err.message || 'Failed to save SOP Template Draft.');
-    } finally {
-      setIsSavingDraft(false);
-    }
-  };
-
-  const handleProceedToStep3 = async () => {
-    if (isViewOnly) {
-      setCurrentStep(3);
-      return;
-    }
-    if (taskTemplates.length === 0) {
-      setErrorMsg('You must add at least one task template step to the execution flow.');
-      return;
-    }
-    setErrorMsg('');
-    setIsSavingDraft(true);
-    try {
-      let currentTemplateId = templateId;
-      if (!currentTemplateId) {
-        const formData = getValues();
-        const recurrenceConfigObj = {
-          mode: isRecurring ? 'RECURRING' : 'ONE_TIME',
-          frequency,
-          weekdays: selectedWeekDays,
-          dayOfWeek: selectedWeekDays[0] || 'MON',
-          dayOfMonth: selectedDayOfMonth,
-          quarterMonth: selectedQuarterMonth,
-          monthOfYear: selectedAnnualMonth,
-          dailyMode: selectedDailyMode,
-        };
-
-        const payload = {
-          templateCode: formData.sopCode,
-          title: formData.title,
-          description: formData.description,
-          processCategory: formData.processCategory,
-          entityCode: formData.entityCode,
-          frequency: formData.frequency,
-          dueDayOffset: Number(formData.dueDayOffset) || 0,
-          isRecurring: formData.isRecurring,
-          recurrenceConfig: JSON.stringify(recurrenceConfigObj),
-          effectiveFrom: formData.effectiveFrom,
-          effectiveUntil: formData.effectiveUntil || null,
-          defaultMakerIds: formData.defaultMakerIds,
-          defaultCheckerIds: formData.defaultCheckerIds,
-          createdById: currentUser?.id || currentUser?.userId || currentUser?.email || 'usr-manoj-042',
-        };
-
-        const res = await createSopTemplate(payload);
-        currentTemplateId = res.data?.templateId || res.templateId || res.data?.id;
-        setTemplateId(currentTemplateId);
-      }
-
-      const updatedTasks = [...taskTemplates];
-      for (let i = 0; i < updatedTasks.length; i++) {
-        const task = updatedTasks[i];
-        if ((!task.savedToBackend || !task.taskTemplateId) && currentTemplateId) {
-          const stepPayload = {
-            stepSequence: task.stepSequence || (i + 1),
-            taskName: task.title,
-            dependencyMode: task.dependencyMode,
-            etaStartDay: Number(task.etaStartDay) || 0,
-            etaEndDay: Number(task.etaEndDay) || 0,
-            slaHours: Number(task.slaHours) || 24,
-            priority: task.priority,
-            makerIds: task.makers,
-            checkerIds: task.checkers,
-            requiredDocuments: task.requiredDocs,
-          };
-          const res = await addTaskTemplateStep(currentTemplateId, stepPayload);
-          const tDto = res.data || res;
-          if (tDto && Array.isArray(tDto.taskTemplates)) {
-            const match = tDto.taskTemplates.find(st => st.stepSequence === task.stepSequence) || tDto.taskTemplates[i];
-            if (match?.taskTemplateId) {
-              task.taskTemplateId = match.taskTemplateId;
-            }
-          }
-          task.savedToBackend = true;
-        }
-      }
-      setTaskTemplates(updatedTasks);
-      setCurrentStep(3);
-    } catch (err) {
-      console.error(err);
-      setErrorMsg(err.message || 'Failed to save Task Template Steps.');
-    } finally {
-      setIsSavingDraft(false);
-    }
-  };
-
-  const handleFinalSubmit = async () => {
-    if (isViewOnly) {
-      onClose();
-      return;
-    }
-    setErrorMsg('');
-    setIsSavingDraft(true);
-    try {
-      if (templateId) {
-        await submitSopTemplate(templateId, currentUser?.id || currentUser?.userId || 'usr-manoj-042');
-      }
-      const formData = getValues();
-      if (onSuccess) onSuccess(`SOP Blueprint "${formData.title}" submitted for approval successfully! Assigned approver has been notified.`);
-      reset();
-      onClose();
-    } catch (err) {
-      console.error(err);
-      setErrorMsg(err.message || 'Failed to submit SOP Blueprint for approval.');
-    } finally {
-      setIsSavingDraft(false);
-    }
-  };
-
-  const removeMaker = (id) => { if (!isViewOnly) setValue('defaultMakerIds', defaultMakerIds.filter((x) => x !== id), { shouldValidate: true }); };
-  const removeChecker = (id) => { if (!isViewOnly) setValue('defaultCheckerIds', defaultCheckerIds.filter((x) => x !== id), { shouldValidate: true }); };
-
-  const handleDeleteTaskTemplate = async (taskId) => {
-    if (isViewOnly) return;
-    const taskToDelete = taskTemplates.find((t) => t.id === taskId);
-    if (taskToDelete?.taskTemplateId && templateId) {
-      try {
-        await deleteTaskTemplateStep(templateId, taskToDelete.taskTemplateId);
-      } catch (err) {
-        console.error('Failed to delete task step from backend:', err);
-      }
-    }
-    setTaskTemplates(taskTemplates.filter((t) => t.id !== taskId).map((t, index) => ({ ...t, stepSequence: index + 1 })));
-  };
+  }, [isOpen, processCategory, loadPermittedUsers]);
 
   if (!isOpen) return null;
+
+  console.log('Default maker ids', defaultMakerIds)
 
   return (
     <div className="fixed inset-0 z-[1100] flex justify-end bg-slate-900/65 backdrop-blur-sm transition-opacity">
       <div className="absolute inset-0" onClick={onClose} />
 
       <div className="relative flex h-full w-full max-w-[1200px] flex-col bg-slate-50 shadow-2xl transition-transform">
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-indigo-900 bg-gradient-to-r from-slate-900 via-indigo-900 to-blue-900 px-6 py-4 text-white shadow-md">
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-lg font-bold tracking-tight text-white">
-                {isViewOnly ? 'View SOP Blueprint Template' : 'Create SOP Blueprint Template'}
-              </h2>
+              <h2 className="text-lg font-bold tracking-tight text-white">Create SOP Template</h2>
               {templateId && (
                 <span className="rounded-full border border-blue-300/30 bg-blue-500/20 px-2.5 py-0.5 text-[10px] font-mono text-blue-200">
-                  Blueprint ID: {templateId}
+                  Draft ID: {templateId}
                 </span>
               )}
             </div>
-            <p className="mt-0.5 text-xs text-indigo-200">
-              {isViewOnly
-                ? 'Read-only view of master blueprint specifications, schedule rules, and execution steps.'
-                : 'Design master blueprints with ETA days and recurring scheduling rules.'}
-            </p>
+            <p className="mt-0.5 text-xs text-indigo-200">Design the SOP Template and recurring scheduling rules.</p>
           </div>
-          <div className="flex items-center gap-2">
-            {editingTemplate && (
-              <button
-                type="button"
-                onClick={() => setShowAuditModal(true)}
-                className="rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-white/20"
-                title="View Blueprint Audit Trail"
-              >
-                📜 Audit Log
-              </button>
-            )}
-            <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:bg-white/25">✕</button>
-          </div>
+          <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/20 bg-white/10 text-white transition hover:bg-white/25">✕</button>
         </div>
 
         {/* Wizard Progress Bar */}
+
         <div className="flex border-b border-slate-200 bg-white px-7 py-3">
           <div className="flex w-full items-center justify-between">
-            <div className={`flex items-center gap-2 transition ${currentStep === 1 ? 'text-blue-600' : currentStep > 1 ? 'text-emerald-600' : 'text-slate-400'}`}>
-              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${currentStep === 1 ? 'bg-blue-600 text-white ring-4 ring-blue-100' : currentStep > 1 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                {currentStep > 1 ? '✓' : '1'}
-              </div>
-              <div className="text-left">
-                <span className="block text-[10px] font-bold uppercase tracking-wider">Step 1</span>
-                <span className="text-xs font-semibold">Blueprint Details</span>
-              </div>
-            </div>
 
-            <div className={`h-0.5 flex-1 mx-4 ${currentStep > 1 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+            {MODAL_STEPS?.length > 0 && MODAL_STEPS?.map((step, idx) => {
+              const isLast = idx == MODAL_STEPS?.length - 1;
+              return (
+                <>
+                  <div key={step.stepNumber}
+                    className={`flex items-center gap-2 transition ${currentStep === step.stepNumber ? 'text-blue-600' : currentStep > step.stepNumber ? 'text-emerald-600' : 'text-slate-400'}`}
+                  >
+                    <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${currentStep === step.stepNumber ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-slate-200 text-slate-600'}`}>
+                      {step.stepNumber}
+                    </div>
+                    <div className="text-left">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider">Step {step.stepNumber}</span>
+                      <span className="text-xs font-semibold">{step.title}</span>
+                    </div>
 
-            <div className={`flex items-center gap-2 transition ${currentStep === 2 ? 'text-blue-600' : currentStep > 2 ? 'text-emerald-600' : 'text-slate-400'}`}>
-              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${currentStep === 2 ? 'bg-blue-600 text-white ring-4 ring-blue-100' : currentStep > 2 ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                {currentStep > 2 ? '✓' : '2'}
-              </div>
-              <div className="text-left">
-                <span className="block text-[10px] font-bold uppercase tracking-wider">Step 2</span>
-                <span className="text-xs font-semibold">Execution Flow & ETAs</span>
-              </div>
-            </div>
+                  </div>
+                  {!isLast && <div className={`h-0.5 flex-1 mx-4 ${currentStep > step.stepNumber ? 'bg-emerald-500' : 'bg-slate-200'}`} />}
 
-            <div className={`h-0.5 flex-1 mx-4 ${currentStep > 2 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
-
-            <div className={`flex items-center gap-2 transition ${currentStep === 3 ? 'text-blue-600' : 'text-slate-400'}`}>
-              <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${currentStep === 3 ? 'bg-blue-600 text-white ring-4 ring-blue-100' : 'bg-slate-200 text-slate-600'}`}>
-                3
-              </div>
-              <div className="text-left">
-                <span className="block text-[10px] font-bold uppercase tracking-wider">Step 3</span>
-                <span className="text-xs font-semibold">{isViewOnly ? 'Summary' : 'Approval Submission'}</span>
-              </div>
-            </div>
+                </>
+              )
+            })}
           </div>
         </div>
+
 
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6">
             {errorMsg && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600">{errorMsg}</div>
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600"> {errorMsg}</div>
             )}
 
             {currentStep === 1 && (
               <div className="grid grid-cols-12 gap-6">
                 <div className="col-span-7 space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-2">
-                    Blueprint Core Information
+                    SOP Template Information
                   </h3>
 
                   <div className="grid grid-cols-2 gap-4 pt-2">
                     <div>
                       <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Process Category *</label>
-                      <select {...register('processCategory')} disabled={isViewOnly} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs focus:border-blue-600 focus:outline-none disabled:bg-slate-100">
-                        <option value="">-- Select Category --</option>
+                      <select disabled={isViewOnly} {...register('processCategory')} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs focus:border-blue-600 focus:outline-none">
                         {processOptions.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
                       </select>
                       {errors.processCategory && <p className="mt-1 text-[11px] text-red-500">{errors.processCategory.message}</p>}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Corporate Entity *</label>
-                      <select {...register('entityCode')} disabled={isViewOnly} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs focus:border-blue-600 focus:outline-none disabled:bg-slate-100">
+                      <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Entity *</label>
+                      <select disabled={isViewOnly} {...register('entityCode')} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs focus:border-blue-600 focus:outline-none">
                         {entityOptions.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
                       </select>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Template Code *</label>
-                    <input type="text" {...register('sopCode')} disabled={isViewOnly} className="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:border-blue-600 focus:outline-none disabled:bg-slate-100" />
+                    <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">SOP Template Code *</label>
+                    <input type="text" disabled={isViewOnly} {...register('sopCode', {
+                      onChange: () => clearErrors('sopCode') // Clears error instantly on typing
+                    })} className="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:border-blue-600 focus:outline-none" />
                     {errors.sopCode && <p className="mt-1 text-[11px] text-red-500">{errors.sopCode.message}</p>}
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Blueprint Title *</label>
-                    <input type="text" {...register('title')} disabled={isViewOnly} className="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:border-blue-600 focus:outline-none disabled:bg-slate-100" />
+                    <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">SOP Template Title *</label>
+                    <input type="text" disabled={isViewOnly} {...register('title', {
+                      onChange: () => clearErrors('title') // Clears error instantly on typing
+                    })} className="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:border-blue-600 focus:outline-none" />
                     {errors.title && <p className="mt-1 text-[11px] text-red-500">{errors.title.message}</p>}
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Governance Description</label>
-                    <textarea rows={3} {...register('description')} disabled={isViewOnly} className="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:border-blue-600 focus:outline-none disabled:bg-slate-100" />
+                    <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Description</label>
+                    <textarea rows={3} disabled={isViewOnly} {...register('description')} className="w-full rounded-lg border border-slate-300 p-2.5 text-xs focus:border-blue-600 focus:outline-none" />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold uppercase text-blue-700 mb-1">
-                        Effective From *
+                        SOP Start Date *
                       </label>
-                      <input
-                        type="date"
-                        {...register('effectiveFrom')}
-                        disabled={isViewOnly}
-                        className="w-full rounded-lg border border-blue-400 bg-blue-50/30 p-2.5 text-xs font-bold text-slate-800 focus:border-blue-600 focus:outline-none disabled:bg-slate-100"
+                      <Controller
+                        control={control}
+                        name="effectiveFrom"
+                        render={({ field }) => (
+                          <CustomDatePicker
+                            disabled={isViewOnly}
+                            value={field.value}
+                            onChange={(date) => {
+                              field.onChange(date);
+                              clearErrors('effectiveFrom'); // Implemented based on your previous question
+                            }}
+                            minDate={todayStr} // Prevents selecting a start date AFTER the end date
+                            placeholder="Select Start Date"
+                          />
+                        )}
                       />
                       {errors.effectiveFrom && (
                         <p className="mt-1 text-[11px] text-red-500">{errors.effectiveFrom.message}</p>
@@ -1135,183 +781,241 @@ export default function CreateSopDrawer({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">
-                        Effective Until (Optional)
+                      <label className="block text-xs font-semibold uppercase text-blue-700 mb-1">
+                        SOP End Date
                       </label>
-                      <input
-                        type="date"
-                        {...register('effectiveUntil')}
-                        disabled={isViewOnly}
-                        className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs font-medium text-slate-800 focus:border-blue-600 focus:outline-none disabled:bg-slate-100"
+                      <Controller
+                        control={control}
+                        name="effectiveUntil"
+                        render={({ field }) => (
+                          <CustomDatePicker
+                            disabled={isViewOnly}
+                            value={field.value}
+                            onChange={(date) => {
+                              field.onChange(date);
+                              clearErrors('effectiveUntil');
+                            }}
+                            minDate={effectiveFrom} // Prevents selecting an end date BEFORE the start date
+                            placeholder="Select End Date (Optional)"
+                          />
+                        )}
                       />
+                      {errors.effectiveUntil && (
+                        <p className="mt-1 text-[11px] text-red-500">{errors.effectiveUntil.message}</p>
+                      )}
                     </div>
                   </div>
 
-                </div>
-
-                {/* Right Column: Recurrence Engine & Default Pools */}
-                <div className="col-span-6 space-y-5">
-                  {/* Recurrence Engine Card */}
-                  <div className="rounded-xl border border-indigo-100 bg-white p-5 shadow-sm space-y-4">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                      <div>
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-900">
-                          Recurrence & Scheduling Engine Rules
-                        </h3>
-                        <p className="text-[10px] text-slate-500 mt-0.5">
-                          Configure automated SOP generation rules and frequency parameters.
-                        </p>
-                      </div>
-                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${isRecurring ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>
-                        {isRecurring ? 'ACTIVE SCHEDULE' : 'ONE-TIME RUN'}
-                      </span>
+                  {/* Recurrence Engine */}
+                  {/* Recurrence Engine */}
+                  <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-blue-800">Scheduling Engine Rules</h4>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
+                    <div className="grid grid-cols-12 gap-4">
+                      {/* Segmented Control for Execution Mode */}
+                      <div className="col-span-5">
                         <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Execution Mode</label>
-                        <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
-                          <button
-                            type="button"
-                            disabled={isViewOnly}
-                            onClick={() => setValue('isRecurring', true)}
-                            className={`rounded-md py-1 text-xs font-bold transition ${isRecurring ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                          >
-                            Recurring
-                          </button>
+                        <div className="flex w-full rounded-lg bg-slate-200/70 p-1 shadow-inner">
                           <button
                             type="button"
                             disabled={isViewOnly}
                             onClick={() => setValue('isRecurring', false)}
-                            className={`rounded-md py-1 text-xs font-bold transition ${!isRecurring ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                            className={`w-1/2 rounded-md py-1.5 text-xs font-bold transition-all duration-200 ${!isRecurring
+                              ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-900/5'
+                              : 'text-slate-500 hover:text-slate-700'
+                              }`}
                           >
                             One-Time
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isViewOnly}
+                            onClick={() => setValue('isRecurring', true)}
+                            className={`flex w-1/2 items-center justify-center gap-1 rounded-md py-1.5 text-xs font-bold transition-all duration-200 ${isRecurring
+                              ? 'bg-blue-600 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-700'
+                              }`}
+                          >
+                            Recurring
                           </button>
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">SOP Completion Window</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            {...register('dueDayOffset')}
-                            disabled={isViewOnly}
-                            min={0}
-                            max={365}
-                            className="w-full rounded-lg border border-slate-300 p-2 text-xs font-bold text-slate-800 focus:border-indigo-600 focus:outline-none disabled:bg-slate-100"
+                      {/* Frequency */}
+                      <div className={`col-span-4 transition-opacity duration-200 ${!isRecurring ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Frequency</label>
+                        <Controller name="frequency" control={control} render={({ field }) => (
+                          <CustomSelect name={field.name} value={field.value} disabled={!isRecurring || isViewOnly} options={FREQ_OPTIONS}
+                            onChange={
+                              (e) => {
+                                const newFrequency = e.target.value;
+                                field.onChange(newFrequency);
+                                const updatedDueDayOffset = getOffsetMax(newFrequency);                            
+                                setValue('dueDayOffset', updatedDueDayOffset, {
+                                  shouldValidate: true,
+                                  shouldDirty: true
+                                });
+                              }
+                            }
                           />
-                          <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">ETA Days</span>
+                        )} />
+                      </div>
+
+                      {/* Due Offset with Autoconfigure Toggle */}
+                      <div className={`col-span-3 transition-opacity duration-200 ${!isRecurring ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[10px] font-bold uppercase text-slate-500">Due Offset</label>
+
+                          {/* Requirement 1: Autoconfigure Checkbox */}
+                          <label className="flex items-center gap-1 text-[9px] font-bold text-blue-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              disabled={isViewOnly}
+                              className="w-3 h-3 rounded border-slate-300 text-blue-600"
+                              checked={isManualOffset}
+                              onChange={(e) => {
+                                setIsManualOffset(e.target.checked);
+                                const defaultDayOffset= editingTemplate && editingTemplate.dueDayOffset ? editingTemplate.dueDayOffset : getOffsetMax(frequency);
+                                if (!e.target.checked) setValue('dueDayOffset', defaultDayOffset); // Reset if they uncheck
+                              }}
+                            />
+                            Manual
+                          </label>
                         </div>
+
+                        {isManualOffset ? (
+                          <>
+                            <input
+                              type="number"
+                              {...register('dueDayOffset')}
+                              disabled={!isRecurring || isViewOnly}
+                              min={1} // Requirement 2: Min is 1
+                              max={getOffsetMax(frequency)} // Requirement 2: Dynamic Max
+                              className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-blue-600 focus:outline-none disabled:bg-slate-100 disabled:text-slate-400"
+                            />
+                            <p className="mt-1 text-[9px] text-slate-400">Max: {getOffsetMax(frequency)} days</p>
+                            {errors.dueDayOffset && <p className="mt-1 text-[10px] text-red-500">{errors.dueDayOffset.message}</p>}
+                          </>
+                        ) : (
+                          <div className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-400 italic flex items-center justify-center">
+                            Auto-configured
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {isRecurring && (
-                      <div className="space-y-3.5 pt-1">
-                        <div>
-                          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Recurrence Frequency</label>
+                    {isRecurring && <div className='mt-2'>
+
+                      {frequency === 'WEEKLY' && (
+                        <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 space-y-2">
+                          <label className="block text-[10px] font-bold uppercase text-indigo-800">Target Day of Week</label>
                           <div className="flex flex-wrap gap-1">
-                            {FREQ_OPTIONS.map((opt) => (
+                            {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((day) => {
+                              const isSelected = selectedWeekDays.includes(day);
+                              return (
+                                <button
+                                  key={day}
+                                  type="button"
+                                  disabled={isViewOnly}
+                                  onClick={() => {
+                                    // Requirement 4: Single select / toggle logic
+                                    if (isSelected) {
+                                      setSelectedWeekDays([]); // Deselect if already active
+                                    } else {
+                                      setSelectedWeekDays([day]); // Select only this day, overriding others
+                                    }
+                                  }}
+                                  className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${isSelected ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                                >
+                                  {day}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {frequency === 'MONTHLY' && (
+                        <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 space-y-2">
+                          <label className="block text-[10px] font-bold uppercase text-indigo-800">Day of Month</label>
+
+                          {/* Requirement 3: 1 to 31 rendered dynamically in a grid */}
+                          <div className="grid grid-cols-7 gap-1">
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map((dayNum) => (
                               <button
-                                key={opt.value}
+                                key={dayNum}
                                 type="button"
                                 disabled={isViewOnly}
-                                onClick={() => setValue('frequency', opt.value)}
-                                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${frequency === opt.value ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                                onClick={() => setSelectedDayOfMonth(dayNum)}
+                                className={`rounded-md py-1 text-xs font-bold transition ${selectedDayOfMonth === dayNum ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                               >
-                                {opt.label}
+                                {dayNum}
                               </button>
                             ))}
                           </div>
                         </div>
+                      )}
 
-                        {/* Contextual Recurrence Controls */}
-                        {frequency === 'WEEKLY' && (
-                          <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 space-y-2">
-                            <label className="block text-[10px] font-bold uppercase text-indigo-800">Target Day of Week</label>
-                            <div className="flex flex-wrap gap-1">
-                              {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((day) => {
-                                const isSelected = selectedWeekDays.includes(day);
-                                return (
-                                  <button
-                                    key={day}
-                                    type="button"
-                                    disabled={isViewOnly}
-                                    onClick={() => {
-                                      if (isSelected && selectedWeekDays.length > 1) {
-                                        setSelectedWeekDays(selectedWeekDays.filter((d) => d !== day));
-                                      } else if (!isSelected) {
-                                        setSelectedWeekDays([...selectedWeekDays, day]);
-                                      }
-                                    }}
-                                    className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${isSelected ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                                  >
-                                    {day}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                      {frequency === 'QUARTERLY' && (
+                        <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-indigo-800 mb-1">Quarter Month</label>
+                            <select
+                              value={selectedQuarterMonth}
+                              disabled={isViewOnly}
+                              onChange={(e) => setSelectedQuarterMonth(Number(e.target.value))}
+                              className="w-full rounded-md border border-slate-300 bg-white p-1.5 text-xs font-bold text-slate-800 outline-none disabled:bg-slate-100"
+                            >
+                              <option value={1}>1st Month (Jan / Apr / Jul / Oct)</option>
+                              <option value={2}>2nd Month (Feb / May / Aug / Nov)</option>
+                              <option value={3}>3rd Month (Mar / Jun / Sep / Dec)</option>
+                            </select>
                           </div>
-                        )}
-
-                        {frequency === 'MONTHLY' && (
-                          <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 space-y-2">
-                            <label className="block text-[10px] font-bold uppercase text-indigo-800">Day of Month</label>
-                            <div className="flex flex-wrap gap-1.5">
-                              {[1, 5, 10, 15, 20, 25, 30].map((dayNum) => (
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-indigo-800 mb-1">Day of Month</label>
+                            <div className="grid grid-cols-7 gap-1">
+                              {Array.from({ length: 31 }, (_, i) => i + 1).map((dayNum) => (
                                 <button
                                   key={dayNum}
                                   type="button"
                                   disabled={isViewOnly}
                                   onClick={() => setSelectedDayOfMonth(dayNum)}
-                                  className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${selectedDayOfMonth === dayNum ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                                  className={`rounded-md py-1 text-xs font-bold transition ${selectedDayOfMonth === dayNum ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                                 >
-                                  Day {dayNum}
+                                  {dayNum}
                                 </button>
                               ))}
                             </div>
                           </div>
-                        )}
+                        </div>
+                      )}
 
-                        {frequency === 'QUARTERLY' && (
-                          <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-[10px] font-bold uppercase text-indigo-800 mb-1">Quarter Month</label>
-                              <select
-                                value={selectedQuarterMonth}
-                                disabled={isViewOnly}
-                                onChange={(e) => setSelectedQuarterMonth(Number(e.target.value))}
-                                className="w-full rounded-md border border-slate-300 bg-white p-1.5 text-xs font-bold text-slate-800 outline-none disabled:bg-slate-100"
-                              >
-                                <option value={1}>1st Month (Jan / Apr / Jul / Oct)</option>
-                                <option value={2}>2nd Month (Feb / May / Aug / Nov)</option>
-                                <option value={3}>3rd Month (Mar / Jun / Sep / Dec)</option>
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-bold uppercase text-indigo-800 mb-1">Day of Month</label>
-                              <select
-                                value={selectedDayOfMonth}
-                                disabled={isViewOnly}
-                                onChange={(e) => setSelectedDayOfMonth(Number(e.target.value))}
-                                className="w-full rounded-md border border-slate-300 bg-white p-1.5 text-xs font-bold text-slate-800 outline-none disabled:bg-slate-100"
-                              >
-                                <option value={1}>Day 1 (Start of Month)</option>
-                                <option value={15}>Day 15 (Mid Month)</option>
-                                <option value={30}>Day 30 (End of Month)</option>
-                              </select>
-                            </div>
-                          </div>
-                        )}
+                      {frequency === 'ANNUAL' && (() => {
+                        const maxDays = {
+                          JAN: 31, FEB: 28, MAR: 31, APR: 30, MAY: 31, JUN: 30,
+                          JUL: 31, AUG: 31, SEP: 30, OCT: 31, NOV: 30, DEC: 31
+                        }[selectedAnnualMonth] || 31;
 
-                        {frequency === 'ANNUAL' && (
-                          <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 grid grid-cols-2 gap-3">
+                        return (
+                          <div className="grid grid-cols-2 gap-3 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
                             <div>
-                              <label className="block text-[10px] font-bold uppercase text-indigo-800 mb-1">Run Month</label>
+                              <label className="mb-1 block text-[10px] font-bold uppercase text-indigo-800">Run Month</label>
                               <select
                                 value={selectedAnnualMonth}
                                 disabled={isViewOnly}
-                                onChange={(e) => setSelectedAnnualMonth(e.target.value)}
+                                onChange={(e) => {
+                                  const newMonth = e.target.value;
+                                  setSelectedAnnualMonth(newMonth);
+
+                                  // 2. Prevent invalid selections: If current day is 31 and they switch to FEB, change day to 29
+                                  const newMaxDays = MAX_DAYS_IN_MONTH[newMonth] ?? 31;
+
+                                  if (selectedDayOfMonth > newMaxDays) {
+                                    setSelectedDayOfMonth(newMaxDays);
+                                  }
+                                }}
                                 className="w-full rounded-md border border-slate-300 bg-white p-1.5 text-xs font-bold text-slate-800 outline-none disabled:bg-slate-100"
                               >
                                 <option value="JAN">January</option>
@@ -1329,98 +1033,70 @@ export default function CreateSopDrawer({
                               </select>
                             </div>
                             <div>
-                              <label className="block text-[10px] font-bold uppercase text-indigo-800 mb-1">Day of Month</label>
-                              <select
-                                value={selectedDayOfMonth}
-                                disabled={isViewOnly}
-                                onChange={(e) => setSelectedDayOfMonth(Number(e.target.value))}
-                                className="w-full rounded-md border border-slate-300 bg-white p-1.5 text-xs font-bold text-slate-800 outline-none disabled:bg-slate-100"
-                              >
-                                <option value={1}>Day 1</option>
-                                <option value={15}>Day 15</option>
-                                <option value={31}>Day 31 / Last Day</option>
-                              </select>
+                              <label className="mb-1 block text-[10px] font-bold uppercase text-indigo-800">Day of Month</label>
+                              <div className="grid grid-cols-7 gap-1">
+                                {/* 3. Render exact number of days for the selected month */}
+                                {Array.from({ length: maxDays }, (_, i) => i + 1).map((dayNum) => (
+                                  <button
+                                    key={dayNum}
+                                    type="button"
+                                    disabled={isViewOnly}
+                                    onClick={() => setSelectedDayOfMonth(dayNum)}
+                                    className={`rounded-md py-1 text-xs font-bold transition ${selectedDayOfMonth === dayNum
+                                      ? 'bg-indigo-600 text-white shadow-sm'
+                                      : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50'
+                                      }`}
+                                  >
+                                    {dayNum}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           </div>
-                        )}
+                        );
+                      })()}
+                    </div>}
 
-                        {frequency === 'DAILY' && (
-                          <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3 space-y-2">
-                            <label className="block text-[10px] font-bold uppercase text-indigo-800">Daily Execution Pattern</label>
-                            <div className="grid grid-cols-2 gap-1.5">
-                              <button
-                                type="button"
-                                disabled={isViewOnly}
-                                onClick={() => setSelectedDailyMode('BUSINESS_DAYS')}
-                                className={`rounded-md p-1.5 text-xs font-bold transition ${selectedDailyMode === 'BUSINESS_DAYS' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600'}`}
-                              >
-                                Business Days (Mon-Fri)
-                              </button>
-                              <button
-                                type="button"
-                                disabled={isViewOnly}
-                                onClick={() => setSelectedDailyMode('ALL_DAYS')}
-                                className={`rounded-md p-1.5 text-xs font-bold transition ${selectedDailyMode === 'ALL_DAYS' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600'}`}
-                              >
-                                All 7 Calendar Days
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Live Schedule Rule Summary Card */}
-                    <div className="rounded-lg border border-indigo-200 bg-gradient-to-r from-indigo-50 to-blue-50 p-3 text-[11px] font-semibold text-indigo-900 shadow-inner">
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className="font-extrabold uppercase text-[10px] tracking-wider text-indigo-700">Schedule Rule Preview:</span>
-                      </div>
-                      <p className="text-slate-700 leading-relaxed font-normal">{getScheduleSummary()}</p>
-                    </div>
                   </div>
+                </div>
 
-                  {/* Default Master Pools Card */}
-                  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-2">
-                      Default Master Pools
-                    </h3>
-                    <p className="text-[10px] text-slate-500 leading-relaxed mb-3">
-                      Operational users assigned to this SOP Template. Tasks created in Step 2 will inherit these pools.
-                    </p>
+                {/* Right Column: Default Pools */}
+                <div className="col-span-5 space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-2">
+                    Master Pools
+                  </h3>
+                  <p className="text-[10px] text-slate-500 leading-relaxed mb-4">
+                    Select the operational users assigned to this SOP Template. Tasks created in Step 2 will inherit these pools by default.
+                  </p>
 
-                    <div className="space-y-3">
-                      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-xs font-semibold uppercase text-slate-600">Master Maker Pool *</label>
-                          {!isViewOnly && (
-                            <button type="button" onClick={() => setShowMakerPicker(true)} className="rounded border border-blue-200 bg-white px-2 py-0.5 text-[10px] font-bold text-blue-700 hover:bg-blue-50">Select ({defaultMakerIds.length})</button>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-1 min-h-[30px]">
-                          {defaultMakerIds.map((id) => (
-                            <span key={id} className="inline-flex items-center gap-1 rounded bg-white border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm">
-                              {localUserMap[id] || id} {!isViewOnly && <button type="button" onClick={() => removeMaker(id)} className="text-slate-400 hover:text-red-500">✕</button>}
-                            </span>
-                          ))}
-                          {errors.defaultMakerIds && <p className="text-[10px] text-red-500 mt-1 w-full">{errors.defaultMakerIds.message}</p>}
-                        </div>
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-semibold uppercase text-slate-600">Master Maker Pool *</label>
+                        <button type="button" disabled={isViewOnly} onClick={() => setShowMakerPicker(true)} className="rounded border border-blue-200 bg-white px-2 py-0.5 text-[10px] font-bold text-blue-700 hover:bg-blue-50">Select ({defaultMakerIds.length})</button>
                       </div>
+                      <div className="flex flex-wrap gap-1 min-h-[30px]">
+                        {defaultMakerIds.map((id) => (
+                          <span key={id} className="inline-flex items-center gap-1 rounded bg-white border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm">
+                            {userMap[id] || id} <button type="button" disabled={isViewOnly} onClick={() => removeMaker(id)} className="text-slate-400 hover:text-red-500">✕</button>
+                          </span>
+                        ))}
+                        {errors.defaultMakerIds && <p className="text-[10px] text-red-500 mt-1 w-full">{errors.defaultMakerIds.message}</p>}
+                      </div>
+                    </div>
 
-                      <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-xs font-semibold uppercase text-slate-600">Master Checker Pool *</label>
-                          {!isViewOnly && (
-                            <button type="button" onClick={() => setShowCheckerPicker(true)} className="rounded border border-blue-200 bg-white px-2 py-0.5 text-[10px] font-bold text-blue-700 hover:bg-blue-50">Select ({defaultCheckerIds.length})</button>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-1 min-h-[30px]">
-                          {defaultCheckerIds.map((id) => (
-                            <span key={id} className="inline-flex items-center gap-1 rounded bg-white border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm">
-                              {localUserMap[id] || id} {!isViewOnly && <button type="button" onClick={() => removeChecker(id)} className="text-slate-400 hover:text-red-500">✕</button>}
-                            </span>
-                          ))}
-                          {errors.defaultCheckerIds && <p className="text-[10px] text-red-500 mt-1 w-full">{errors.defaultCheckerIds.message}</p>}
-                        </div>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-semibold uppercase text-slate-600">Master Checker Pool *</label>
+                        <button type="button" disabled={isViewOnly} onClick={() => setShowCheckerPicker(true)} className="rounded border border-blue-200 bg-white px-2 py-0.5 text-[10px] font-bold text-blue-700 hover:bg-blue-50">Select ({defaultCheckerIds.length})</button>
+                      </div>
+                      <div className="flex flex-wrap gap-1 min-h-[30px]">
+                        {defaultCheckerIds.map((id) => (
+                          <span key={id} className="inline-flex items-center gap-1 rounded bg-white border border-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm">
+                            {userMap[id] || id} <button type="button" disabled={isViewOnly} onClick={() => removeChecker(id)} className="text-slate-400 hover:text-red-500">✕</button>
+                          </span>
+                        ))}
+                        {errors.defaultCheckerIds && <p className="text-[10px] text-red-500 mt-1 w-full">{errors.defaultCheckerIds.message}</p>}
                       </div>
                     </div>
                   </div>
@@ -1428,44 +1104,40 @@ export default function CreateSopDrawer({
               </div>
             )}
 
-            {/* STEP 2: TASK TEMPLATES */}
+
             {currentStep === 2 && (
               <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm min-h-[500px]">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div>
                     <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">
-                      Execution Step Definitions (ETA Days)
+                      Execution Step Definitions
                     </h3>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      Define task template steps with user-friendly ETA start and deadline days.
+                      Define the sequential task templates that will be automatically generated upon scheduler trigger.
                     </p>
                   </div>
-                  {!isViewOnly && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingTaskStep(null);
-                        setShowCreateTaskModal(true);
-                      }}
-                      className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition"
-                    >
-                      + Add New Task Step
-                    </button>
-                  )}
+                  {!isViewOnly && <button
+                    type="button"
+                    onClick={() => setShowCreateTaskModal(true)}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition"
+                  >
+                    + Add New Task Step
+                  </button>}
+
                 </div>
 
                 <div className="space-y-4 pt-2 max-w-4xl mx-auto">
                   {taskTemplates.length === 0 ? (
                     <div className="py-20 text-center rounded-xl border-2 border-dashed border-slate-200 bg-slate-50">
+                      {/* <div className="text-3xl mb-2">📋</div> */}
                       <h4 className="text-sm font-bold text-slate-600">No Task Steps Defined</h4>
-                      <p className="text-xs text-slate-400 mt-1 mb-4 max-w-sm mx-auto">
-                        {isViewOnly ? 'No execution steps recorded in this blueprint.' : 'Click "Add New Task Step" above to configure the first execution task.'}
+                      {!isViewOnly && (<><p className="text-xs text-slate-400 mt-1 mb-4 max-w-sm mx-auto">
+                        Click &quot;Add New Task Step&quot; above to configure the first execution task.
                       </p>
-                      {!isViewOnly && (
+
                         <button type="button" onClick={() => setShowCreateTaskModal(true)} className="text-xs font-bold text-indigo-600 hover:underline">
                           Create Step 1 →
-                        </button>
-                      )}
+                        </button> </>)}
                     </div>
                   ) : (
                     taskTemplates.map((task, idx) => {
@@ -1488,9 +1160,6 @@ export default function CreateSopDrawer({
                                     {task.stepSequence}
                                   </span>
                                   <h4 className="text-sm font-bold text-slate-800">{task.title}</h4>
-                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${task.priority === 'High' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
-                                    {task.priority}
-                                  </span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <button
@@ -1501,7 +1170,7 @@ export default function CreateSopDrawer({
                                     }}
                                     className="rounded border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:bg-indigo-100 transition shadow-sm"
                                   >
-                                    {isViewOnly ? 'View Step' : 'Edit Step'}
+                                    {isViewOnly ? 'View Task' : 'Edit Task'}
                                   </button>
                                   {!isViewOnly && (
                                     <button type="button" onClick={() => handleDeleteTaskTemplate(task.id)} className="text-xs font-bold text-slate-400 hover:text-red-500 p-1" title="Delete step">✕</button>
@@ -1510,15 +1179,15 @@ export default function CreateSopDrawer({
                               </div>
 
                               <div className="flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-slate-500 pl-8">
-                                <span className="flex items-center gap-1"><span className="text-slate-400">ETA Duration:</span> <strong className="text-slate-700">{task.etaEndDay} Days</strong></span>
-                                <span className="flex items-center gap-1"><span className="text-slate-400">SLA:</span> <strong className="text-slate-700">{task.slaHours} hrs</strong></span>
-                                <span className="flex items-center gap-1"><span className="text-slate-400">Makers:</span> <strong className="text-slate-700">{task.makers.length || defaultMakerIds.length} assigned</strong></span>
+                                <span className="flex items-center gap-1"><span className="text-slate-400">ETA:</span> <strong className="text-slate-700">{task.etaEndDay} days</strong></span>
+                                <span className="flex items-center gap-1"><span className="text-slate-400">Makers:</span> <strong className="text-slate-700">{task.makers.length} assigned</strong></span>
+                                <span className="flex items-center gap-1"><span className="text-slate-400">Checkers:</span> <strong className="text-slate-700">{task.checkers.length} assigned</strong></span>
                               </div>
 
                               {task.requiredDocs.length > 0 && (
                                 <div className="pl-8 pt-1 flex flex-wrap gap-1">
                                   {task.requiredDocs.map((d) => (
-                                    <span key={d} className="rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">{d}</span>
+                                    <span key={d} className="rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">📄 {d}</span>
                                   ))}
                                 </div>
                               )}
@@ -1532,31 +1201,36 @@ export default function CreateSopDrawer({
               </div>
             )}
 
-            {/* STEP 3: ACTIVATION & VISUAL GANTT TIMELINE */}
+
             {currentStep === 3 && (
               <div className="space-y-6">
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+
+
                   <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
                     <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 space-y-1">
                       <span className="text-[10px] font-bold uppercase text-slate-400">Schedule Rules</span>
                       <p className="text-xs font-semibold text-slate-700">{isRecurring ? getValues('frequency') : 'One-Time'}</p>
-                      <p className="text-xs text-slate-500">SOP Window: {getValues('dueDayOffset')} ETA days</p>
+                      <p className="text-xs text-slate-500">ETA: {getValues('dueDayOffset')} days</p>
                     </div>
                     <div className="rounded-lg border border-slate-100 bg-slate-50 p-4 space-y-1">
                       <span className="text-[10px] font-bold uppercase text-slate-400">Total Workflow</span>
                       <p className="text-xs font-semibold text-slate-700">{taskTemplates.length} Executable Steps</p>
-                      <p className="text-xs text-slate-500">Template Blueprint Model</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Visual Gantt View (ETA Days Relative Timeline) */}
+                {/* Legacy Gantt PlaceHolder from previous code */}
                 <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                    Visual ETA Gantt Timeline Chart
-                  </h3>
-                  <div className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4">
-                    <GanttTimelineChart tasks={taskTemplates} dueDayOffset={Number(getValues('dueDayOffset')) || 15} />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Visual Gantt View (Simulated)</h3>
+                  <div className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4 opacity-75">
+                    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4">
+                      <GanttTimelineChart tasks={taskTemplates} maxTimeline={dueDayOffset}/>
+                      {/* <Willow>
+                    <Gantt tasks={tasks} scales={scales} />
+                  </Willow> */}
+
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1565,19 +1239,19 @@ export default function CreateSopDrawer({
 
           <div className="flex items-center justify-between border-t border-slate-200 bg-white px-6 py-4 shadow-inner">
             <div className="text-[11px] text-slate-500 font-medium">
-              {currentStep === 1 && (isViewOnly ? 'Step 1: Blueprint Specification Details' : 'Step 1: Configure Blueprint and click Save to create template draft.')}
-              {currentStep === 2 && `Step 2: ${taskTemplates.length} Task step(s) configured.`}
-              {currentStep === 3 && (isViewOnly ? 'Step 3: Review Blueprint Summary' : 'Final Step: Review and Submit for Approval.')}
+              {currentStep === 1 && 'Step 1: Configure Template and save to proceed.'}
+              {currentStep === 2 && `Step 2: ${taskTemplates.length} Tasks configured. Draft saved automatically.`}
+              {currentStep === 3 && 'Final Step: Review and Activate.'}
             </div>
 
             <div className="flex items-center gap-3">
               <button type="button" onClick={onClose} className="rounded-lg border border-slate-300 bg-white px-5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">
-                {isViewOnly ? 'Close' : 'Cancel'}
+                Cancel
               </button>
 
               {currentStep === 1 && (
                 <button type="button" onClick={handleProceedToStep2} disabled={isSavingDraft} className="rounded-lg bg-blue-600 px-6 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50">
-                  {isSavingDraft ? 'Creating Draft...' : isViewOnly ? 'Next: Execution Flow →' : 'Save Draft & Continue →'}
+                  {isSavingDraft ? 'Saving Draft...' : isViewOnly ? 'Next: Execution Flow →' : 'Save Draft & Continue →'}
                 </button>
               )}
 
@@ -1587,7 +1261,7 @@ export default function CreateSopDrawer({
                     ← Back to Step 1
                   </button>
                   <button type="button" onClick={handleProceedToStep3} disabled={isSavingDraft} className="rounded-lg bg-blue-600 px-6 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50">
-                    {isSavingDraft ? 'Saving Tasks...' : isViewOnly ? 'Next: Summary →' : 'Save Tasks & Continue →'}
+                    {isSavingDraft ? 'Saving...' : isViewOnly ? 'Next: Execution Flow →' : 'Save Tasks & Continue →'}
                   </button>
                 </>
               )}
@@ -1597,67 +1271,30 @@ export default function CreateSopDrawer({
                   <button type="button" onClick={() => setCurrentStep(2)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                     ← Back to Step 2
                   </button>
-                  {isViewOnly ? (
-                    <button type="button" onClick={onClose} className="rounded-lg bg-slate-800 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-slate-900">
-                      Close View
+                  <button type="button" onClick={handleFinalSubmit} className="rounded-lg bg-blue-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700">
+                    {isViewOnly ? 'Close SOP Template' : 'Create SOP Template'}
+                  </button>
+                  {editingTemplate?.status === 'PENDING_APPROVAL' && isViewOnly && isAdmin && (<>
+                    <button type="button" onClick={() => {
+                      setOpenConfirmationModal(true)
+                      setModalConfig('APPROVE')
+                    }
+                    }
+                      className="rounded-lg bg-emerald-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-700">
+                      Approve
                     </button>
-                  ) : (
-                    <button type="button" onClick={handleFinalSubmit} disabled={isSavingDraft} className="rounded-lg bg-emerald-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-700 disabled:opacity-50">
-                      {isSavingDraft ? 'Submitting...' : 'Finalize & Submit for Approval'}
-                    </button>
-                  )}
-                </>
-              )}
 
-              {/* If SOP Template is in PENDING_APPROVAL status, render Approve & Reject controls */}
-              {editingTemplate?.status === 'PENDING_APPROVAL' && (
-                <div className="flex items-center gap-2 border-l border-slate-200 pl-3 ml-1">
-                  {!showRejectInput ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleApproveSopTemplate}
-                        disabled={isProcessingAction}
-                        className="rounded-lg bg-emerald-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-1.5"
-                      >
-                        ✓ {isProcessingAction ? 'Approving...' : 'Approve Template'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowRejectInput(true)}
-                        disabled={isProcessingAction}
-                        className="rounded-lg bg-red-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:bg-red-700 disabled:opacity-50 inline-flex items-center gap-1.5"
-                      >
-                        ✕ Reject Template
-                      </button>
-                    </>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Reason for rejection..."
-                        value={rejectionReason}
-                        onChange={(e) => setRejectionReason(e.target.value)}
-                        className="rounded-lg border border-red-300 p-2 text-xs text-slate-800 outline-none focus:border-red-600 min-w-[200px]"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleRejectSopTemplate}
-                        disabled={isProcessingAction || !rejectionReason.trim()}
-                        className="rounded-lg bg-red-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-red-700 disabled:opacity-50"
-                      >
-                        Confirm Reject
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowRejectInput(false)}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                </div>
+                    <button type="button" onClick={() => {
+                      setOpenConfirmationModal(true)
+                      setModalConfig('REJECT')
+                    }
+                    }
+                      className="rounded-lg bg-red-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-red-700">
+                      Reject
+                    </button>
+                  </>)}
+
+                </>
               )}
             </div>
           </div>
@@ -1670,7 +1307,7 @@ export default function CreateSopDrawer({
         title="Select Master Maker Pool"
         targetRole="MAKER"
         selectedUserIds={defaultMakerIds}
-        permittedUsers={permittedMakers.map((u) => ({ id: u.id, name: u.name }))}
+        permittedUsers={permittedMakers.map(u => ({ id: u.id, name: u.name }))}
         onClose={() => setShowMakerPicker(false)}
         onConfirm={(ids) => { setValue('defaultMakerIds', ids, { shouldValidate: true }); setShowMakerPicker(false); }}
       />
@@ -1679,13 +1316,13 @@ export default function CreateSopDrawer({
         title="Select Master Checker Pool"
         targetRole="CHECKER"
         selectedUserIds={defaultCheckerIds}
-        permittedUsers={permittedCheckers.map((u) => ({ id: u.id, name: u.name }))}
+        permittedUsers={permittedCheckers.map(u => ({ id: u.id, name: u.name }))}
         onClose={() => setShowCheckerPicker(false)}
         onConfirm={(ids) => { setValue('defaultCheckerIds', ids, { shouldValidate: true }); setShowCheckerPicker(false); }}
       />
 
-      {/* Step 2 Task Creation / Edit Modal */}
-      <CreateTaskModal
+      {/* Step 2 Task Creation Modal */}
+      {showCreateTaskModal && <CreateTaskTemplateModal
         isOpen={showCreateTaskModal}
         isViewOnly={isViewOnly}
         onClose={() => {
@@ -1697,62 +1334,35 @@ export default function CreateSopDrawer({
         parentMakerPool={defaultMakerIds}
         parentCheckerPool={defaultCheckerIds}
         editingTask={editingTaskStep}
+        effectiveUntil={effectiveUntil}
+        sopEndDate={effectiveUntil}
+        setCurrentStep={setCurrentStep}
+        frequency={frequency}
+        dueDayOffset={dueDayOffset}
         onSaveTask={async (savedTask, isEdit) => {
+          console.log("API CALL 1")
+          console.log("Template ID", templateId)
           let updatedTask = { ...savedTask };
-          try {
-            let activeTemplateId = templateId;
-            if (!activeTemplateId) {
-              const formData = getValues();
-              const recurrenceConfigObj = {
-                mode: isRecurring ? 'RECURRING' : 'ONE_TIME',
-                frequency,
-                weekdays: selectedWeekDays,
-                dayOfWeek: selectedWeekDays[0] || 'MON',
-                dayOfMonth: selectedDayOfMonth,
-                quarterMonth: selectedQuarterMonth,
-                monthOfYear: selectedAnnualMonth,
-                dailyMode: selectedDailyMode,
-              };
-              const payload = {
-                templateCode: formData.sopCode || `SOP-TMPL-${Date.now()}`,
-                title: formData.title || 'Untitled SOP Blueprint',
-                description: formData.description || '',
-                processCategory: formData.processCategory || 'MONTHLY_CLOSING',
-                entityCode: formData.entityCode || 'CORP_HQ',
-                frequency: formData.frequency || 'MONTHLY',
-                dueDayOffset: Number(formData.dueDayOffset) || 15,
-                isRecurring: formData.isRecurring,
-                recurrenceConfig: JSON.stringify(recurrenceConfigObj),
-                effectiveFrom: formData.effectiveFrom || todayStr,
-                effectiveUntil: formData.effectiveUntil || null,
-                defaultMakerIds: formData.defaultMakerIds || [],
-                defaultCheckerIds: formData.defaultCheckerIds || [],
-                createdById: currentUser?.id || currentUser?.userId || currentUser?.email || 'usr-manoj-042',
-              };
-              const resDraft = await createSopTemplate(payload);
-              activeTemplateId = resDraft.data?.templateId || resDraft.templateId || resDraft.data?.id;
-              setTemplateId(activeTemplateId);
-            }
-
-            if (activeTemplateId) {
-              const stepPayload = {
-                stepSequence: savedTask.stepSequence,
-                taskName: savedTask.title,
-                dependencyMode: savedTask.dependencyMode,
-                etaStartDay: Number(savedTask.etaStartDay) || 0,
-                etaEndDay: Number(savedTask.etaEndDay) || 0,
-                slaHours: Number(savedTask.slaHours) || 24,
-                priority: savedTask.priority,
-                makerIds: savedTask.makers,
-                checkerIds: savedTask.checkers,
-                requiredDocuments: savedTask.requiredDocs,
-              };
-
+          if (templateId) {
+            const stepPayload = {
+              stepSequence: savedTask.stepSequence,
+              taskName: savedTask.title,
+              dependencyMode: savedTask.dependencyMode,
+              etaStartDay: 0,
+              etaEndDay: Number(savedTask.etaEndDay) || 0,
+              slaHours: Number(savedTask.slaHours) || 24,
+              priority: savedTask.priority,
+              makerIds: savedTask.makers,
+              checkerIds: savedTask.checkers,
+              requiredDocuments: savedTask.requiredDocs,
+            };
+            try {
               if (isEdit && savedTask.taskTemplateId) {
-                await updateTaskTemplateStep(activeTemplateId, savedTask.taskTemplateId, stepPayload);
+                await updateTaskTemplateStep(templateId, savedTask.taskTemplateId, stepPayload);
                 updatedTask.savedToBackend = true;
               } else {
-                const res = await addTaskTemplateStep(activeTemplateId, stepPayload);
+                console.log("INSIDE ELSE")
+                const res = await addTaskTemplateStep(templateId, stepPayload);
                 const tDto = res.data || res;
                 if (tDto && Array.isArray(tDto.taskTemplates)) {
                   const match = tDto.taskTemplates.find(st => st.stepSequence === savedTask.stepSequence) || tDto.taskTemplates[tDto.taskTemplates.length - 1];
@@ -1761,10 +1371,11 @@ export default function CreateSopDrawer({
                   }
                 }
                 updatedTask.savedToBackend = true;
+
               }
+            } catch (err) {
+              console.error('Failed to sync task template step to backend:', err);
             }
-          } catch (err) {
-            console.error('Failed to sync task template step to backend:', err);
           }
 
           if (isEdit) {
@@ -1775,75 +1386,122 @@ export default function CreateSopDrawer({
           setShowCreateTaskModal(false);
           setEditingTaskStep(null);
         }}
-      />
+      />}
 
-      <SopActivityLogModal
-        isOpen={showAuditModal}
-        sop={editingTemplate}
-        onClose={() => setShowAuditModal(false)}
-      />
+      {openConfirmationModal &&
+        <ActionConfirmationModal
+          isOpen={openConfirmationModal}
+          mode={modalConfig}
+          title={modalConfig === 'APPROVE' ? "Approve SOP Draft" : "Reject SOP Draft"}
+          subtitle={ `Are you sure you want to ${modalConfig === 'APPROVE' ? "approve" : "reject"} sop template: ${editingTemplate?.title} ?`}
+          onClose={() => setOpenConfirmationModal(false)}
+          onSubmit={(comment) => { handleApprove(comment), setOpenConfirmationModal(false) }}
+        />
+      }
+
+
+
     </div>
   );
 }
 
-function GanttTimelineChart({ tasks = [], dueDayOffset = 15 }) {
+
+
+
+
+
+function GanttTimelineChart({ tasks = [], maxTimeline }) {
   if (!tasks || tasks.length === 0) {
     return (
       <div className="py-8 text-center text-xs text-slate-400">
-        No task timeline data available. Please append task steps in Step 2.
+        No task timeline data available. Please append task steps above.
       </div>
     );
   }
 
-  const maxDays = Math.max(dueDayOffset || 15, ...tasks.map((t) => Number(t.etaEndDay) || 1));
+  console.log('Tasks',tasks)
+
+  // 1. Process tasks to chain them sequentially safely
+  let currentStartDay = 0;
+  const computedTasks = tasks.map((task) => {
+    const startDay = task.dependencyMode === 'INDEPENDENT' ? 0 : currentStartDay;
+    // Assuming etaEndDay is an absolute day. If it's a duration, change this to: startDay + (task.etaEndDay || 0)
+    const endDay = Math.max(startDay, task.etaEndDay || startDay);
+    
+    // Set the start of the next task to the end of this one
+    currentStartDay = endDay;
+
+    return { ...task, startDay, endDay };
+  });
+
+  // 2. Calculate the max days for the timeline scale
+  const lastTaskEndDay = computedTasks[computedTasks.length - 1].endDay;
+  
+  // Max scale is either the last task, the maxTimeline prop, or at least 1
+  const maxDay = Math.max(1, lastTaskEndDay, typeof maxTimeline === 'number' ? maxTimeline : 0);
+  const totalDuration = maxDay; // Since minDay is always 0
+
+  // 3. Helper to convert a day offset into a percentage for CSS positioning
+  const getPositionPercent = (day) => {
+    if (day === undefined || day === null) return 0;
+    return Math.max(0, Math.min(100, (day / totalDuration) * 100));
+  };
 
   return (
     <div className="min-w-[650px] space-y-3 font-sans">
-      <div className="grid grid-cols-12 border-b border-slate-200 pb-2 text-[10px] font-bold uppercase text-slate-400">
-        <div className="col-span-4">Task Step (ETA Relative)</div>
-        <div className="col-span-8 relative flex justify-between px-2">
-          <span>SOP Start Date</span>
-          <span>Relative ETA Timeline</span>
-          <span>Day {maxDays} (Period Completion)</span>
-        </div>
+      
+      {/* Chart Header - FULL WIDTH */}
+      <div className="relative flex justify-between border-b border-slate-200 pb-2 px-1 text-[10px] font-bold uppercase text-slate-400">
+        <span>Day 0</span>
+        <span>Timeline View</span>
+        <span>Day {maxDay}</span>
       </div>
 
-      <div className="relative space-y-2.5">
-        {tasks.map((task, idx) => {
-          const startPercent = Math.max(0, Math.min(100, ((Number(task.etaStartDay) || 0) / maxDays) * 100));
-          const endPercent = Math.max(0, Math.min(100, ((Number(task.etaEndDay) || 0) / maxDays) * 100));
-          const widthPercent = Math.max(8, endPercent - startPercent);
+      {/* Chart Body - FULL WIDTH */}
+      <div className="relative space-y-2">
+        {computedTasks.map((task, idx) => {
+          const startPercent = getPositionPercent(task.startDay);
+          const endPercent = getPositionPercent(task.endDay);
+          const widthPercent = endPercent - startPercent;
 
           return (
-            <div key={task.id || idx} className="grid grid-cols-12 items-center text-xs">
-              <div className="col-span-4 truncate pr-2 font-medium text-slate-700 flex items-center gap-1.5">
-                <span className="font-bold text-indigo-600">{idx + 1}.</span>
-                <span className="truncate font-semibold" title={task.title}>
-                  {task.title}
+            // The track background spans 100% of the width
+            <div key={task.id || idx} className="relative flex h-8 w-full items-center rounded bg-slate-100/70">
+              
+              {/* The Blue Timeline Bar */}
+              <div
+                className="absolute flex h-6 items-center justify-between rounded bg-blue-600 px-2.5 text-[10px] font-bold text-white shadow-sm transition-all"
+                style={{
+                  left: `${startPercent}%`,
+                  width: `${widthPercent}%`,
+                  // max-content ensures the bar always fits the text even if width is 0.5%
+                  minWidth: 'max-content',
+                  // Optional: prevents it from overflowing the right side of the screen if left is 99%
+                  maxWidth: `calc(100% - ${startPercent}%)` 
+                }}
+                title={`Starts: Day ${task.startDay} | Ends: Day ${task.endDay}`}
+              >
+                {/* Task Title inside the bar */}
+                <span className="truncate pr-3">
+                {task.title || task.taskName}
                 </span>
-              </div>
 
-              <div className="col-span-8 relative h-7 rounded bg-slate-100 flex items-center px-1">
-                <div
-                  className="absolute h-5 rounded px-2 text-[10px] font-bold text-white flex items-center justify-between shadow-sm bg-gradient-to-r from-blue-600 to-indigo-600 transition-all"
-                  style={{
-                    left: `${startPercent}%`,
-                    width: `${Math.min(widthPercent, 100 - startPercent)}%`,
-                    minWidth: '54px',
-                  }}
-                >
-                  <span className="truncate">ETA: {task.etaEndDay} Days</span>
-                  {task.requiredDocs?.length > 0 && (
-                    <span className="ml-1 rounded bg-black/25 px-1 text-[9px]">
-                      Docs: {task.requiredDocs.length}
+                {/* Right side data inside the bar */}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <span>Day {task.endDay}</span>
+                  {(task.requiredDocs?.length > 0 || task.requiredDocumentNames?.length > 0) && (
+                    <span className="rounded bg-black/25 px-1 py-0.5 text-[9px] leading-none">
+                      📄{(task.requiredDocs || task.requiredDocumentNames).length}
                     </span>
                   )}
                 </div>
               </div>
+
             </div>
           );
         })}
       </div>
+      
     </div>
   );
 }

@@ -51,16 +51,6 @@ const CONFIG = {
       </svg>
     ),
   },
-  LOCKED: {
-    label: 'Locked (Pending Prev Step)',
-    cls: 'locked',
-    icon: (
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-      </svg>
-    ),
-  },
 };
 
 export default function StatusBadge({ status }) {
@@ -71,7 +61,6 @@ export default function StatusBadge({ status }) {
     approved: 'bg-green-600/10 text-green-600',
     rejected: 'bg-red-600/10 text-red-600',
     permanentlyRejected: 'bg-red-50 text-red-800 border border-red-300',
-    locked: 'bg-slate-200/70 text-slate-600 border border-slate-300',
   };
 
   

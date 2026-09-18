@@ -125,15 +125,6 @@ export async function fetchJson(endpoint, options = {}) {
     }
     const json = await res.json();
     if (json && typeof json === 'object' && 'success' in json && 'data' in json) {
-      if (json.success && json.data && typeof json.data === 'object' && Array.isArray(json.data.content)) {
-        const list = json.data.content;
-        list.page = json.data.number ?? 0;
-        list.size = json.data.size ?? list.length;
-        list.totalElements = json.data.totalElements ?? list.length;
-        list.totalPages = json.data.totalPages ?? 1;
-        list.last = json.data.last ?? true;
-        return list;
-      }
       return json.success ? json.data : null;
     }
     return json;
@@ -141,6 +132,38 @@ export async function fetchJson(endpoint, options = {}) {
     console.warn(`[API Call Failed: ${endpoint}]`, err.message);
     throw err;
   }
+}
+
+export function mapSopTemplate(t) {
+
+  return {
+    id: t.templateId,
+    templateId: t.templateId,
+    code: t.templateCode || `DRAFT-${String(t.templateId).slice(0, 6)}`,
+    sopCode: t.templateCode,
+    name: t.title,
+    title: t.title,
+    description: t.description,
+    process: t.processCategory,
+    processCategory: t.processCategory,
+    entity: t.entityCode,
+    entityCode: t.entityCode,
+    frequency: t.frequency || 'MONTHLY',
+    dueDay: t.dueDayOffset !== undefined ? t.dueDayOffset : 15,
+    dueDayOffset: t.dueDayOffset !== undefined ? t.dueDayOffset : 15,
+    isRecurring: t.isRecurring,
+    effectiveFrom: t.effectiveFrom,
+    effectiveUntil: t.effectiveUntil,
+    status: t.status || 'DRAFT',
+    makers: t.defaultMakerIds ? t.defaultMakerIds : [],
+    checkers: t.defaultCheckerIds ? t.defaultCheckerIds :[],
+    defaultMakerIds: t.defaultMakerIds || [],
+    defaultCheckerIds: t.defaultCheckerIds || [],
+    taskTemplates: t.taskTemplates || [],
+    createdById: t.createdById,
+    isTemplate: true,
+  }
+
 }
 
 export function mapTask(dto) {
@@ -228,8 +251,6 @@ export function mapTask(dto) {
     status: dto.status || 'OPEN',
     canUserSubmit: dto.canUserSubmit,
     canUserApprove: dto.canUserApprove,
-    requiredDocumentNames: dto.requiredDocumentNames || dto.requiredDocs || [],
-    requiredDocs: dto.requiredDocumentNames || dto.requiredDocs || [],
     history: historyList,
   };
 }
@@ -289,10 +310,10 @@ export function mapSop(dto) {
     assignedCreatorName: dto.assignedCreatorName || dto.assignedCreatorId,
     assignedCreatorIds: dto.assignedCreatorIds || (dto.assignedCreatorId ? [dto.assignedCreatorId] : []),
     assignedCreatorNames: dto.assignedCreatorNames || (dto.assignedCreatorName ? [dto.assignedCreatorName] : []),
-    assignedApproverId: dto.assignedApproverId || (Array.isArray(dto.assignedApproverIds) && dto.assignedApproverIds[0]) || null,
-    assignedApproverName: dto.assignedApproverName || (Array.isArray(dto.assignedApproverNames) && dto.assignedApproverNames.length > 0 ? dto.assignedApproverNames.join(', ') : dto.assignedApproverId) || null,
+    assignedApproverId: dto.assignedApproverId,
+    assignedApproverName: dto.assignedApproverName || dto.assignedApproverId,
     assignedApproverIds: dto.assignedApproverIds || (dto.assignedApproverId ? [dto.assignedApproverId] : []),
-    assignedApproverNames: dto.assignedApproverNames || (dto.assignedApproverName ? [dto.assignedApproverName] : (dto.assignedApproverIds || [])),
+    assignedApproverNames: dto.assignedApproverNames || (dto.assignedApproverName ? [dto.assignedApproverName] : []),
     rejectionReason: dto.rejectionReason,
     status: (dto.status && typeof dto.status === 'string') ? dto.status : 'PENDING_CREATION',
     version: dto.version != null ? dto.version : (dto.versionNumber != null ? dto.versionNumber : 1),
@@ -486,7 +507,7 @@ export async function getUsers(entityCode = null, targetRole = null) {
 
   const res = await fetchJson(`/access/users${query}`).catch(() => null);
 
-  let allUsers = (Array.isArray(res) && res.length > 0) ? res.map(u => ({
+  let allUsers = (Array.isArray(res?.content) && res?.content.length > 0) ? res?.content.map(u => ({
     id: u.userId || u.id,
     name: u.fullName || u.name,
     email: u.email,
@@ -517,7 +538,9 @@ export async function getUsers(entityCode = null, targetRole = null) {
     });
   }
 
-  return allUsers;
+  return {
+    data:allUsers
+  };
 }
 
 export async function getCurrentUser(email) {
@@ -1046,9 +1069,6 @@ export async function actionTaskDocument(taskId, documentId, action, comment, ac
   });
 }
 
-// ==========================================
-// SOP TEMPLATE BLUEPRINT ENDPOINTS
-// ==========================================
 
 export async function createSopTemplate(draftPayload) {
   return await fetchJson('/sop-templates', {
@@ -1084,42 +1104,81 @@ export async function deleteTaskTemplateStep(templateId, taskTemplateId) {
   });
 }
 
-export async function updateSopTemplateStatus(templateId, action, { actorId = 'usr-manoj-042', comment = '' } = {}) {
-  return await fetchJson(`/sop-templates/${templateId}/status`, {
+export async function submitSopTemplate(templateId, actorId = 'usr-manoj-042') {
+  return await fetchJson(`/sop-templates/${templateId}/submit?actorId=${encodeURIComponent(actorId)}`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ action, actorId, comment }),
   });
 }
 
-export async function submitSopTemplate(templateId, actorId = 'usr-manoj-042') {
-  return await updateSopTemplateStatus(templateId, 'SUBMIT', { actorId });
-}
-
 export async function activateSopTemplate(templateId, actorId = 'usr-manoj-042') {
-  return await updateSopTemplateStatus(templateId, 'ACTIVATE', { actorId });
+  return await fetchJson(`/sop-templates/${templateId}/activate?actorId=${encodeURIComponent(actorId)}`, {
+    method: 'PUT',
+  });
 }
 
 export async function rejectSopTemplate(templateId, comment = '') {
-  return await updateSopTemplateStatus(templateId, 'REJECT', { comment });
+  return await fetchJson(`/sop-templates/${templateId}/reject?comment=${encodeURIComponent(comment)}`, {
+    method: 'PUT',
+  });
 }
 
-export async function deactivateSopTemplate(templateId) {
-  return await updateSopTemplateStatus(templateId, 'DEACTIVATE');
-}
+export async function getSopTemplates(selectedStatus,selectedEntities,selectedProcess,selectedFrequency,searchTerm,pageDetails) {
+  const params = new URLSearchParams();
+  if (selectedStatus && selectedStatus != 'ALL') params.append('status', selectedStatus);
+  
+  if (selectedEntities ) {
+    params.append('entityCode', Array.isArray(selectedEntities) ? selectedEntities.join(',') : selectedEntities);
+  }
+  
+  if (selectedProcess && selectedProcess != 'ALL') params.append('process', selectedProcess);
+  if (selectedFrequency && selectedFrequency != 'ALL') params.append('frequency', selectedFrequency);
+  
+  if (searchTerm) params.append('search', searchTerm); 
 
-export async function archiveSopTemplate(templateId) {
-  return await updateSopTemplateStatus(templateId, 'ARCHIVE');
-}
+  // 3. Handle Pagination and Sorting
+  if (pageDetails) {
+    const pageIndex = (pageDetails.page && pageDetails.page > 0) ? pageDetails.page - 1 : 0;
+    params.append('page', pageIndex.toString());
+    
+    if (pageDetails.size) params.append('size', pageDetails.size.toString());
 
-export async function getSopTemplates() {
-  return await fetchJson('/sop-templates');
+    if (pageDetails.sort && pageDetails.sort.length > 0) {
+      params.append('sort', JSON.stringify(pageDetails.sort));
+    }
+  }
+  const queryString = params.toString();
+  const url = `/sop-templates${queryString ? `?${queryString}` : ''}`;
+  const list = await fetchJson(url);
+
+  if (Array.isArray(list?.content)) {
+    return  {
+      data:list?.content.map(mapSopTemplate) ?? [],
+      totalElements: list?.totalElements,
+      totalPages: list?.totalPages
+    }
+    
+  }
+  return []
+
 }
 
 export async function getSopTemplate(templateId) {
-  return await fetchJson(`/sop-templates/${templateId}`);
+  const list = await fetchJson(`/sop-templates/${templateId}`);
+  if (Array.isArray(list)) {
+    return list.map(mapSopTemplate);
+  }
+  return []
+}
+
+export async function actionSopTemplate(templateId,payload) {
+  const list = await fetchJson(`/sop-templates/${templateId}/status`,{
+    method: 'PUT',
+     body: JSON.stringify(payload),
+  });
+  if (Array.isArray(list)) {
+    return list.map(mapSopTemplate);
+  }
+  return []
 }
 
 export async function instantiateSopTemplate(templateId) {
@@ -1127,4 +1186,6 @@ export async function instantiateSopTemplate(templateId) {
     method: 'POST',
   });
 }
+
+
 
