@@ -41,6 +41,8 @@ public class SopTemplateService {
     private final NotificationPublisherService notificationPublisherService;
     private final TaskSchedulerService taskSchedulerService;
     private final com.cloudkaptan.sop.repository.AuditLogRepository auditLogRepository;
+    private final com.cloudkaptan.sop.repository.SopTemplateEventRepository sopTemplateEventRepository;
+
 
     @Transactional
     public SopTemplateDto createTemplate(CreateSopTemplateRequest request) {
@@ -470,20 +472,37 @@ public class SopTemplateService {
 
         List<com.cloudkaptan.sop.dto.TaskEventDto> historyList = new ArrayList<>();
         try {
-            List<com.cloudkaptan.sop.entity.AuditLog> audits = auditLogRepository
-                    .findByEntityTypeAndEntityIdOrderByTimestampDesc("SOP_TEMPLATE", template.getTemplateId().toString());
-            for (com.cloudkaptan.sop.entity.AuditLog a : audits) {
-                String actorName = userRepository.findById(a.getActorId())
-                        .map(User::getFullName)
-                        .orElse(a.getActorId());
-                historyList.add(com.cloudkaptan.sop.dto.TaskEventDto.builder()
-                        .eventId(0L)
-                        .actorId(a.getActorId())
-                        .actorName(actorName)
-                        .action(a.getAction())
-                        .comment(a.getCorrelationId())
-                        .timestamp(a.getTimestamp())
-                        .build());
+            List<com.cloudkaptan.sop.entity.SopTemplateEvent> events = sopTemplateEventRepository
+                    .findBySopTemplate_TemplateIdOrderByTimestampDesc(template.getTemplateId());
+            if (events != null && !events.isEmpty()) {
+                for (com.cloudkaptan.sop.entity.SopTemplateEvent e : events) {
+                    String actorName = (e.getActor() != null) ? e.getActor().getFullName() : "System";
+                    String actorIdStr = (e.getActor() != null) ? e.getActor().getUserId() : null;
+                    historyList.add(com.cloudkaptan.sop.dto.TaskEventDto.builder()
+                            .eventId(e.getEventId())
+                            .actorId(actorIdStr)
+                            .actorName(actorName)
+                            .action(e.getAction())
+                            .comment(e.getComment())
+                            .timestamp(e.getTimestamp())
+                            .build());
+                }
+            } else {
+                List<com.cloudkaptan.sop.entity.AuditLog> audits = auditLogRepository
+                        .findByEntityTypeAndEntityIdOrderByTimestampDesc("SOP_TEMPLATE", template.getTemplateId().toString());
+                for (com.cloudkaptan.sop.entity.AuditLog a : audits) {
+                    String actorName = userRepository.findById(a.getActorId())
+                            .map(User::getFullName)
+                            .orElse(a.getActorId());
+                    historyList.add(com.cloudkaptan.sop.dto.TaskEventDto.builder()
+                            .eventId(0L)
+                            .actorId(a.getActorId())
+                            .actorName(actorName)
+                            .action(a.getAction())
+                            .comment(a.getCorrelationId())
+                            .timestamp(a.getTimestamp())
+                            .build());
+                }
             }
         } catch (Exception e) {
             log.warn("Failed to load audit history for template [{}]: {}", template.getTemplateId(), e.getMessage());
@@ -529,6 +548,15 @@ public class SopTemplateService {
                     .entityType("SOP_TEMPLATE")
                     .entityId(template.getTemplateId().toString())
                     .correlationId(comment != null ? comment : UUID.randomUUID().toString())
+                    .build());
+
+            User actor = userRepository.findById(actId).orElse(null);
+            sopTemplateEventRepository.save(com.cloudkaptan.sop.entity.SopTemplateEvent.builder()
+                    .sopTemplate(template)
+                    .actor(actor)
+                    .action(action)
+                    .toStatus(template.getStatus())
+                    .comment(comment)
                     .build());
         } catch (Exception e) {
             log.warn("Failed to log template audit for [{}]: {}", template.getTemplateId(), e.getMessage());
