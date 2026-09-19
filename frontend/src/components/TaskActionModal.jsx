@@ -532,31 +532,41 @@ export default function TaskActionModal({
               </div>
             </div>
 
-            {/* Required Task Documents Blueprint Checklist */}
+            {/* Required Task Documents Blueprint Checklist for Maker & Checker */}
             {task.requiredDocuments?.length > 0 && (
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                    <line x1="16" y1="13" x2="8" y2="13" />
-                    <line x1="16" y1="17" x2="8" y2="17" />
-                  </svg>
-                  <span className="text-xs font-bold uppercase tracking-wide text-indigo-900">
-                    Required Task Documents (Blueprint Checklist)
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                    <span className="text-xs font-bold uppercase tracking-wide text-indigo-900">
+                      Required Documents Checklist ({canSubmit ? 'Maker Requirement' : 'Checker Evaluation'})
+                    </span>
+                  </div>
+                  <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-bold text-indigo-800 border border-indigo-200">
+                    {task.requiredDocuments.length} Required
                   </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <p className="text-[11px] text-indigo-700/80 mb-3">
+                  {canSubmit 
+                    ? 'The following evidence documents are required from the Maker for task completion:' 
+                    : 'Checker Evaluation Checklist: Ensure Maker has provided working papers matching the required documents below:'}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {task.requiredDocuments.map((doc, idx) => {
                     const docName = typeof doc === 'string' ? doc : (doc.name || doc.title || doc.documentName || 'Document');
                     const docDesc = typeof doc === 'object' ? (doc.description || doc.desc || '') : '';
                     return (
-                      <div key={idx} className="flex flex-col bg-white border border-indigo-100 rounded-lg p-2.5 shadow-xs">
+                      <div key={idx} className="flex flex-col bg-white border border-indigo-100 rounded-lg p-3 shadow-xs">
                         <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                           <span className="text-indigo-600">📄</span> {docName}
                         </span>
                         {docDesc && (
-                          <span className="text-[11px] text-slate-500 mt-0.5">{docDesc}</span>
+                          <span className="text-[11px] text-slate-500 mt-1 pl-5">{docDesc}</span>
                         )}
                       </div>
                     );

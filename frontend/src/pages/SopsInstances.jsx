@@ -9,7 +9,7 @@ import ConfirmationModal from '../components/ConfirmationModal';
 import SopActivityLogModal from '../components/SopActivityLogModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { getSops, getSopTemplates, deleteSop, getUsers, actionSop, activateSopTemplate, rejectSopTemplate, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
+import { getSops, getSopTemplates, getSopTemplate, getSop, deleteSop, getUsers, actionSop, activateSopTemplate, rejectSopTemplate, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
 import { z } from 'zod';
@@ -256,6 +256,25 @@ export default function SopInstances() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const handleOpenSopDetail = async (sopItem) => {
+    if (!sopItem) return;
+    setViewingSop(sopItem);
+    const targetId = sopItem.templateId || sopItem.id || sopItem.sopId;
+    if (targetId) {
+      try {
+        let fullDetail = await getSopTemplate(targetId).catch(() => null);
+        if (!fullDetail || !fullDetail.id) {
+          fullDetail = await getSop(targetId).catch(() => null);
+        }
+        if (fullDetail && (fullDetail.templateId || fullDetail.id)) {
+          setViewingSop((prev) => (prev && (prev.id === sopItem.id || prev.templateId === targetId || prev.sopId === targetId) ? { ...prev, ...fullDetail } : prev));
+        }
+      } catch (err) {
+        console.error("Failed to fetch full SOP details on row click:", err);
+      }
+    }
+  };
 
 
   function openCreateModal(targetCat) {
@@ -810,7 +829,7 @@ export default function SopInstances() {
                   <tr
                     key={sop.id || sop.code}
                     className="cursor-pointer border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]"
-                    onClick={() => setViewingSop(sop)}
+                    onClick={() => handleOpenSopDetail(sop)}
                   >
                     <td className="px-6 py-3.5 align-middle min-w-[200px]">
                       <div className="flex flex-col gap-0.5">
@@ -870,7 +889,7 @@ export default function SopInstances() {
                         <button
                           type="button"
                           className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#334155] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1 hover:bg-[#e2e8f0]"
-                          onClick={() => setViewingSop(sop)}
+                          onClick={() => handleOpenSopDetail(sop)}
                         >
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />

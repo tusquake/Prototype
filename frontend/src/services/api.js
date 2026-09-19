@@ -253,6 +253,8 @@ export function mapTask(dto) {
     status: dto.status || 'OPEN',
     canUserSubmit: dto.canUserSubmit,
     canUserApprove: dto.canUserApprove,
+    documents: dto.documents || [],
+    requiredDocuments: dto.requiredDocuments || [],
     history: historyList,
   };
 }
@@ -490,6 +492,12 @@ export async function getAuditLogs({ entityType = null, entityId = null, actorId
     };
   }
   return { data: [], totalElements: 0, totalPages: 0, hasNext: false, hasPrevious: false };
+}
+
+export async function getSop(sopId) {
+  if (!sopId) return null;
+  const res = await fetchJson(`/sops/${sopId}`).catch(() => null);
+  return res ? mapSop(res) : null;
 }
 
 export async function assignSop(assignData) {
@@ -1206,11 +1214,13 @@ export async function getSopTemplates({ status = null, entities = [], category =
 }
 
 export async function getSopTemplate(templateId) {
-  const list = await fetchJson(`/sop-templates/${templateId}`);
-  if (Array.isArray(list)) {
-    return list.map(mapSopTemplate);
+  if (!templateId) return null;
+  const res = await fetchJson(`/sop-templates/${templateId}`).catch(() => null);
+  if (!res) return null;
+  if (Array.isArray(res)) {
+    return res.map(mapSopTemplate);
   }
-  return []
+  return mapSopTemplate(res);
 }
 
 export async function actionSopTemplate(templateId, payload) {

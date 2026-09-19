@@ -387,22 +387,20 @@ export default function Sops() {
 
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const handleOpenTemplateById = useCallback(async (templateId) => {
+  const handleOpenTemplateById = useCallback(async (templateId, isView = true) => {
     if (!templateId) return;
     try {
       const existing = sopTemplateList.find(t => t.templateId === templateId || t.id === templateId || t.templateCode === templateId || t.sopCode === templateId);
       if (existing) {
         setEditingDraftTemplate(existing);
-        setIsViewOnly(true);
+        setIsViewOnly(isView);
         setShowCreateCompleteModal(true);
-      } else {
-        const res = await getSopTemplate(templateId).catch(() => null);
-        const data = res?.data || res;
-        if (data && (data.templateId || data.id)) {
-          setEditingDraftTemplate(data);
-          setIsViewOnly(true);
-          setShowCreateCompleteModal(true);
-        }
+      }
+      const fullDetail = await getSopTemplate(templateId).catch(() => null);
+      if (fullDetail && (fullDetail.templateId || fullDetail.id)) {
+        setEditingDraftTemplate(fullDetail);
+        setIsViewOnly(isView);
+        setShowCreateCompleteModal(true);
       }
     } catch (e) {
       console.error('Failed to open template by ID:', e);
@@ -659,11 +657,7 @@ export default function Sops() {
                   <tr
                     key={sop.id || sop.code}
                     className="cursor-pointer border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]"
-                    onClick={() => {
-                      setEditingDraftTemplate(sop);
-                      setIsViewOnly(true);
-                      setShowCreateCompleteModal(true);
-                    }}
+                    onClick={() => handleOpenTemplateById(sop.templateId || sop.id, true)}
                   >
                     <td className="px-6 py-3.5 text-[13.5px] font-semibold text-blue-500 underline align-middle">{sop.name || sop.title}</td>
                     <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{sop.code}</td>
