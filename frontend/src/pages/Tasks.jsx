@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
 import StatusBadge from '../components/StatusBadge';
 import CustomSelect from '../components/CustomSelect';
@@ -31,14 +31,17 @@ const CHECKER_OPTIONS = [{ value: 'ALL', label: 'All Checkers' }];
 const PAGE_SIZE = 10;
 
 export default function Tasks() {
-  // const [selected, setSelected] = useState(ENTITIES.map(e => e.id));
   const [taskList, setTaskList] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTask, setActiveTask] = useState(null);
   const [deletingTask, setDeletingTask] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
   const [dateRangeState, setDateRangeState] = useState({
     rangeType: 'ALL',
@@ -58,6 +61,14 @@ export default function Tasks() {
   const [dynamicSopTypeOptions, setDynamicSopTypeOptions] = useState(SOP_TYPE_OPTIONS);
   const [dynamicMakerOptions, setDynamicMakerOptions] = useState(MAKER_OPTIONS);
   const [dynamicCheckerOptions, setDynamicCheckerOptions] = useState(CHECKER_OPTIONS);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm ? searchTerm.trim() : '');
+      setCurrentPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   useEffect(() => {
     if (selectedSopType && selectedSopType !== 'ALL') {
@@ -97,11 +108,21 @@ export default function Tasks() {
     }
   }, [selectedSopType]);
 
-  async function loadTasks() {
+  const loadTasks = useCallback(async () => {
     setLoading(true);
-    const result = await getTasks({ entities: selectedEntities, userId: currentUser?.id, userRole: currentUser?.role });
+    const result = await getTasks({
+      entities: selectedEntities,
+      userId: currentUser?.id,
+      userRole: currentUser?.role,
+      status: selectedStatus !== 'ALL' ? selectedStatus : undefined,
+      category: selectedSopType !== 'ALL' ? selectedSopType : undefined,
+      search: debouncedSearchTerm || undefined,
+      page: currentPage > 0 ? currentPage - 1 : 0,
+      size: PAGE_SIZE,
+    });
     if (result?.data) {
       setTaskList(result.data);
+      setTotalItems(result.totalElements ?? result.data.length);
     }
     const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
     if (isAdmin) {
@@ -126,11 +147,13 @@ export default function Tasks() {
       }
     }
     setLoading(false);
-  }
+  }, [selectedEntities, selectedStatus, selectedSopType, debouncedSearchTerm, currentPage, currentUser, isAdmin]);
 
   useEffect(() => {
     loadTasks();
+  }, [loadTasks]);
 
+  useEffect(() => {
     function handleOpenTaskEvent(e) {
       if (e.detail) {
         const tId = e.detail.taskId || e.detail.id;
@@ -158,9 +181,10 @@ export default function Tasks() {
     return () => {
       window.removeEventListener('open-task-action', handleOpenTaskEvent);
     };
-  }, [selectedEntities]);
+  }, []);
 
   function resetFilters() {
+    setSearchTerm('');
     setDateRangeState({ rangeType: 'ALL', startDate: '', endDate: '' });
     setSelectedStatus('ALL');
     setSelectedSopType('ALL');
@@ -205,81 +229,7 @@ export default function Tasks() {
     await loadTasks();
   }
 
-  const filtered = taskList.filter(t => {
-    // 1. Entity Filter
-    if (!selectedEntities.includes(t.entityCode)) return false;
-
-    // 2. Status Filter
-    if (selectedStatus !== 'ALL' && t.status !== selectedStatus) return false;
-
-    // 3. SOP Type Filter
-    if (selectedSopType !== 'ALL') {
-      const categoryStr = (t.processCategory || t.process || t.sop || t.sopTitle || '').toLowerCase();
-      if (!categoryStr.includes(selectedSopType.toLowerCase())) return false;
-    }
-
-    // 4. Maker Filter
-    if (selectedMaker !== 'ALL') {
-      const targetMaker = selectedMaker.toLowerCase();
-      const matchMaker =
-        (t.maker && t.maker.toLowerCase().includes(targetMaker)) ||
-        (t.makerName && t.makerName.toLowerCase().includes(targetMaker)) ||
-        (t.assignedMakers && t.assignedMakers.some(m => m.toLowerCase().includes(targetMaker)));
-      if (!matchMaker) return false;
-    }
-
-    // 5. Checker Filter
-    if (selectedChecker !== 'ALL') {
-      const targetChecker = selectedChecker.toLowerCase();
-      const matchChecker =
-        (t.checker && t.checker.toLowerCase().includes(targetChecker)) ||
-        (t.checkerName && t.checkerName.toLowerCase().includes(targetChecker)) ||
-        (t.assignedCheckers && t.assignedCheckers.some(c => c.toLowerCase().includes(targetChecker)));
-      if (!matchChecker) return false;
-    }
-
-    // 6. Date Range Filter
-    const { rangeType, startDate, endDate } = dateRangeState;
-    if (rangeType !== 'ALL' && t.dueDate && t.dueDate !== 'N/A') {
-      const taskDate = new Date(t.dueDate + 'T00:00:00');
-      const now = new Date(2026, 7, 28);
-
-      if (rangeType === 'TODAY') {
-        const todayStart = new Date(2026, 7, 28);
-        todayStart.setHours(0, 0, 0, 0);
-        if (taskDate < todayStart) return false;
-      } else if (rangeType === 'LAST_7_DAYS') {
-        if (now.getTime() - taskDate.getTime() > 7 * 24 * 3600 * 1000) return false;
-      } else if (rangeType === 'THIS_WEEK') {
-        const firstDayOfWeek = new Date(now);
-        const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-        firstDayOfWeek.setDate(diff);
-        firstDayOfWeek.setHours(0, 0, 0, 0);
-        if (taskDate < firstDayOfWeek) return false;
-      } else if (rangeType === 'THIS_MONTH') {
-        if (taskDate.getFullYear() !== now.getFullYear() || taskDate.getMonth() !== now.getMonth()) return false;
-      } else if (rangeType === 'THIS_QUARTER') {
-        const currentQuarter = Math.floor(now.getMonth() / 3);
-        const taskQuarter = Math.floor(taskDate.getMonth() / 3);
-        if (taskDate.getFullYear() !== now.getFullYear() || taskQuarter !== currentQuarter) return false;
-      } else if (rangeType === 'CUSTOM') {
-        if (startDate) {
-          const start = new Date(startDate + 'T00:00:00');
-          if (taskDate < start) return false;
-        }
-        if (endDate) {
-          const end = new Date(endDate + 'T23:59:59');
-          if (taskDate > end) return false;
-        }
-      }
-    }
-
-    return true;
-  });
-
-  const paginatedTasks = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const isFiltered = dateRangeState.rangeType !== 'ALL' || selectedStatus !== 'ALL' || selectedSopType !== 'ALL' || selectedMaker !== 'ALL' || selectedChecker !== 'ALL';
+  const isFiltered = searchTerm.trim() !== '' || dateRangeState.rangeType !== 'ALL' || selectedStatus !== 'ALL' || selectedSopType !== 'ALL' || selectedMaker !== 'ALL' || selectedChecker !== 'ALL';
 
   return (
     <>
@@ -289,6 +239,23 @@ export default function Tasks() {
         {/* Structured Filter Toolbar */}
         <div className="flex flex-wrap items-end gap-4 mb-6 bg-bg-surface p-[18px_20px] rounded-[12px] border border-[#e2e8f0] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <div className="flex flex-col gap-1.5 flex-[1.5] min-w-[220px]">
+            <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Search Task</span>
+            <div className="relative flex items-center w-full">
+              <svg className="absolute left-3 text-[#94a3b8] pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                className="w-full h-[40px] pl-[38px] pr-[14px] bg-bg-surface border border-[#cbd5e1] rounded-[8px] text-[13.5px] text-text-primary outline-none transition-all duration-150 box-border focus:border-[#2563eb] focus:ring-3 focus:ring-[rgba(37,99,235,0.1)]"
+                placeholder="Search record no, SOP title..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5 flex-[1.2] min-w-[200px]">
             <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Due Date Range</span>
             <AuditDateRangePicker
               rangeType={dateRangeState.rangeType}
@@ -298,7 +265,7 @@ export default function Tasks() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+          <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
             <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">SOP Type</span>
             <CustomSelect
               name="selectedSopType"
@@ -311,7 +278,7 @@ export default function Tasks() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+          <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
             <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Status</span>
             <CustomSelect
               name="selectedStatus"
@@ -319,32 +286,6 @@ export default function Tasks() {
               options={STATUS_OPTIONS}
               onChange={e => {
                 setSelectedStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
-            <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Maker</span>
-            <CustomSelect
-              name="selectedMaker"
-              value={selectedMaker}
-              options={dynamicMakerOptions}
-              onChange={e => {
-                setSelectedMaker(e.target.value);
-                setCurrentPage(1);
-              }}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
-            <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Checker</span>
-            <CustomSelect
-              name="selectedChecker"
-              value={selectedChecker}
-              options={dynamicCheckerOptions}
-              onChange={e => {
-                setSelectedChecker(e.target.value);
                 setCurrentPage(1);
               }}
             />
@@ -384,14 +325,14 @@ export default function Tasks() {
               <tbody>
                 {loading ? (
                   <TableSkeleton rows={5} columns={9} />
-                ) : paginatedTasks.length === 0 ? (
+                ) : taskList.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="text-center p-12 text-[#94a3b8] text-[13.5px]">
                       No assigned tasks match your selected filter criteria.
                     </td>
                   </tr>
                 ) : (
-                  paginatedTasks.map(task => (
+                  taskList.map(task => (
                     <tr
                       key={task.taskId || task.id || task.recordNo}
                       className="cursor-pointer group border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]"
@@ -458,7 +399,7 @@ export default function Tasks() {
           {!loading && (
             <Pagination
               currentPage={currentPage}
-              totalItems={filtered.length}
+              totalItems={totalItems}
               pageSize={PAGE_SIZE}
               onPageChange={setCurrentPage}
               itemLabel="tasks"

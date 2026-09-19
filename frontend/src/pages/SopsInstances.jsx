@@ -179,49 +179,33 @@ export default function SopInstances() {
   // Handler for sidebar SOP task notification card click
 
 
-  async function loadData() {
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [totalItems, setTotalItems] = useState(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm ? searchTerm.trim() : '');
+      setCurrentPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const templatesData = await getSopTemplates();
-      console.log("Templates Data", templatesData)
-      let combined = [];
-      if (Array.isArray(templatesData) && templatesData.length > 0) {
-        // const mappedTemplates = templatesData.map(t => ({
-        //   id: t.templateId,
-        //   templateId: t.templateId,
-        //   code: t.templateCode || `DRAFT-${String(t.templateId).slice(0, 6)}`,
-        //   sopCode: t.templateCode,
-        //   name: t.title,
-        //   title: t.title,
-        //   description: t.description,
-        //   process: t.processCategory,
-        //   processCategory: t.processCategory,
-        //   entity: t.entityCode,
-        //   entityCode: t.entityCode,
-        //   frequency: t.frequency || 'MONTHLY',
-        //   dueDay: t.dueDayOffset !== undefined ? t.dueDayOffset : 15,
-        //   dueDayOffset: t.dueDayOffset !== undefined ? t.dueDayOffset : 15,
-        //   isRecurring: t.isRecurring,
-        //   effectiveFrom: t.effectiveFrom,
-        //   effectiveUntil: t.effectiveUntil,
-        //   status: t.status || 'DRAFT',
-        //   makers: t.defaultMakerIds ? t.defaultMakerIds.map(id => userMap[id] || id) : [],
-        //   checkers: t.defaultCheckerIds ? t.defaultCheckerIds.map(id => userMap[id] || id) : [],
-        //   defaultMakerIds: t.defaultMakerIds || [],
-        //   defaultCheckerIds: t.defaultCheckerIds || [],
-        //   taskTemplates: t.taskTemplates || [],
-        //   createdById: t.createdById,
-        //   isTemplate: true,
-        // }));
+      const res = await getSops({
+        status: selectedStatus !== 'ALL' ? selectedStatus : undefined,
+        entities: Array.isArray(selectedEntities) ? selectedEntities : (selectedEntities ? [selectedEntities] : []),
+        category: selectedProcess !== 'ALL' ? selectedProcess : undefined,
+        frequency: selectedFrequency !== 'ALL' ? selectedFrequency : undefined,
+        search: debouncedSearchTerm || undefined,
+        page: currentPage > 0 ? currentPage - 1 : 0,
+        size: PAGE_SIZE ?? 10,
+      });
+      const list = res?.data || [];
+      setTotalItems(res?.totalElements ?? list.length);
+      setSopList(list);
 
-        templatesData.forEach(t => {
-          if (!combined.some(existing => existing.id === t.id || (existing.code && existing.code === t.code))) {
-            combined.push(t);
-          }
-        });
-      }
-
-      setSopList(combined);
       const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
       if (isAdmin) {
         const categoriesData = await getProcessCategories().catch(() => []);
@@ -249,16 +233,18 @@ export default function SopInstances() {
         const creatable = await getUserCreatableCategories(targetUid).catch(() => []);
         setCreatableCategories(Array.isArray(creatable) ? [...creatable] : []);
       }
-
     } catch (error) {
-      console.log(error)
-      setErrorMsg(error || "Failed to fetch sop template data")
-
-    }
-    finally {
+      console.error("Failed to fetch SOP instances:", error);
+      setErrorMsg(error?.message || error || "Failed to fetch SOP instance data");
+    } finally {
       setLoading(false);
     }
-  }
+  }, [selectedStatus, selectedEntities, selectedProcess, selectedFrequency, debouncedSearchTerm, currentPage, currentUser, isAdmin]);
+
+  useEffect(() => {
+    if (!selectedEntities) return;
+    loadData();
+  }, [selectedEntities, selectedFrequency, selectedProcess, selectedStatus, debouncedSearchTerm, currentPage, loadData]);
 
 
   function openCreateModal(targetCat) {
@@ -806,55 +792,74 @@ export default function SopInstances() {
               </thead>
               <tbody>
                 {loading ? (
-                  <TableSkeleton rows={4} columns={10} />
-                ) : filtered.length === 0 ? (
-                  <tr><td colSpan={10} className="text-center p-12 text-[#94a3b8] text-[13.5px]">No SOPs assigned for creation or approval.</td></tr>
-                ) : paginatedSops.map(sop => (
+                  <TableSkeleton rows={4} columns={7} />
+                ) : sopList.length === 0 ? (
+                  <tr><td colSpan={7} className="text-center p-12 text-[#94a3b8] text-[13.5px]">No SOPs match your selected filter criteria.</td></tr>
+                ) : sopList.map(sop => (
                   <tr
                     key={sop.id || sop.code}
                     className="cursor-pointer border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]"
-                    onClick={() => {
-                      setViewingSop(sop)
-
-                    }}
+                    onClick={() => setViewingSop(sop)}
                   >
-                    <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{sop.title}</td>
-                    <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{sop.code}</td>
-                    <td className="px-6 py-3.5 text-[13.5px] align-middle">
-                      {sop.status === 'COMPLETED' && (
-                        <span className="text-[11px] bg-[#fef3c7] text-[#b45309] px-2 py-[3px] rounded-[4px] font-bold inline-block">
-                          COMPLETED
+                    <td className="px-6 py-3.5 align-middle min-w-[200px]">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[13.5px] font-semibold text-text-primary group-hover:text-primary transition-colors">
+                          {sop.name || sop.title}
                         </span>
-                      )}
-                      {(sop.status === 'ACTIVE' || sop.status === 'APPROVED') && (
-                        <span className="text-[11px] bg-[#dcfce7] text-[#15803d] px-2 py-[3px] rounded-[4px] font-bold inline-block">
-                          ACTIVE
-                        </span>
-                      )}
+                        {sop.description && (
+                          <span className="text-[12px] text-text-muted line-clamp-1">{sop.description}</span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{sop.process || sop.processCategory}</td>
-                    <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">
 
-                      <span className="inline-flex items-center px-[10px] py-[3px] rounded-[6px] text-[11.5px] font-semibold bg-[#f1f5f9] text-[#475569] border border-[#e2e8f0]">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1 inline-block align-middle">
-                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                          <line x1="16" y1="2" x2="16" y2="6" />
-                          <line x1="8" y1="2" x2="8" y2="6" />
-                          <line x1="3" y1="10" x2="21" y2="10" />
-                        </svg>
-                        {FREQ_LABEL[sop.frequency] || sop.frequency}
+                    <td className="px-6 py-3.5 align-middle min-w-[250px]">
+                      <span className="text-[12px] font-mono font-medium text-text-muted">{sop.code}</span>
+                    </td>
+
+                    <td className="px-6 py-3.5 align-middle">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-[12px] font-medium border ${
+                        sop.status === 'ACTIVE'
+                          ? 'bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]'
+                          : sop.status === 'COMPLETED'
+                          ? 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]'
+                          : 'bg-[#fffbeb] text-[#b45309] border-[#fde68a]'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          sop.status === 'ACTIVE'
+                            ? 'bg-[#10b981]'
+                            : sop.status === 'COMPLETED'
+                            ? 'bg-[#64748b]'
+                            : 'bg-[#f59e0b]'
+                        }`} />
+                        {sop.status}
                       </span>
-
                     </td>
-                    <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{sop.title}</td>
-                    <td className="px-6 py-3.5 text-[13.5px] align-middle" onClick={e => e.stopPropagation()}>
-                      <div className="flex gap-1.5 justify-end">
+
+                    <td className="px-6 py-3.5 align-middle">
+                      <span className="text-[13px] text-text-secondary">{sop.processCategory || sop.process || 'N/A'}</span>
+                    </td>
+
+                    <td className="px-6 py-3.5 align-middle">
+                      <span className="text-[13px] text-text-secondary">{FREQ_LABEL[sop.frequency] || sop.frequency || 'N/A'}</span>
+                    </td>
+
+                    <td className="px-6 py-3.5 align-middle">
+                      <div className="flex flex-col gap-0.5 text-[12px] text-text-muted">
+                        {sop.dueDayOffset != null && (
+                          <span>Due Day Offset: {sop.dueDayOffset}</span>
+                        )}
+                        {sop.isRecurring != null && (
+                          <span>{sop.isRecurring ? 'Recurring' : 'One-time'}</span>
+                        )}
+                      </div>
+                    </td>
+
+                    <td className="px-6 py-3.5 text-right align-middle" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-2">
                         <button
                           type="button"
-                          className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#334155] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1"
-                          onClick={() => {
-                            setViewingSop(sop)
-                          }}
+                          className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#334155] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1 hover:bg-[#e2e8f0]"
+                          onClick={() => setViewingSop(sop)}
                         >
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -873,7 +878,7 @@ export default function SopInstances() {
           {!loading && (
             <Pagination
               currentPage={currentPage}
-              totalItems={filtered.length}
+              totalItems={totalItems}
               pageSize={PAGE_SIZE}
               onPageChange={setCurrentPage}
               itemLabel="SOPs"

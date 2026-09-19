@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
 import CustomSelect from '../components/CustomSelect';
 import AuditDateRangePicker from '../components/AuditDateRangePicker';
@@ -71,10 +71,13 @@ function formatActionLabel(action) {
 }
 
 export default function AuditLogs() {
-  // const [selectedEntities, setSelectedEntities] = useState(ENTITIES.map(e => e.id));
   const [logs, setLogs] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
   const [dateRangeState, setDateRangeState] = useState({
     rangeType: 'ALL',
     startDate: '',
@@ -88,22 +91,41 @@ export default function AuditLogs() {
   const { selectedEntities } = useEntity();
 
   useEffect(() => {
-    async function loadLogs() {
-      setLoading(true);
-      const result = await getAuditLogs({ page: 0, size: 200 });
-      if (result?.data) {
-        setLogs(result.data);
-      }
-      setLoading(false);
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm ? searchTerm.trim() : '');
+      setCurrentPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const loadLogs = useCallback(async () => {
+    setLoading(true);
+    const result = await getAuditLogs({
+      entityType: entityType !== 'ALL' ? entityType : undefined,
+      action: actionType !== 'ALL' ? actionType : undefined,
+      actorId: actorFilter !== 'ALL' ? actorFilter : undefined,
+      search: debouncedSearchTerm || undefined,
+      page: currentPage > 0 ? currentPage - 1 : 0,
+      size: PAGE_SIZE,
+    });
+    if (result?.data) {
+      setLogs(result.data);
+      setTotalItems(result.totalElements ?? result.data.length);
     }
+    setLoading(false);
+  }, [entityType, actionType, actorFilter, debouncedSearchTerm, currentPage]);
+
+  useEffect(() => {
     loadLogs();
-  }, []);
+  }, [loadLogs]);
 
   function resetFilters() {
+    setSearchTerm('');
     setDateRangeState({ rangeType: 'ALL', startDate: '', endDate: '' });
     setActionType('ALL');
     setEntityType('ALL');
     setActorFilter('ALL');
+    setCurrentPage(1);
   }
 
   const filteredLogs = logs.filter(log => {
@@ -298,20 +320,34 @@ export default function AuditLogs() {
     }
   }
 
-  const isFiltered = dateRangeState.rangeType !== 'ALL' || actionType !== 'ALL' || entityType !== 'ALL' || actorFilter !== 'ALL';
-
-  const paginatedLogs = filteredLogs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const isFiltered = searchTerm.trim() !== '' || dateRangeState.rangeType !== 'ALL' || actionType !== 'ALL' || entityType !== 'ALL' || actorFilter !== 'ALL';
 
   return (
     <>
-
-
       <div className="p-6 md:px-8 w-full max-w-full box-border">
 
         {/* Structured Filter Toolbar */}
         <div className="flex flex-wrap items-end gap-4 mb-6 bg-bg-surface p-[18px_20px] rounded-[12px] border border-[#e2e8f0] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          {/* Unified Date Range Picker */}
+          {/* Search Audit Logs */}
           <div className="flex flex-col gap-1.5 flex-[1.5] min-w-[220px]">
+            <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Search Log</span>
+            <div className="relative flex items-center w-full">
+              <svg className="absolute left-3 text-[#94a3b8] pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                className="w-full h-[40px] pl-[38px] pr-[14px] bg-bg-surface border border-[#cbd5e1] rounded-[8px] text-[13.5px] text-text-primary outline-none transition-all duration-150 box-border focus:border-[#2563eb] focus:ring-3 focus:ring-[rgba(37,99,235,0.1)]"
+                placeholder="Search actor, action, entity..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Unified Date Range Picker */}
+          <div className="flex flex-col gap-1.5 flex-[1.2] min-w-[200px]">
             <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Time Range</span>
             <AuditDateRangePicker
               rangeType={dateRangeState.rangeType}
@@ -322,7 +358,7 @@ export default function AuditLogs() {
           </div>
 
           {/* Action Filter */}
-          <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+          <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
             <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Action</span>
             <CustomSelect
               name="actionType"
@@ -336,7 +372,7 @@ export default function AuditLogs() {
           </div>
 
           {/* Entity Type Filter */}
-          <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+          <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
             <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Entity Type</span>
             <CustomSelect
               name="entityType"
@@ -350,7 +386,7 @@ export default function AuditLogs() {
           </div>
 
           {/* User / Actor Filter */}
-          <div className="flex flex-col gap-1.5 flex-1 min-w-[180px]">
+          <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
             <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">User</span>
             <CustomSelect
               name="actorFilter"
@@ -370,7 +406,7 @@ export default function AuditLogs() {
               type="button"
               className="bg-bg-surface border border-[#cbd5e1] text-text-primary text-[12.5px] font-semibold px-4 h-[40px] rounded-[8px] cursor-pointer transition-all duration-150 whitespace-nowrap inline-flex items-center gap-2 shadow-sm hover:enabled:bg-[#10b981] hover:enabled:border-[#10b981] hover:enabled:text-white hover:enabled:shadow-[0_2px_4px_rgba(16,185,129,0.2)] disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[#94a3b8]"
               onClick={handleExportExcel}
-              disabled={filteredLogs.length === 0 || loading}
+              disabled={logs.length === 0 || loading}
               title="Export current logs to Excel/CSV"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -413,14 +449,14 @@ export default function AuditLogs() {
               <tbody>
                 {loading ? (
                   <TableSkeleton rows={5} columns={5} />
-                ) : paginatedLogs.length === 0 ? (
+                ) : logs.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="text-center text-text-muted p-[40px] text-[14px]">
                       No audit records match your selected filter criteria.
                     </td>
                   </tr>
                 ) : (
-                  paginatedLogs.map(log => (
+                  logs.map(log => (
                     <tr
                       key={log.auditId}
                       className="cursor-pointer border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]"
@@ -454,7 +490,7 @@ export default function AuditLogs() {
           {!loading && (
             <Pagination
               currentPage={currentPage}
-              totalItems={filteredLogs.length}
+              totalItems={totalItems}
               pageSize={PAGE_SIZE}
               onPageChange={setCurrentPage}
               itemLabel="audit records"

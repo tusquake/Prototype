@@ -398,12 +398,14 @@ export async function getDashboardSummary(selectedEntities = [], currentUser = n
   };
 }
 
-export async function getTasks({ entities = [], userId = null, userRole = null, status = null, inboxOnly = false, page = 0, size = 20 } = {}) {
+export async function getTasks({ entities = [], userId = null, userRole = null, status = null, category = null, search = null, inboxOnly = false, page = 0, size = 20 } = {}) {
   const body = {
     entities: entities.length > 0 ? entities : undefined,
     userId: userId || undefined,
     userRole: userRole || undefined,
-    status: status || undefined,
+    status: (status && status !== 'ALL') ? status : undefined,
+    category: (category && category !== 'ALL') ? category : undefined,
+    search: search || undefined,
     inboxOnly,
     page,
     size,
