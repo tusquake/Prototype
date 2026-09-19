@@ -254,9 +254,10 @@ export default function Sops() {
   // 1. Function to fetch and map users dynamically
   async function initializeUserMap() {
     try {
-      const { data: usersList } = await getUsers();
+      const res = await getUsers();
+      const usersList = Array.isArray(res) ? res : (res?.data || []);
 
-      if (Array.isArray(usersList)) {
+      if (usersList.length > 0) {
         // Start with your existing hardcoded map as a fallback
         const dynamicUserMap = { ...USER_ID_MAP };
 

@@ -578,7 +578,15 @@ export async function getUsers(entityCode = null, targetRole = null, { page = 0,
     });
   }
 
-  return { data: allUsers };
+  return {
+    data: allUsers,
+    totalElements: res?.totalElements ?? allUsers.length,
+    totalPages: res?.totalPages ?? 1,
+    isFirst: res?.isFirst ?? true,
+    isLast: res?.isLast ?? true,
+    hasNext: res?.hasNext ?? false,
+    hasPrevious: res?.hasPrevious ?? false,
+  };
 }
 
 export async function getCurrentUser(email) {
@@ -854,9 +862,14 @@ export async function verifyGoogleSsoToken(idToken) {
 
 export async function getUserNotifications(userId) {
   if (!userId) return [];
-  const res = await fetchJson(`/notifications/user/${userId}`).catch(() => null);
-  const list = Array.isArray(res) ? res : (res && Array.isArray(res.data) ? res.data : []);
-  return list;
+  const res = await fetchJson('/notifications/search', {
+    method: 'POST',
+    body: JSON.stringify({ userId, page: 0, size: 50 }),
+  }).catch(() => fetchJson(`/notifications/user/${userId}`).catch(() => null));
+
+  if (!res) return [];
+  const rawList = res?.content || res?.data?.content || res?.data || (Array.isArray(res) ? res : []);
+  return Array.isArray(rawList) ? rawList : [];
 }
 
 export async function getUnreadNotificationCount(userId) {

@@ -81,8 +81,9 @@ export default function Tasks() {
         setDynamicCheckerOptions([{ value: 'ALL', label: 'All Checkers' }]);
       });
     } else {
-      getUsers().then(users => {
-        if (Array.isArray(users)) {
+      getUsers().then(res => {
+        const users = Array.isArray(res) ? res : (res?.data || []);
+        if (users.length > 0) {
           setDynamicMakerOptions([
             { value: 'ALL', label: 'All Makers' },
             ...users.map(u => ({ value: u.name || u.fullName, label: u.name || u.fullName }))

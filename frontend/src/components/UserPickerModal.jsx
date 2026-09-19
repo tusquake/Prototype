@@ -44,11 +44,13 @@ export default function UserPickerModal({
     try {
       // If permittedUsers is provided, skip the API call and use them directly
       if (permittedUsers !== null) {
-        setUsers(permittedUsers);
+        const pList = Array.isArray(permittedUsers) ? permittedUsers : (permittedUsers?.data || []);
+        setUsers(pList);
         return;
       }
       const eligibleUsers = await getUsers(entityCode, targetRole);
-      setUsers(eligibleUsers);
+      const userList = Array.isArray(eligibleUsers) ? eligibleUsers : (eligibleUsers?.data || []);
+      setUsers(userList);
     } catch {
       setUsers([]);
     } finally {
@@ -58,12 +60,13 @@ export default function UserPickerModal({
 
   if (!isOpen) return null;
 
-  const filteredUsers = users.filter(u => {
+  const userList = Array.isArray(users) ? users : (users?.data || []);
+  const filteredUsers = userList.filter(u => {
     if (!searchTerm.trim()) return true;
     const q = searchTerm.toLowerCase().trim();
     return (
-      u.name.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q)
+      (u.name && u.name.toLowerCase().includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q))
     );
   });
 

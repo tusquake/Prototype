@@ -494,8 +494,9 @@ export default function SopInstances() {
         setDynamicApproverFilterOptions([{ value: 'ALL', label: 'All Checkers' }]);
       };
     } else {
-      getUsers().then(users => {
-        if (Array.isArray(users)) {
+      getUsers().then(res => {
+        const users = Array.isArray(res) ? res : (res?.data || []);
+        if (users.length > 0) {
           setDynamicCreatorFilterOptions([
             { value: 'ALL', label: 'All Makers' },
             ...users.map(u => ({ value: u.id || u.userId, label: u.name || u.fullName }))
@@ -512,9 +513,10 @@ export default function SopInstances() {
   // 1. Function to fetch and map users dynamically
   async function initializeUserMap() {
     try {
-      const usersList = await getUsers();
+      const res = await getUsers();
+      const usersList = Array.isArray(res) ? res : (res?.data || []);
 
-      if (Array.isArray(usersList)) {
+      if (usersList.length > 0) {
         // Start with your existing hardcoded map as a fallback
         const dynamicUserMap = { ...USER_ID_MAP };
 

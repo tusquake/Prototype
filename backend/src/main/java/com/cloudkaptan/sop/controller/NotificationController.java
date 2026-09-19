@@ -43,6 +43,18 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
     }
 
+    @GetMapping("/user/{userId}")
+    @Operation(summary = "Get notifications for user", description = "Returns notifications for a specific user.")
+    public ResponseEntity<ApiResponse<PageResponse<UserNotificationDto>>> getUserNotifications(
+            @Parameter(description = "User ID") @PathVariable("userId") String userId,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "20") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<UserNotificationDto> pageRes = userNotificationService.getNotificationsForUser(userId, pageable);
+        return ResponseEntity.ok(ApiResponse.success(PageResponse.from(pageRes)));
+    }
+
     @GetMapping("/user/{userId}/unread-count")
     @Operation(summary = "Get unread notification count", description = "Returns total count of unread notifications for a user.")
     public ResponseEntity<ApiResponse<Map<String, Long>>> getUnreadCount(

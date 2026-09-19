@@ -93,13 +93,14 @@ export default function AccessControl() {
     setLoading(true);
     setError(null);
     try {
-      const [catList, userList] = await Promise.all([
+      const [catList, userRes] = await Promise.all([
         getProcessCategories().catch(() => []),
-        getUsers().catch(() => []),
+        getUsers().catch(() => null),
       ]);
       const list = Array.isArray(catList) ? catList : [];
       setCategories(list);
-      if (Array.isArray(userList) && userList.length > 0) {
+      const userList = Array.isArray(userRes) ? userRes : (userRes?.data || []);
+      if (userList.length > 0) {
         setAllUsers(userList);
       }
 
