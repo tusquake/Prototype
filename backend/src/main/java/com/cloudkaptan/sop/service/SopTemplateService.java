@@ -298,7 +298,7 @@ public class SopTemplateService {
 
     @Transactional(readOnly = true)
     public Page<SopTemplateDto> getFilteredTemplates(SopTemplateStatus status,
-                                                    com.cloudkaptan.sop.domain.enums.EntityCode entityCode,
+                                                    java.util.List<com.cloudkaptan.sop.domain.enums.EntityCode> entities,
                                                     String category,
                                                     com.cloudkaptan.sop.domain.enums.SopFrequency frequency,
                                                     String search,
@@ -307,7 +307,7 @@ public class SopTemplateService {
         List<SopTemplateDto> filtered = templates.stream()
                 .filter(t -> {
                     if (status != null && t.getStatus() != status) return false;
-                    if (entityCode != null && (t.getEntity() == null || t.getEntity().getEntityCode() != entityCode)) return false;
+                    if (entities != null && !entities.isEmpty() && (t.getEntity() == null || !entities.contains(t.getEntity().getEntityCode()))) return false;
                     if (category != null && !category.isBlank() && !category.equalsIgnoreCase(t.getProcessCategory())) return false;
                     if (frequency != null && t.getFrequency() != frequency) return false;
                     if (search != null && !search.isBlank()) {

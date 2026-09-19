@@ -396,54 +396,96 @@ export async function getDashboardSummary(selectedEntities = [], currentUser = n
   };
 }
 
-export async function getTasks(selectedEntities = [], currentUser = null) {
-  const params = new URLSearchParams();
-  if (selectedEntities.length > 0) params.append('entities', selectedEntities.join(','));
-  if (currentUser?.id) params.append('userId', currentUser.id);
-  if (currentUser?.role) params.append('userRole', currentUser.role);
-  const query = params.toString() ? `?${params.toString()}` : '';
-  const list = await fetchJson(`/tasks${query}`).catch(() => null);
-  if (Array.isArray(list)) {
-    return list.map(mapTask);
-  }
-  return [];
-}
-
-export async function getInboxTasks(selectedEntities = [], status = null, userId = null) {
-  const params = new URLSearchParams();
-  if (selectedEntities.length > 0) params.append('entities', selectedEntities.join(','));
-  if (status) params.append('status', status);
-  if (userId) params.append('userId', userId);
-  const query = params.toString() ? `?${params.toString()}` : '';
-  const result = await fetchJson(`/tasks/inbox${query}`).catch(() => null);
+export async function getTasks({ entities = [], userId = null, userRole = null, status = null, inboxOnly = false, page = 0, size = 20 } = {}) {
+  const body = {
+    entities: entities.length > 0 ? entities : undefined,
+    userId: userId || undefined,
+    userRole: userRole || undefined,
+    status: status || undefined,
+    inboxOnly,
+    page,
+    size,
+  };
+  const result = await fetchJson('/tasks/search', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }).catch(() => null);
   if (result && Array.isArray(result.content)) {
-    return result.content.map(mapTask);
+    return {
+      data: result.content.map(mapTask),
+      totalElements: result.totalElements,
+      totalPages: result.totalPages,
+      hasNext: result.hasNext,
+      hasPrevious: result.hasPrevious,
+      isFirst: result.isFirst,
+      isLast: result.isLast,
+    };
   }
-  if (Array.isArray(result)) {
-    return result.map(mapTask);
-  }
-  return [];
+  return { data: [], totalElements: 0, totalPages: 0, hasNext: false, hasPrevious: false };
 }
 
-export async function getSops(selectedEntities = [], currentUser = null) {
-  const params = new URLSearchParams();
-  if (selectedEntities.length > 0) params.append('entities', selectedEntities.join(','));
-  if (currentUser?.id) params.append('userId', currentUser.id);
-  if (currentUser?.role) params.append('userRole', currentUser.role);
-  const query = params.toString() ? `?${params.toString()}` : '';
-  const list = await fetchJson(`/sops${query}`).catch(() => null);
-  if (Array.isArray(list)) {
-    return list.map(mapSop);
-  }
-  return [];
+export async function getInboxTasks(selectedEntities = [], status = null, userId = null, page = 0, size = 20) {
+  return getTasks({ entities: selectedEntities, status, userId, inboxOnly: true, page, size });
 }
 
-export async function getAuditLogs() {
-  const list = await fetchJson('/audit-logs').catch(() => null);
-  if (Array.isArray(list)) {
-    return list;
+export async function getSops({ entities = [], status = null, category = null, frequency = null, search = null, userId = null, userRole = null, page = 0, size = 20 } = {}) {
+  const body = {
+    entities: entities.length > 0 ? entities : undefined,
+    status: status || undefined,
+    category: category || undefined,
+    frequency: frequency || undefined,
+    search: search || undefined,
+    userId: userId || undefined,
+    userRole: userRole || undefined,
+    page,
+    size,
+  };
+  const result = await fetchJson('/sops/search', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }).catch(() => null);
+  if (result && Array.isArray(result.content)) {
+    return {
+      data: result.content.map(mapSop),
+      totalElements: result.totalElements,
+      totalPages: result.totalPages,
+      hasNext: result.hasNext,
+      hasPrevious: result.hasPrevious,
+      isFirst: result.isFirst,
+      isLast: result.isLast,
+    };
   }
-  return [];
+  return { data: [], totalElements: 0, totalPages: 0, hasNext: false, hasPrevious: false };
+}
+
+export async function getAuditLogs({ entityType = null, entityId = null, actorId = null, action = null, search = null, startDate = null, endDate = null, page = 0, size = 20 } = {}) {
+  const body = {
+    entityType: entityType || undefined,
+    entityId: entityId || undefined,
+    actorId: actorId || undefined,
+    action: action || undefined,
+    search: search || undefined,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+    page,
+    size,
+  };
+  const result = await fetchJson('/audit-logs/search', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }).catch(() => null);
+  if (result && Array.isArray(result.content)) {
+    return {
+      data: result.content,
+      totalElements: result.totalElements,
+      totalPages: result.totalPages,
+      hasNext: result.hasNext,
+      hasPrevious: result.hasPrevious,
+      isFirst: result.isFirst,
+      isLast: result.isLast,
+    };
+  }
+  return { data: [], totalElements: 0, totalPages: 0, hasNext: false, hasPrevious: false };
 }
 
 export async function assignSop(assignData) {
@@ -499,48 +541,44 @@ export async function createSop(sopData) {
   return newSop;
 }
 
-export async function getUsers(entityCode = null, targetRole = null) {
-  const params = new URLSearchParams();
-  if (entityCode) params.append('entity', entityCode);
-  if (targetRole) params.append('role', targetRole);
-  const query = params.toString() ? `?${params.toString()}` : '';
+export async function getUsers(entityCode = null, targetRole = null, { page = 0, size = 50 } = {}) {
+  const body = {
+    entityCode: entityCode || undefined,
+    roleName: targetRole || undefined,
+    page,
+    size,
+  };
+  const res = await fetchJson('/access/users/search', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }).catch(() => null);
 
-  const res = await fetchJson(`/access/users${query}`).catch(() => null);
-
-  let allUsers = (Array.isArray(res?.content) && res?.content.length > 0) ? res?.content.map(u => ({
-    id: u.userId || u.id,
-    name: u.fullName || u.name,
-    email: u.email,
-    role: u.role,
-    groups: u.groups || u.oidcGroups || [],
-  })) : [];
+  let allUsers = (res && Array.isArray(res.content) && res.content.length > 0)
+    ? res.content.map(u => ({
+        id: u.userId || u.id,
+        name: u.fullName || u.name,
+        email: u.email,
+        role: u.role,
+        groups: u.groups || u.oidcGroups || [],
+      }))
+    : [];
 
   if (targetRole) {
     const roleUpper = targetRole.toUpperCase().trim();
     allUsers = allUsers.filter(u => {
-      // ADMIN is eligible for both MAKER and CHECKER
       if (u.role === 'ADMIN' || u.groups?.includes('fin_sop_admin')) return true;
-
-      // Vivek Raj is eligible for both MAKER and CHECKER
       if (u.id === 'usr-vivek-108' || u.name === 'Vivek Raj') return true;
-
       if (roleUpper === 'MAKER') {
-        const isMakerRole = u.role === 'MAKER';
-        const hasMakerGroup = u.groups?.some(g => g.toLowerCase().includes('maker'));
-        return isMakerRole || hasMakerGroup;
+        return u.role === 'MAKER' || u.groups?.some(g => g.toLowerCase().includes('maker'));
       }
       if (roleUpper === 'CHECKER') {
-        const isCheckerRole = u.role === 'CHECKER';
-        const hasCheckerGroup = u.groups?.some(g => g.toLowerCase().includes('checker'));
-        return isCheckerRole || hasCheckerGroup;
+        return u.role === 'CHECKER' || u.groups?.some(g => g.toLowerCase().includes('checker'));
       }
       return true;
     });
   }
 
-  return {
-    data:allUsers
-  };
+  return { data: allUsers };
 }
 
 export async function getCurrentUser(email) {
@@ -1122,44 +1160,32 @@ export async function rejectSopTemplate(templateId, comment = '') {
   });
 }
 
-export async function getSopTemplates(selectedStatus,selectedEntities,selectedProcess,selectedFrequency,searchTerm,pageDetails) {
-  const params = new URLSearchParams();
-  if (selectedStatus && selectedStatus != 'ALL') params.append('status', selectedStatus);
-  
-  if (selectedEntities ) {
-    params.append('entityCode', Array.isArray(selectedEntities) ? selectedEntities.join(',') : selectedEntities);
+export async function getSopTemplates({ status = null, entities = [], category = null, frequency = null, search = null, page = 0, size = 20 } = {}) {
+  const body = {
+    status: (status && status !== 'ALL') ? status : undefined,
+    entities: entities.length > 0 ? entities : undefined,
+    category: (category && category !== 'ALL') ? category : undefined,
+    frequency: (frequency && frequency !== 'ALL') ? frequency : undefined,
+    search: search || undefined,
+    page,
+    size,
+  };
+  const result = await fetchJson('/sop-templates/search', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  }).catch(() => null);
+  if (result && Array.isArray(result.content)) {
+    return {
+      data: result.content.map(mapSopTemplate),
+      totalElements: result.totalElements,
+      totalPages: result.totalPages,
+      hasNext: result.hasNext,
+      hasPrevious: result.hasPrevious,
+      isFirst: result.isFirst,
+      isLast: result.isLast,
+    };
   }
-  
-  if (selectedProcess && selectedProcess != 'ALL') params.append('process', selectedProcess);
-  if (selectedFrequency && selectedFrequency != 'ALL') params.append('frequency', selectedFrequency);
-  
-  if (searchTerm) params.append('search', searchTerm); 
-
-  // 3. Handle Pagination and Sorting
-  if (pageDetails) {
-    const pageIndex = (pageDetails.page && pageDetails.page > 0) ? pageDetails.page - 1 : 0;
-    params.append('page', pageIndex.toString());
-    
-    if (pageDetails.size) params.append('size', pageDetails.size.toString());
-
-    if (pageDetails.sort && pageDetails.sort.length > 0) {
-      params.append('sort', JSON.stringify(pageDetails.sort));
-    }
-  }
-  const queryString = params.toString();
-  const url = `/sop-templates${queryString ? `?${queryString}` : ''}`;
-  const list = await fetchJson(url);
-
-  if (Array.isArray(list?.content)) {
-    return  {
-      data:list?.content.map(mapSopTemplate) ?? [],
-      totalElements: list?.totalElements,
-      totalPages: list?.totalPages
-    }
-    
-  }
-  return []
-
+  return { data: [], totalElements: 0, totalPages: 0, hasNext: false, hasPrevious: false };
 }
 
 export async function getSopTemplate(templateId) {

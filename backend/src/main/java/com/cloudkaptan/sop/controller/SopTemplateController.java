@@ -1,28 +1,18 @@
 package com.cloudkaptan.sop.controller;
 
-import com.cloudkaptan.sop.domain.enums.EntityCode;
-import com.cloudkaptan.sop.domain.enums.SopFrequency;
-import com.cloudkaptan.sop.domain.enums.SopTemplateStatus;
-import com.cloudkaptan.sop.dto.ApiResponse;
-import com.cloudkaptan.sop.dto.AuditLogDto;
-import com.cloudkaptan.sop.dto.CreateSopTemplateRequest;
-import com.cloudkaptan.sop.dto.CreateTaskTemplateRequest;
-import com.cloudkaptan.sop.dto.SopTemplateDto;
-import com.cloudkaptan.sop.dto.SopTemplateStatusUpdateRequest;
+import com.cloudkaptan.sop.dto.*;
 import com.cloudkaptan.sop.service.SopTemplateService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -44,19 +34,23 @@ public class SopTemplateController {
                 .body(ApiResponse.success(created, "SOP Template draft created successfully."));
     }
 
-    @GetMapping
-    @Operation(summary = "List SOP Templates with multi-filtering",
-               description = "Returns paginated list of SOP Templates, optionally filtered by status, entityCode, processCategory, frequency, and title/code search query.")
-    public ResponseEntity<ApiResponse<Page<SopTemplateDto>>> listTemplates(
-            @Parameter(description = "SOP Template status filter (ACTIVE, PENDING_APPROVAL, DRAFT, REJECTED)") @RequestParam(name = "status", required = false) SopTemplateStatus status,
-            @Parameter(description = "Corporate entity code filter") @RequestParam(name = "entityCode", required = false) EntityCode entityCode,
-            @Parameter(description = "Process category filter") @RequestParam(name = "category", required = false) String category,
-            @Parameter(description = "Frequency filter") @RequestParam(name = "frequency", required = false) SopFrequency frequency,
-            @Parameter(description = "Search query for template title or code") @RequestParam(name = "search", required = false) String search,
-            @PageableDefault(size = 20) Pageable pageable
+    @PostMapping("/search")
+    @Operation(summary = "Search / list SOP Templates",
+               description = "Returns paginated SOP Templates filtered by status, entities, category, frequency, and search term. Frontend sends page number (1-based) and size.")
+    public ResponseEntity<ApiResponse<PageResponse<SopTemplateDto>>> searchTemplates(
+            @RequestBody(required = false) SopTemplateFilterRequest request
     ) {
-        Page<SopTemplateDto> templates = sopTemplateService.getFilteredTemplates(status, entityCode, category, frequency, search, pageable);
-        return ResponseEntity.ok(ApiResponse.success(templates));
+        if (request == null) request = new SopTemplateFilterRequest();
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+        Page<SopTemplateDto> page = sopTemplateService.getFilteredTemplates(
+                request.getStatus(),
+                request.getEntities(),
+                request.getCategory(),
+                request.getFrequency(),
+                request.getSearch(),
+                pageable
+        );
+        return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
     }
 
     @GetMapping("/{templateId}")
@@ -70,11 +64,14 @@ public class SopTemplateController {
     @GetMapping("/{templateId}/audit-logs")
     @Operation(summary = "Get SOP Template audit trail history",
                description = "Retrieves paginated audit log timeline for a specific SOP Template blueprint.")
-    public ResponseEntity<ApiResponse<Page<AuditLogDto>>> getTemplateAuditLogs(
+    public ResponseEntity<ApiResponse<PageResponse<AuditLogDto>>> getTemplateAuditLogs(
             @PathVariable UUID templateId,
-            @PageableDefault(size = 20) Pageable pageable
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
     ) {
-        return ResponseEntity.ok(ApiResponse.success(sopTemplateService.getTemplateAuditLogs(templateId, pageable)));
+        Pageable pageable = PageRequest.of(page, size);
+        Page<AuditLogDto> result = sopTemplateService.getTemplateAuditLogs(templateId, pageable);
+        return ResponseEntity.ok(ApiResponse.success(PageResponse.from(result)));
     }
 
     @PutMapping("/{templateId}")
@@ -123,7 +120,7 @@ public class SopTemplateController {
 
     @PutMapping("/{templateId}/status")
     @Operation(summary = "Update SOP Template status",
-               description = "Unified lifecycle status transition endpoint using JSON request payload. Actions: SUBMIT, ACTIVATE, REJECT, RETIRE.")
+               description = "Unified lifecycle status transition endpoint. Actions: SUBMIT, ACTIVATE, REJECT, RETIRE.")
     public ResponseEntity<ApiResponse<SopTemplateDto>> updateTemplateStatus(
             @PathVariable UUID templateId,
             @Valid @RequestBody SopTemplateStatusUpdateRequest request
@@ -136,6 +133,7 @@ public class SopTemplateController {
         );
         return ResponseEntity.ok(ApiResponse.success(updated, "SOP Template status successfully updated to " + updated.getStatus() + "."));
     }
+
     @PostMapping("/{templateId}/instantiate")
     @Operation(summary = "Instantiate SOP from Template (On-Demand Demo Trigger)",
                description = "Manually triggers generation of an active SOP Instance and Task instances from an active SOP Template.")
@@ -146,4 +144,3 @@ public class SopTemplateController {
         return ResponseEntity.ok(ApiResponse.success("SOP Instance and Task instances generated successfully from template.", "Instantiated successfully"));
     }
 }
-

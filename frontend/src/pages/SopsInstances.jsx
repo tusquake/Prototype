@@ -425,8 +425,9 @@ export default function SopInstances() {
       openCreateModal(categoryParam);
       window.history.replaceState({}, '', window.location.pathname);
     } else if (draftCode) {
-      getSops([]).then(all => {
-        const target = (all || []).find(s => (s.code === draftCode || s.sopCode === draftCode || s.id === draftCode || s.sopId === draftCode));
+      getSops({}).then(result => {
+        const all = result?.data || [];
+        const target = all.find(s => (s.code === draftCode || s.sopCode === draftCode || s.id === draftCode || s.sopId === draftCode));
         if (target) {
           setLockedAssignment(target);
           setEditingSop(null);
@@ -435,16 +436,18 @@ export default function SopInstances() {
       });
       window.history.replaceState({}, '', window.location.pathname);
     } else if (reviewCode) {
-      getSops([]).then(all => {
-        const target = (all || []).find(s => (s.code === reviewCode || s.sopCode === reviewCode || s.id === reviewCode || s.sopId === reviewCode));
+      getSops({}).then(result => {
+        const all = result?.data || [];
+        const target = all.find(s => (s.code === reviewCode || s.sopCode === reviewCode || s.id === reviewCode || s.sopId === reviewCode));
         if (target) {
           setViewingSop(target);
         }
       });
       window.history.replaceState({}, '', window.location.pathname);
     } else if (viewCode) {
-      getSops([]).then(all => {
-        const target = (all || []).find(s => (s.code === viewCode || s.sopCode === viewCode || s.id === viewCode || s.sopId === viewCode));
+      getSops({}).then(result => {
+        const all = result?.data || [];
+        const target = all.find(s => (s.code === viewCode || s.sopCode === viewCode || s.id === viewCode || s.sopId === viewCode));
         if (target) {
           if (target.status === 'PENDING_CREATION' || target.status === 'REJECTED') {
             setLockedAssignment(target);

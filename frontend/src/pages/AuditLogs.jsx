@@ -90,9 +90,9 @@ export default function AuditLogs() {
   useEffect(() => {
     async function loadLogs() {
       setLoading(true);
-      const data = await getAuditLogs();
-      if (data) {
-        setLogs(data);
+      const result = await getAuditLogs({ page: 0, size: 200 });
+      if (result?.data) {
+        setLogs(result.data);
       }
       setLoading(false);
     }

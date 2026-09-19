@@ -42,9 +42,9 @@ export default function Inbox() {
 
   async function loadTasks() {
     setLoading(true);
-    const data = await getTasks(selectedEntities);
-    if (data) {
-      setTaskList(data);
+    const result = await getTasks({ entities: selectedEntities, inboxOnly: true });
+    if (result?.data) {
+      setTaskList(result.data);
     }
     setLoading(false);
   }

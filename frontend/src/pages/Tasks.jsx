@@ -98,9 +98,9 @@ export default function Tasks() {
 
   async function loadTasks() {
     setLoading(true);
-    const data = await getTasks(selectedEntities, currentUser);
-    if (data) {
-      setTaskList(data);
+    const result = await getTasks({ entities: selectedEntities, userId: currentUser?.id, userRole: currentUser?.role });
+    if (result?.data) {
+      setTaskList(result.data);
     }
     const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
     if (isAdmin) {
@@ -133,8 +133,9 @@ export default function Tasks() {
     function handleOpenTaskEvent(e) {
       if (e.detail) {
         const tId = e.detail.taskId || e.detail.id;
-        getTasks([]).then(all => {
-          const found = (all || []).find(t => (t.taskId === tId || t.id === tId || t.recordNo === tId || t.record === tId));
+        getTasks({ entities: [] }).then(result => {
+          const all = result?.data || [];
+          const found = all.find(t => (t.taskId === tId || t.id === tId || t.recordNo === tId || t.record === tId));
           if (found) setActiveTask(found);
         });
       }
@@ -145,8 +146,9 @@ export default function Tasks() {
     const params = new URLSearchParams(window.location.search);
     const openTaskId = params.get('openTaskId');
     if (openTaskId) {
-      getTasks([]).then(all => {
-        const target = (all || []).find(t => (t.taskId === openTaskId || t.id === openTaskId || t.recordNo === openTaskId || t.record === openTaskId));
+      getTasks({ entities: [] }).then(result => {
+        const all = result?.data || [];
+        const target = all.find(t => (t.taskId === openTaskId || t.id === openTaskId || t.recordNo === openTaskId || t.record === openTaskId));
         if (target) setActiveTask(target);
       });
       window.history.replaceState({}, '', window.location.pathname);

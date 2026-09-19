@@ -167,27 +167,24 @@ export default function Sops() {
   async function loadData() {
     setLoading(true);
     try {
-      const { data, totalElements, totalPages } = await getSopTemplates(selectedStatus,selectedEntities,selectedProcess,selectedFrequency,debouncedSearchTerm,{
-        page:currentPage ?? 1,
+      const { data, totalElements, totalPages } = await getSopTemplates({
+        status: selectedStatus,
+        entities: Array.isArray(selectedEntities) ? selectedEntities : (selectedEntities ? [selectedEntities] : []),
+        category: selectedProcess,
+        frequency: selectedFrequency,
+        search: debouncedSearchTerm,
+        page: currentPage > 0 ? currentPage - 1 : 0,
         size: PAGE_SIZE ?? 10,
-        sort:['ascending']
       });
-      console.log("Templates Data", data)
-      setTotalItems(totalElements ?? 0)
-      let combined = [];
-      if (Array.isArray(data) && data.length > 0) {
-        data.forEach(t => {
-          if (!combined.some(existing => existing.id === t.id || (existing.code && existing.code === t.code))) {
-            combined.push(t);
-          }
-        });
-      }
+      setTotalItems(totalElements ?? 0);
+      const combined = Array.isArray(data) ? data.filter(
+        (t, idx, arr) => arr.findIndex(x => x.id === t.id) === idx
+      ) : [];
       setSopList(combined);
     } catch (error) {
-      console.log(error)
-      setErrorMsg(error || "Failed to fetch sop template data")
-    }
-    finally {
+      console.log(error);
+      setErrorMsg(error || "Failed to fetch sop template data");
+    } finally {
       setLoading(false);
     }
   }
