@@ -107,14 +107,18 @@ export default function NotificationBell({ currentUser, isCollapsed }) {
     }
 
     // 2. Navigate and open detail view
+    const isTemplate = item.referenceEntityType === 'SOP_TEMPLATE' || item.eventType?.includes('TEMPLATE');
     const isSop = item.referenceEntityType === 'SOP';
     const isTask = item.referenceEntityType === 'TASK';
     const isAccessControl = item.referenceEntityType === 'ACCESS_CONTROL' || item.eventType === 'CATEGORY_PERMISSION_GRANTED';
     const refId = item.referenceEntityId;
 
-    if (isAccessControl) {
+    if (isTemplate) {
+      window.dispatchEvent(new CustomEvent('open-sop-template', { detail: { templateId: refId, mode: 'review' } }));
+      navigate(`/sop-management?openTemplateId=${encodeURIComponent(refId || '')}`);
+    } else if (isAccessControl) {
       window.dispatchEvent(new CustomEvent('open-create-sop', { detail: { category: refId } }));
-      navigate(`/sops?action=createSop&category=${encodeURIComponent(refId || '')}`);
+      navigate(`/sop-management?action=createSop&category=${encodeURIComponent(refId || '')}`);
     } else if (isSop) {
       const isReview = item.eventType === 'SOP_SUBMITTED' || item.eventType === 'SOP_APPROVAL';
       const isDraft = item.eventType === 'SOP_ASSIGNED' || item.eventType === 'SOP_REJECTED';
@@ -127,10 +131,10 @@ export default function NotificationBell({ currentUser, isCollapsed }) {
       const eventName = isReview ? 'open-sop-review' : isDraft ? 'open-sop-draft' : 'open-sop-view';
       window.dispatchEvent(new CustomEvent(eventName, { detail: { sopId: refId, code: refId, id: refId } }));
 
-      navigate(`/sops?${queryParam}=${encodeURIComponent(refId)}`);
+      navigate(`/sop-activity?${queryParam}=${encodeURIComponent(refId)}`);
     } else if (isTask) {
       window.dispatchEvent(new CustomEvent('open-task-action', { detail: { taskId: refId, id: refId } }));
-      navigate(`/tasks?openTaskId=${encodeURIComponent(refId)}`);
+      navigate(`/inbox?openTaskId=${encodeURIComponent(refId)}`);
     }
   }
 

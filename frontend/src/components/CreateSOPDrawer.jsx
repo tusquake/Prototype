@@ -576,48 +576,56 @@ export default function CreateSopDrawer({
     }
   }, [isOpen, editingTemplate, reset, todayStr]);
 
-  // Load process categories dynamically from backend API (creatable categories for non-admin user)
+  // Load process categories dynamically from backend API
   useEffect(() => {
     if (isOpen) {
       const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
+      const templateCat = editingTemplate?.processCategory || editingTemplate?.process || '';
+
+      const applyOptions = (cats) => {
+        const list = Array.isArray(cats) ? cats : (cats?.data || []);
+        let available = list.map((c) => ({
+          value: typeof c === 'string' ? c : (c.categoryCode || c.categoryName || c),
+          label: typeof c === 'string' ? c : (c.categoryName || c.categoryCode || c),
+        })).filter(o => o.value);
+
+        if (templateCat && !available.some((o) => o.value === templateCat)) {
+          available.unshift({ value: templateCat, label: templateCat });
+        }
+
+        setProcessOptions(available);
+
+        const currentCat = getValues('processCategory');
+        if (!currentCat && available.length > 0) {
+          setValue('processCategory', available[0].value);
+        } else if (templateCat) {
+          setValue('processCategory', templateCat);
+        }
+      };
+
       if (isAdmin) {
         getProcessCategories()
-          .then((cats) => {
-            if (Array.isArray(cats) && cats.length > 0) {
-              const available = cats.map((c) => ({
-                value: c.categoryCode || '',
-                label: c.categoryName || '',
-              }));
-              setProcessOptions(available);
-              const currentCat = getValues('processCategory');
-              if (!currentCat || !available.some((o) => o.value === currentCat)) {
-                setValue('processCategory', available[0].value);
-              }
-            }
-          })
-          .catch(() => { });
+          .then(applyOptions)
+          .catch(() => {
+            if (templateCat) setProcessOptions([{ value: templateCat, label: templateCat }]);
+          });
       } else if (targetUid) {
-        getUserCreatableCategories(targetUid)
-          .then((cats) => {
-            const list = Array.isArray(cats) ? cats : (cats?.data || []);
-            if (list.length > 0) {
-              const available = list.map((c) => ({
-                value: typeof c === 'string' ? c : (c.categoryName || c.categoryCode || c),
-                label: typeof c === 'string' ? c : (c.categoryName || c.categoryCode || c),
-              }));
-              setProcessOptions(available);
-              const currentCat = getValues('processCategory');
-              if (!currentCat || !available.some((o) => o.value === currentCat)) {
-                setValue('processCategory', available[0].value);
-              }
-            } else {
-              setProcessOptions([]);
-            }
-          })
-          .catch(() => { });
+        // Fetch accessible or creatable categories for non-admin
+        getUserAccessibleCategories(targetUid)
+          .then(applyOptions)
+          .catch(() => {
+            getUserCreatableCategories(targetUid)
+              .then(applyOptions)
+              .catch(() => {
+                if (templateCat) setProcessOptions([{ value: templateCat, label: templateCat }]);
+              });
+          });
+      } else if (templateCat) {
+        setProcessOptions([{ value: templateCat, label: templateCat }]);
+        setValue('processCategory', templateCat);
       }
     }
-  }, [isOpen, isAdmin, currentUser, setValue, getValues]);
+  }, [isOpen, isAdmin, currentUser, editingTemplate, setValue, getValues]);
 
   // Load corporate entities dynamically from backend API
   useEffect(() => {
@@ -1274,26 +1282,26 @@ export default function CreateSopDrawer({
                   <button type="button" onClick={handleFinalSubmit} className="rounded-lg bg-blue-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700">
                     {isViewOnly ? 'Close SOP Template' : 'Create SOP Template'}
                   </button>
-                  {editingTemplate?.status === 'PENDING_APPROVAL' && isViewOnly && isAdmin && (<>
-                    <button type="button" onClick={() => {
-                      setOpenConfirmationModal(true)
-                      setModalConfig('APPROVE')
-                    }
-                    }
-                      className="rounded-lg bg-emerald-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-700">
-                      Approve
-                    </button>
+                </>
+              )}
 
-                    <button type="button" onClick={() => {
-                      setOpenConfirmationModal(true)
-                      setModalConfig('REJECT')
-                    }
-                    }
-                      className="rounded-lg bg-red-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-red-700">
-                      Reject
-                    </button>
-                  </>)}
+              {editingTemplate?.status === 'PENDING_APPROVAL' && (
+                <>
+                  <button type="button" onClick={() => {
+                    setOpenConfirmationModal(true);
+                    setModalConfig('APPROVE');
+                  }}
+                    className="rounded-lg bg-emerald-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-700">
+                    Approve
+                  </button>
 
+                  <button type="button" onClick={() => {
+                    setOpenConfirmationModal(true);
+                    setModalConfig('REJECT');
+                  }}
+                    className="rounded-lg bg-red-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-red-700">
+                    Reject
+                  </button>
                 </>
               )}
             </div>

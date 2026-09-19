@@ -1209,15 +1209,12 @@ export async function getSopTemplate(templateId) {
   return []
 }
 
-export async function actionSopTemplate(templateId,payload) {
-  const list = await fetchJson(`/sop-templates/${templateId}/status`,{
+export async function actionSopTemplate(templateId, payload) {
+  const res = await fetchJson(`/sop-templates/${templateId}/status`, {
     method: 'PUT',
-     body: JSON.stringify(payload),
+    body: JSON.stringify(payload),
   });
-  if (Array.isArray(list)) {
-    return list.map(mapSopTemplate);
-  }
-  return []
+  return res?.data || res;
 }
 
 export async function instantiateSopTemplate(templateId) {

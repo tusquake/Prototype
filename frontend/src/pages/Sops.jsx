@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import CustomSelect from '../components/CustomSelect';
 import TableSkeleton from '../components/TableSkeleton';
 import Pagination from '../components/Pagination';
@@ -7,7 +8,7 @@ import SopActivityLogModal from '../components/SopActivityLogModal';
 import UserAvatarGroup from '../components/UserAvatarGroup';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { getSops, getSopTemplates, deleteSop, getUsers, actionSop, activateSopTemplate, rejectSopTemplate, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
+import { getSops, getSopTemplates, getSopTemplate, deleteSop, getUsers, actionSop, activateSopTemplate, rejectSopTemplate, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
 import CreateSopDrawer from '../components/CreateSOPDrawer';
@@ -383,6 +384,48 @@ export default function Sops() {
 
     return ()=>clearTimeout(timer)
   },[searchTerm])
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const handleOpenTemplateById = useCallback(async (templateId) => {
+    if (!templateId) return;
+    try {
+      const existing = sopList.find(t => t.templateId === templateId || t.id === templateId || t.templateCode === templateId || t.sopCode === templateId);
+      if (existing) {
+        setEditingDraftTemplate(existing);
+        setIsViewOnly(true);
+        setShowCreateCompleteModal(true);
+      } else {
+        const res = await getSopTemplate(templateId).catch(() => null);
+        const data = res?.data || res;
+        if (data && (data.templateId || data.id)) {
+          setEditingDraftTemplate(data);
+          setIsViewOnly(true);
+          setShowCreateCompleteModal(true);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to open template by ID:', e);
+    }
+  }, [sopList]);
+
+  useEffect(() => {
+    const openId = searchParams.get('openTemplateId') || searchParams.get('templateId') || searchParams.get('reviewSopCode');
+    if (openId) {
+      handleOpenTemplateById(openId);
+    }
+  }, [searchParams, handleOpenTemplateById]);
+
+  useEffect(() => {
+    function handleEvent(e) {
+      const id = e.detail?.templateId || e.detail?.sopId || e.detail?.id;
+      if (id) {
+        handleOpenTemplateById(id);
+      }
+    }
+    window.addEventListener('open-sop-template', handleEvent);
+    return () => window.removeEventListener('open-sop-template', handleEvent);
+  }, [handleOpenTemplateById]);
 
   useEffect(() => {
     initializeUserMap();
