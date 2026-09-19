@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import CustomSelect from '../components/CustomSelect';
 import TableSkeleton from '../components/TableSkeleton';
 import Pagination from '../components/Pagination';
@@ -10,7 +11,7 @@ import CreateSopDrawer from '../components/CreateSOPDrawer';
 import Tooltip from '../components/Tooltip';
 
 import { getSession } from '../auth/auth';
-import { getSopTemplates, getUsers, actionSop, activateSopTemplate, rejectSopTemplate, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
+import { getSopTemplates, getSopTemplate, getUsers, actionSop, activateSopTemplate, rejectSopTemplate, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
 
@@ -134,10 +135,10 @@ export default function Sops() {
       const combined = Array.isArray(data) ? data.filter(
         (t, idx, arr) => arr.findIndex(x => x.id === t.id) === idx
       ) : [];
-      setSopList(combined);
+      setSopTemplateList(combined);
     } catch (error) {
       console.log(error);
-      setErrorMsg(error || "Failed to fetch sop template data");
+      setErrorMsg(error?.message || error || "Failed to fetch sop template data");
     } finally {
       setLoading(false);
     }
@@ -382,6 +383,49 @@ export default function Sops() {
     }
     fetchInitialData()
   }, []);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const handleOpenTemplateById = useCallback(async (templateId) => {
+    if (!templateId) return;
+    try {
+      const existing = sopTemplateList.find(t => t.templateId === templateId || t.id === templateId || t.templateCode === templateId || t.sopCode === templateId);
+      if (existing) {
+        setEditingDraftTemplate(existing);
+        setIsViewOnly(true);
+        setShowCreateCompleteModal(true);
+      } else {
+        const res = await getSopTemplate(templateId).catch(() => null);
+        const data = res?.data || res;
+        if (data && (data.templateId || data.id)) {
+          setEditingDraftTemplate(data);
+          setIsViewOnly(true);
+          setShowCreateCompleteModal(true);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to open template by ID:', e);
+    }
+  }, [sopTemplateList]);
+
+  useEffect(() => {
+    const openId = searchParams.get('openTemplateId') || searchParams.get('templateId') || searchParams.get('reviewSopCode');
+    if (openId) {
+      handleOpenTemplateById(openId);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, handleOpenTemplateById, setSearchParams]);
+
+  useEffect(() => {
+    function handleEvent(e) {
+      const id = e.detail?.templateId || e.detail?.sopId || e.detail?.id;
+      if (id) {
+        handleOpenTemplateById(id);
+      }
+    }
+    window.addEventListener('open-sop-template', handleEvent);
+    return () => window.removeEventListener('open-sop-template', handleEvent);
+  }, [handleOpenTemplateById]);
 
   const isFiltered = searchTerm.trim() !== '' ||
     selectedProcess !== 'ALL' ||
@@ -785,12 +829,15 @@ export default function Sops() {
             setShowCreateCompleteModal(false);
             setEditingDraftTemplate(null);
             setIsViewOnly(false);
+            setSearchParams({}, { replace: true });
+            loadData();
           }}
           onSuccess={(msg) => {
             setSuccessMsg(msg);
             setShowCreateCompleteModal(false);
             setEditingDraftTemplate(null);
             setIsViewOnly(false);
+            setSearchParams({}, { replace: true });
             loadData();
           }}
         />
