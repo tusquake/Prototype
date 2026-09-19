@@ -28,6 +28,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import com.cloudkaptan.sop.config.security.SopSecurityEvaluator;
 import com.cloudkaptan.sop.dto.NotificationEventDto;
+import com.cloudkaptan.sop.dto.RequiredDocument;
 import com.cloudkaptan.sop.dto.TaskActionRequest;
 import com.cloudkaptan.sop.dto.TaskDocumentDto;
 import com.cloudkaptan.sop.dto.TaskEventDto;
@@ -95,7 +96,21 @@ public class TaskWorkflowService {
         }
 
         User actor = getUserOrThrow(actorId);
-        
+
+        // Required Documents Validation: Ensure maker has uploaded all required documents before task can be submitted
+        List<RequiredDocument> requiredDocs = getRequiredDocumentsForTask(task);
+        if (requiredDocs != null && !requiredDocs.isEmpty()) {
+            int requiredCount = requiredDocs.size();
+            List<TaskDocument> docs = taskDocumentRepository.findByTaskTaskIdOrderByUploadedAtDesc(taskId);
+            long validUploadedCount = (docs != null) 
+                    ? docs.stream().filter(d -> d.getStatus() != com.cloudkaptan.sop.domain.enums.DocumentStatus.REJECTED).count() 
+                    : 0;
+            if (validUploadedCount < requiredCount) {
+                throw new IllegalStateException("Cannot submit task: Only " + validUploadedCount + " of " + requiredCount 
+                        + " required document(s) uploaded. All required documents must be uploaded before submitting.");
+            }
+        }
+
         // Proxy Submission Logic: Check if actor is an authorized manager
         TenantContext context = TenantContext.getContext();
         boolean isAuthorizedManager = false;
@@ -836,15 +851,7 @@ public class TaskWorkflowService {
         boolean isApprovableStatus = task.getStatus() == TaskStatus.PENDING_REVIEW;
         Boolean canUserApprove = isApprovableStatus && (isAssignedChecker || isManagerWithReadOrWriteAccess || isAdmin) && (!isSelfMaker || isAdmin);
 
-        List<com.cloudkaptan.sop.dto.RequiredDocument> reqDocObjects = new ArrayList<>();
-        if (task.getTaskTemplateId() != null) {
-            taskTemplateRepository.findById(task.getTaskTemplateId())
-                .ifPresent(tt -> {
-                    if (tt.getRequiredDocuments() != null) {
-                        reqDocObjects.addAll(tt.getRequiredDocuments());
-                    }
-                });
-        }
+        List<RequiredDocument> reqDocObjects = getRequiredDocumentsForTask(task);
 
         return TaskDto.builder()
             .taskId(task.getTaskId())
@@ -894,5 +901,20 @@ public class TaskWorkflowService {
             .documents(documentList)
             .requiredDocuments(reqDocObjects)
             .build();
+    }
+
+    private List<RequiredDocument> getRequiredDocumentsForTask(Task task) {
+        List<RequiredDocument> reqDocObjects = new ArrayList<>();
+        if (task == null) return reqDocObjects;
+
+        if (task.getTaskTemplateId() != null) {
+            taskTemplateRepository.findById(task.getTaskTemplateId())
+                .ifPresent(tt -> {
+                    if (tt.getRequiredDocuments() != null) {
+                        reqDocObjects.addAll(tt.getRequiredDocuments());
+                    }
+                });
+        }
+        return reqDocObjects;
     }
 }

@@ -30,6 +30,7 @@ export default function TaskActionModal({
   const [rejectionMode, setRejectionMode] = useState('resubmit'); // 'resubmit' | 'permanent'
   const [showHistory, setShowHistory] = useState(true);
   const [showActivityLogModal, setShowActivityLogModal] = useState(false);
+  const [showMissingDocsModal, setShowMissingDocsModal] = useState(false);
 
   // Document management state
   const [documents, setDocuments] = useState([]);
@@ -66,6 +67,7 @@ export default function TaskActionModal({
       setRejectionMode('resubmit');
       setShowHistory(true);
       setShowActivityLogModal(false);
+      setShowMissingDocsModal(false);
       setUploadingFile(false);
       setUploadProgressMsg('');
       setIsDragging(false);
@@ -304,8 +306,18 @@ export default function TaskActionModal({
     return true;
   });
 
+  const requiredDocs = task?.requiredDocuments || [];
+  const validUploadedDocs = documents.filter(d => d.status !== 'REJECTED');
+  const requiredCount = requiredDocs.length;
+  const uploadedCount = validUploadedDocs.length;
+  const isMissingDocs = requiredCount > 0 && uploadedCount < requiredCount;
+
   function triggerConfirm(actionType) {
     setToastError('');
+    if (actionType === 'SUBMIT' && isMissingDocs) {
+      setShowMissingDocsModal(true);
+      return;
+    }
     if (actionType === 'APPROVE' && hasUnapprovedDocs) {
       setToastError('Task cannot be approved until all attached evidence documents are individually approved (✓) by the Checker.');
       return;
@@ -534,37 +546,53 @@ export default function TaskActionModal({
 
             {/* Required Task Documents Blueprint Checklist for Maker & Checker */}
             {task.requiredDocuments?.length > 0 && (
-              <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 shadow-sm">
+              <div className={`rounded-xl border p-4 shadow-sm transition-all ${isMissingDocs
+                  ? 'border-amber-300 bg-amber-50/70'
+                  : 'border-emerald-200 bg-emerald-50/60'
+                }`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isMissingDocs ? "#d97706" : "#059669"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                       <polyline points="14 2 14 8 20 8" />
                       <line x1="16" y1="13" x2="8" y2="13" />
                       <line x1="16" y1="17" x2="8" y2="17" />
                     </svg>
-                    <span className="text-xs font-bold uppercase tracking-wide text-indigo-900">
+                    <span className={`text-xs font-bold uppercase tracking-wide ${isMissingDocs ? 'text-amber-900' : 'text-emerald-900'}`}>
                       Required Documents Checklist ({canSubmit ? 'Maker Requirement' : 'Checker Evaluation'})
                     </span>
                   </div>
-                  <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-bold text-indigo-800 border border-indigo-200">
-                    {task.requiredDocuments.length} Required
+                  <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${isMissingDocs
+                      ? 'bg-amber-100 text-amber-800 border-amber-300'
+                      : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    }`}>
+                    {isMissingDocs ? `${uploadedCount}/${requiredCount} Uploaded` : `✓ All ${requiredCount} Uploaded`}
                   </span>
                 </div>
-                <p className="text-[11px] text-indigo-700/80 mb-3">
-                  {canSubmit 
-                    ? 'The following evidence documents are required from the Maker for task completion:' 
+                <p className={`text-[11px] mb-3 ${isMissingDocs ? 'text-amber-800/90 font-medium' : 'text-emerald-700/80'}`}>
+                  {canSubmit
+                    ? (isMissingDocs
+                      ? `All ${requiredCount} required documents must be uploaded before submitting this task for review.`
+                      : 'All required evidence documents have been uploaded!')
                     : 'Checker Evaluation Checklist: Ensure Maker has provided working papers matching the required documents below:'}
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {task.requiredDocuments.map((doc, idx) => {
                     const docName = typeof doc === 'string' ? doc : (doc.name || doc.title || doc.documentName || 'Document');
                     const docDesc = typeof doc === 'object' ? (doc.description || doc.desc || '') : '';
+                    const isUploaded = idx < uploadedCount;
                     return (
-                      <div key={idx} className="flex flex-col bg-white border border-indigo-100 rounded-lg p-3 shadow-xs">
-                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                          <span className="text-indigo-600">📄</span> {docName}
-                        </span>
+                      <div key={idx} className={`flex flex-col bg-white border rounded-lg p-3 shadow-xs ${isUploaded ? 'border-emerald-200' : 'border-amber-300 bg-amber-50/30'
+                        }`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 truncate">
+                            <span className={isUploaded ? 'text-emerald-600' : 'text-amber-600'}>📄</span> {docName}
+                          </span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.25 rounded ${isUploaded ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                            {isUploaded ? '✓ Attached' : '✕ Missing'}
+                          </span>
+                        </div>
                         {docDesc && (
                           <span className="text-[11px] text-slate-500 mt-1 pl-5">{docDesc}</span>
                         )}
@@ -577,11 +605,10 @@ export default function TaskActionModal({
 
             {/* Attached Working Papers & Evidence Documents Section with Drag & Drop */}
             <div
-              className={`relative flex flex-col gap-3 rounded-xl border p-4 transition-all ${
-                isDragging && canSubmit
+              className={`relative flex flex-col gap-3 rounded-xl border p-4 transition-all ${isDragging && canSubmit
                   ? 'border-blue-500 bg-blue-50/80 ring-4 ring-blue-500/20 shadow-md'
                   : 'border-slate-200 bg-slate-50'
-              }`}
+                }`}
               onDragOver={canSubmit ? handleDragOver : undefined}
               onDragLeave={canSubmit ? handleDragLeave : undefined}
               onDrop={canSubmit ? handleDrop : undefined}
@@ -653,9 +680,9 @@ export default function TaskActionModal({
               {task.status === 'REJECTED' && canSubmit && (
                 <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50/90 p-3 text-xs text-amber-900 shadow-xs">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-amber-600">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                    <line x1="12" y1="9" x2="12" y2="13"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
                   <div>
                     <strong className="font-bold text-amber-950">Task Re-submission Mode:</strong> This task was returned for revision by the Checker. You can drag and drop or attach new evidence documents in place of rejected attachments. Newly uploaded documents will be tagged as <span className="font-bold text-indigo-700">Re-submitted</span>.
@@ -667,9 +694,9 @@ export default function TaskActionModal({
               {canApproveOrReject && hasUnapprovedDocs && (
                 <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-xs">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-amber-600">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                    <line x1="12" y1="9" x2="12" y2="13"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
                   <div>
                     <strong className="font-bold text-amber-950">Document Review Gating:</strong> All attached evidence documents must be individually reviewed and marked as Approved (<span className="font-bold text-emerald-700">✓</span>) by the Checker before this compliance task can be approved.
@@ -783,11 +810,10 @@ export default function TaskActionModal({
                             <div className="flex items-center gap-1.5 border-r border-slate-200 pr-2 mr-1">
                               <button
                                 type="button"
-                                className={`flex h-7 px-2 items-center justify-center gap-1 rounded-md text-xs font-bold transition-all ${
-                                  doc.status === 'APPROVED'
+                                className={`flex h-7 px-2 items-center justify-center gap-1 rounded-md text-xs font-bold transition-all ${doc.status === 'APPROVED'
                                     ? 'bg-emerald-600 text-white shadow-xs'
                                     : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-300'
-                                }`}
+                                  }`}
                                 onClick={() => handleDocumentAction(doc, 'APPROVE')}
                                 disabled={actioningDocId === doc.documentId}
                                 title="Approve Document (✓)"
@@ -797,11 +823,10 @@ export default function TaskActionModal({
                               </button>
                               <button
                                 type="button"
-                                className={`flex h-7 px-2 items-center justify-center gap-1 rounded-md text-xs font-bold transition-all ${
-                                  doc.status === 'REJECTED'
+                                className={`flex h-7 px-2 items-center justify-center gap-1 rounded-md text-xs font-bold transition-all ${doc.status === 'REJECTED'
                                     ? 'bg-rose-600 text-white shadow-xs'
                                     : 'bg-rose-50 text-rose-700 hover:bg-rose-600 hover:text-white border border-rose-300'
-                                }`}
+                                  }`}
                                 onClick={() => {
                                   setRejectingDoc(doc);
                                   setDocRejectionReason('');
@@ -910,23 +935,21 @@ export default function TaskActionModal({
                     return (
                       <div
                         key={evt.eventId || i}
-                        className={`flex flex-col gap-1.5 rounded-lg border p-3 text-xs transition-all ${
-                          isReject
+                        className={`flex flex-col gap-1.5 rounded-lg border p-3 text-xs transition-all ${isReject
                             ? 'border-rose-200 bg-rose-50/80 text-rose-950'
                             : isApproverEvent
-                            ? 'border-emerald-200 bg-emerald-50/80 text-emerald-950'
-                            : 'border-blue-200 bg-blue-50/80 text-blue-950'
-                        }`}
+                              ? 'border-emerald-200 bg-emerald-50/80 text-emerald-950'
+                              : 'border-blue-200 bg-blue-50/80 text-blue-950'
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold ${
-                              isReject
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold ${isReject
                                 ? 'bg-rose-100 text-rose-800'
                                 : isApproverEvent
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-blue-100 text-blue-800'
-                            }`}>
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}>
                               {isReject ? 'Approver Rejection' : isApproverEvent ? 'Approver Approval' : 'Submitter Note'}
                             </span>
                             <span className="font-bold text-slate-800">{evt.actorName || 'User'}</span>
@@ -1057,8 +1080,8 @@ export default function TaskActionModal({
               <div className="flex flex-col gap-2.5">
                 <label
                   className={`flex items-start gap-3 p-3 rounded-[8px] border cursor-pointer transition-all duration-150 ${rejectionMode === 'resubmit'
-                      ? 'bg-[#eff6ff] border-[#2563eb] text-[#1e40af] shadow-sm'
-                      : 'bg-bg-surface border-[#cbd5e1] text-[#334155] hover:border-[#94a3b8]'
+                    ? 'bg-[#eff6ff] border-[#2563eb] text-[#1e40af] shadow-sm'
+                    : 'bg-bg-surface border-[#cbd5e1] text-[#334155] hover:border-[#94a3b8]'
                     }`}
                 >
                   <input
@@ -1081,8 +1104,8 @@ export default function TaskActionModal({
 
                 <label
                   className={`flex items-start gap-3 p-3 rounded-[8px] border cursor-pointer transition-all duration-150 ${rejectionMode === 'permanent'
-                      ? 'bg-[#fff1f2] border-[#dc2626] text-[#9f1239] shadow-sm'
-                      : 'bg-bg-surface border-[#cbd5e1] text-[#334155] hover:border-[#94a3b8]'
+                    ? 'bg-[#fff1f2] border-[#dc2626] text-[#9f1239] shadow-sm'
+                    : 'bg-bg-surface border-[#cbd5e1] text-[#334155] hover:border-[#94a3b8]'
                     }`}
                 >
                   <input

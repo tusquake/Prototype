@@ -5,6 +5,7 @@ import com.cloudkaptan.sop.domain.state.soptemplate.SopTemplateContext;
 import com.cloudkaptan.sop.dto.AuditLogDto;
 import com.cloudkaptan.sop.dto.CreateSopTemplateRequest;
 import com.cloudkaptan.sop.dto.CreateTaskTemplateRequest;
+import com.cloudkaptan.sop.dto.RequiredDocument;
 import com.cloudkaptan.sop.dto.SopTemplateDto;
 import com.cloudkaptan.sop.dto.TaskTemplateDto;
 import com.cloudkaptan.sop.entity.CorporateEntity;
@@ -387,7 +388,7 @@ public class SopTemplateService {
 
         List<String> makers = (req.getMakerIds() != null) ? new ArrayList<>(req.getMakerIds()) : new ArrayList<>();
         List<String> checkers = (req.getCheckerIds() != null) ? new ArrayList<>(req.getCheckerIds()) : new ArrayList<>();
-        List<com.cloudkaptan.sop.dto.RequiredDocument> docs = (req.getRequiredDocuments() != null) ? new ArrayList<>(req.getRequiredDocuments()) : new ArrayList<>();
+        List<RequiredDocument> docs = (req.getRequiredDocuments() != null) ? new ArrayList<>(req.getRequiredDocuments()) : new ArrayList<>();
 
         return TaskTemplate.builder()
                 .sopTemplate(parent)
