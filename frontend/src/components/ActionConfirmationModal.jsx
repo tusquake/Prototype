@@ -54,7 +54,6 @@ export default function ActionConfirmationModal({
   }[mode];
 
   const handleSubmit = (e) => {
-    console.log('HERE')
     e.preventDefault();
     onSubmit(comment);
   };

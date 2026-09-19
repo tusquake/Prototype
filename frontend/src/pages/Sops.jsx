@@ -1,18 +1,18 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import CustomSelect from '../components/CustomSelect';
 import TableSkeleton from '../components/TableSkeleton';
 import Pagination from '../components/Pagination';
 import SopActivityLogModal from '../components/SopActivityLogModal';
 import UserAvatarGroup from '../components/UserAvatarGroup';
 import Toast from '../components/Toast';
-import { getSession } from '../auth/auth';
-import { getSops, getSopTemplates, getSopTemplate, deleteSop, getUsers, actionSop, activateSopTemplate, rejectSopTemplate, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
-import { useEntity } from '../context/EntityContext';
-
 import CreateSopDrawer from '../components/CreateSOPDrawer';
 import Tooltip from '../components/Tooltip';
+
+import { getSession } from '../auth/auth';
+import { getSopTemplates, getUsers, actionSop, activateSopTemplate, rejectSopTemplate, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
+import { useEntity } from '../context/EntityContext';
+
 
 
 const FREQ_LABEL = {
@@ -23,56 +23,8 @@ const FREQ_LABEL = {
   WEEKLY: 'Weekly',
 };
 
-function isSopCreator(sop, userId) {
-  if (!sop || !userId) return false;
-  if (Array.isArray(sop.assignedCreatorIds) && sop.assignedCreatorIds.length > 0) {
-    return sop.assignedCreatorIds.includes(userId);
-  }
-  return sop.assignedCreatorId === userId;
-}
-
-function isSopApprover(sop, userId) {
-  if (!sop || !userId) return false;
-  if (Array.isArray(sop.assignedApproverIds) && sop.assignedApproverIds.length > 0) {
-    return sop.assignedApproverIds.includes(userId);
-  }
-  return sop.assignedApproverId === userId;
-}
-
-
-const USER_ID_MAP = {
-  'Tushar Seth': 'usr-tushar-304',
-  'Prayasa Sharma': 'usr-prayasa-410',
-  'Vivek Raj': 'usr-vivek-108',
-  'Mainak Gupta': 'usr-mainak-215',
-  'Manoj Agarwal': 'usr-manoj-042',
-  'usr-tushar': 'usr-tushar-304',
-  'usr-prayasa': 'usr-prayasa-410',
-  'usr-vivek': 'usr-vivek-108',
-  'usr-mainak': 'usr-mainak-215',
-  'usr-manoj': 'usr-manoj-042',
-};
-
-const INITIAL_FORM = {
-  sopCode: '',
-  title: '',
-  description: '',
-  processCategory: '',
-  entityCode: '',
-  frequency: 'MONTHLY',
-  startDateTime: new Date().toISOString().slice(0, 16),
-  dueDateTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
-  dueDayOffset: 15,
-  isRecurring: false,
-  defaultMakerIds: [],
-  defaultCheckerIds: [],
-};
-
 const PAGE_SIZE = 10;
 
-const PROCESS_FILTER_OPTIONS = [
-  { value: 'ALL', label: 'All Processes' },
-];
 
 const FREQUENCY_FILTER_OPTIONS = [
   { value: 'ALL', label: 'All Frequencies' },
@@ -80,21 +32,6 @@ const FREQUENCY_FILTER_OPTIONS = [
   { value: 'QUARTERLY', label: 'Quarterly' },
   { value: 'ANNUAL', label: 'Annual' },
   { value: 'WEEKLY', label: 'Weekly' },
-];
-
-const MAKER_FILTER_OPTIONS = [
-  { value: 'ALL', label: 'All Makers' },
-  { value: 'Tushar Seth', label: 'Tushar Seth' },
-  { value: 'Vivek Raj', label: 'Vivek Raj' },
-  { value: 'Prayasa Sharma', label: 'Prayasa Sharma' },
-  { value: 'Manoj Agarwal', label: 'Manoj Agarwal' },
-];
-
-const CHECKER_FILTER_OPTIONS = [
-  { value: 'ALL', label: 'All Checkers' },
-  { value: 'Mainak Gupta', label: 'Mainak Gupta' },
-  { value: 'Vivek Raj', label: 'Vivek Raj' },
-  { value: 'Manoj Agarwal', label: 'Manoj Agarwal' },
 ];
 
 const CREATOR_FILTER_OPTIONS = [{ value: 'ALL', label: 'All Creators' }];
@@ -116,9 +53,25 @@ const USER_STATUS_FILTER_OPTIONS = [
   { value: 'REJECTED', label: 'Rejected' },
 ];
 
+function isSopCreator(sop, userId) {
+  if (!sop || !userId) return false;
+  if (sop.createdById) {
+    return sop.createdById === userId
+  }
+  return false;
+}
+
+function isSopApprover(sop, userId) {
+  if (!sop || !userId) return false;
+  if (Array.isArray(sop.assignedApproverIds) && sop.assignedApproverIds.length > 0) {
+    return sop.assignedApproverIds.includes(userId);
+  }
+  return false;
+}
+
 export default function Sops() {
-  const [sopList, setSopList] = useState([]);
-  const [userMap, setUserMap] = useState(USER_ID_MAP);
+  const [sopTemplateList, setSopTemplateList] = useState([]);
+  const [userMap, setUserMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [editingDraftTemplate, setEditingDraftTemplate] = useState(null);
@@ -128,7 +81,7 @@ export default function Sops() {
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm,setDebouncedSearchTerm]=useState('')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   const [selectedProcess, setSelectedProcess] = useState('ALL');
   const [selectedFrequency, setSelectedFrequency] = useState('ALL');
   const [selectedMaker, setSelectedMaker] = useState('ALL');
@@ -138,25 +91,25 @@ export default function Sops() {
   const [selectedStatus, setSelectedStatus] = useState('ALL');
 
   // Modal States
-  const [dynamicProcessOptions, setDynamicProcessOptions] = useState(PROCESS_FILTER_OPTIONS);
-  const [dynamicCreatorFilterOptions, setDynamicCreatorFilterOptions] = useState(CREATOR_FILTER_OPTIONS);
-  const [dynamicApproverFilterOptions, setDynamicApproverFilterOptions] = useState(APPROVER_FILTER_OPTIONS);
+  const [dynamicProcessOptions, setDynamicProcessOptions] = useState([]);
+  // const [dynamicCreatorFilterOptions, setDynamicCreatorFilterOptions] = useState(CREATOR_FILTER_OPTIONS);
+  // const [dynamicApproverFilterOptions, setDynamicApproverFilterOptions] = useState(APPROVER_FILTER_OPTIONS);
 
   const [creatableCategories, setCreatableCategories] = useState([]);
   const [viewingSopHistory, setViewingSopHistory] = useState(null);
 
 
-  const [saving, setSaving] = useState(false);
+  // const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [showCreateCompleteModal, setShowCreateCompleteModal] = useState(false);
 
-  const [runningScheduler, setRunningScheduler] = useState(false);
+  // const [runningScheduler, setRunningScheduler] = useState(false);
   // Admin Assignment Modal State
 
   // Rejection Modal State
-  const [rejectingSop, setRejectingSop] = useState(null);
-  const [rejectionReasonInput, setRejectionReasonInput] = useState('');
+  // const [rejectingSop, setRejectingSop] = useState(null);
+  // const [rejectionReasonInput, setRejectionReasonInput] = useState('');
 
 
   const session = getSession();
@@ -165,7 +118,7 @@ export default function Sops() {
   const { selectedEntities } = useEntity();
 
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const { data, totalElements, totalPages } = await getSopTemplates({
@@ -188,56 +141,85 @@ export default function Sops() {
     } finally {
       setLoading(false);
     }
-  }
+
+  }, [selectedStatus, selectedEntities, selectedProcess, selectedFrequency, currentPage, debouncedSearchTerm])
 
 
-  async function handleConfirmRejectSop(e) {
-    e.preventDefault();
-    if (!rejectingSop) return;
-    try {
-      setSaving(true);
-      if (rejectingSop.isTemplate || rejectingSop.templateId) {
-        await rejectSopTemplate(rejectingSop.templateId || rejectingSop.id, rejectionReasonInput || 'SOP blueprint requires revision by creator.');
-      } else {
-        await actionSop(rejectingSop.id || rejectingSop.sopId, {
-          action: 'REJECT',
-          comment: rejectionReasonInput || 'SOP draft requires revision by creator.',
-          actorId: currentUser?.id || 'usr-vivek-108'
-        });
-      }
-      window.dispatchEvent(new Event('sop-updated'));
-      setSuccessMsg(`SOP "${rejectingSop.name || rejectingSop.title || rejectingSop.code}" rejected back to creator with revision comments.`);
-      setRejectingSop(null);
-      setRejectionReasonInput('');
-      await loadData();
-    } catch (err) {
-      setErrorMsg(err.message || 'Failed to reject SOP');
-    } finally {
-      setSaving(false);
-    }
-  }
+  // async function loadData() {
+  //   setLoading(true);
+  //   try {
+  //     const { data, totalElements } = await getSopTemplates(selectedStatus, selectedEntities, selectedProcess, selectedFrequency, debouncedSearchTerm, {
+  //       page: currentPage ?? 1,
+  //       size: PAGE_SIZE ?? 10,
+  //       sort: ['ascending']
+  //     });
+  //     setTotalItems(totalElements ?? 0)
+  //     // let combined = [];
+  //     // if (Array.isArray(data) && data.length > 0) {
+  //     //   data.forEach(t => {
+  //     //     if (!combined.some(existing => existing.id === t.id || (existing.code && existing.code === t.code))) {
+  //     //       combined.push(t);
+  //     //     }
+  //     //   });
+  //     // }
+  //     setSopTemplateList(data);
+  //   } catch (error) {
+  //     console.log(error)
+  //     setErrorMsg(error || "Failed to fetch sop template data")
+  //   }
+  //   finally {
+  //     setLoading(false);
+  //   }
+  // }
 
 
-  function getNamesForIds(ids = []) {
-    if (!ids.length) return 'None assigned';
-    return ids.map(id => userMap[id] || id).join(', ');
-  }
+  // async function handleConfirmRejectSop(e) {
+  //   e.preventDefault();
+  //   if (!rejectingSop) return;
+  //   try {
+  //     setSaving(true);
+  //     if (rejectingSop.isTemplate || rejectingSop.templateId) {
+  //       await rejectSopTemplate(rejectingSop.templateId || rejectingSop.id, rejectionReasonInput || 'SOP blueprint requires revision by creator.');
+  //     } else {
+  //       await actionSop(rejectingSop.id || rejectingSop.sopId, {
+  //         action: 'REJECT',
+  //         comment: rejectionReasonInput || 'SOP draft requires revision by creator.',
+  //         actorId: currentUser?.id || 'usr-vivek-108'
+  //       });
+  //     }
+  //     window.dispatchEvent(new Event('sop-updated'));
+  //     setSuccessMsg(`SOP "${rejectingSop.name || rejectingSop.title || rejectingSop.code}" rejected back to creator with revision comments.`);
+  //     setRejectingSop(null);
+  //     setRejectionReasonInput('');
+  //     await loadData();
+  //   } catch (err) {
+  //     setErrorMsg(err.message || 'Failed to reject SOP');
+  //   } finally {
+  //     setSaving(false);
+  //   }
+  // }
 
-  async function handleRunScheduler() {
-    if (!isAdmin) return;
-    try {
-      setRunningScheduler(true);
-      setErrorMsg('');
-      setSuccessMsg('');
-      await generateScheduledTasks();
-      setSuccessMsg('Task Scheduler executed successfully! Compliance tasks for all active SOPs generated.');
-      await loadData();
-    } catch (err) {
-      setErrorMsg(err.message || 'Failed to run task scheduler');
-    } finally {
-      setRunningScheduler(false);
-    }
-  }
+
+  // function getNamesForIds(ids = []) {
+  //   if (!ids.length) return 'None assigned';
+  //   return ids.map(id => userMap[id] || id).join(', ');
+  // }
+
+  // async function handleRunScheduler() {
+  //   if (!isAdmin) return;
+  //   try {
+  //     setRunningScheduler(true);
+  //     setErrorMsg('');
+  //     setSuccessMsg('');
+  //     await generateScheduledTasks();
+  //     setSuccessMsg('Task Scheduler executed successfully! Compliance tasks for all active SOPs generated.');
+  //     await loadData();
+  //   } catch (err) {
+  //     setErrorMsg(err.message || 'Failed to run task scheduler');
+  //   } finally {
+  //     setRunningScheduler(false);
+  //   }
+  // }
 
   function resetFilters() {
     setSearchTerm('');
@@ -251,93 +233,10 @@ export default function Sops() {
     setCurrentPage(1);
   }
 
-
-  // 1. Function to fetch and map users dynamically
-  async function initializeUserMap() {
-    try {
-      const res = await getUsers();
-      const usersList = Array.isArray(res) ? res : (res?.data || []);
-
-      if (usersList.length > 0) {
-        // Start with your existing hardcoded map as a fallback
-        const dynamicUserMap = { ...USER_ID_MAP };
-
-        usersList.forEach(user => {
-          const userId = user.id || user.userId;
-          const userName = user.name || user.fullName;
-
-          if (userId && userName) {
-            // Map ID -> Name (Useful for rendering names in the UI based on IDs)
-            dynamicUserMap[userId] = userName;
-
-            // Map Name -> ID (Useful for resolving IDs when saving forms)
-            dynamicUserMap[userName] = userId;
-          }
-        });
-
-        setDynamicCreatorFilterOptions([
-          { value: 'ALL', label: 'All Creators' },
-          ...usersList.map(u => ({ value: u.id, label: u.name || u.id }))
-        ]);
-        setDynamicApproverFilterOptions([
-          { value: 'ALL', label: 'All Approvers' },
-          ...usersList.map(u => ({ value: u.id, label: u.name || u.id }))
-        ]);
-
-        setUserMap(dynamicUserMap);
-      }
-    } catch (error) {
-      console.error("Failed to fetch users for userMap:", error);
-    }
-  }
-
-  async function initializeFilterOptions() {
-    setLoading(true);
-    try {
-      const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
-      if (isAdmin) {
-        const categoriesData = await getProcessCategories().catch(() => []);
-        if (Array.isArray(categoriesData) && categoriesData.length > 0) {
-          const opts = [
-            { value: 'ALL', label: 'All Processes' },
-            ...categoriesData.map(c => ({ value: c.categoryCode, label: c.categoryName }))
-          ];
-          setDynamicProcessOptions(opts);
-        }
-      } else if (targetUid) {
-        const userCategories = await getUserAccessibleCategories(targetUid).catch(() => []);
-        if (Array.isArray(userCategories) && userCategories.length > 0) {
-          const opts = [
-            { value: 'ALL', label: 'All Processes' },
-            ...userCategories.map(c => ({ value: typeof c === 'string' ? c : (c.categoryCode || c.categoryName), label: typeof c === 'string' ? c : (c.categoryName || c.categoryCode) }))
-          ];
-          setDynamicProcessOptions(opts);
-        } else {
-          setDynamicProcessOptions([{ value: 'ALL', label: 'All Processes' }]);
-        }
-      }
-
-      if (targetUid) {
-        const creatable = await getUserCreatableCategories(targetUid).catch(() => []);
-        setCreatableCategories(Array.isArray(creatable) ? [...creatable] : []);
-      }
-
-
-    } catch (error) {
-      console.log(error)
-      setErrorMsg(error || "Failed to fetch sop template data")
-
-    }
-    finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
     if (!selectedEntities) return;
-    console.log('Use effect')
     loadData();
-  }, [selectedEntities,selectedFrequency,selectedProcess,selectedStatus,debouncedSearchTerm,currentPage]);
+  }, [selectedEntities, selectedFrequency, selectedProcess, selectedStatus, debouncedSearchTerm, currentPage]);
 
   // useEffect(() => {
 
@@ -379,63 +278,110 @@ export default function Sops() {
   // }, [selectedProcess]);
 
 
-  useEffect(()=>{
-    const timer=setTimeout(()=>setDebouncedSearchTerm(searchTerm),500)
+  useEffect(() => {
+    const timer = setTimeout(() => {
 
-    return ()=>clearTimeout(timer)
-  },[searchTerm])
+      setDebouncedSearchTerm(searchTerm? searchTerm.trim() : '')
+      setCurrentPage(1);
 
-  const [searchParams, setSearchParams] = useSearchParams();
+    }, 500)
 
-  const handleOpenTemplateById = useCallback(async (templateId) => {
-    if (!templateId) return;
-    try {
-      const existing = sopList.find(t => t.templateId === templateId || t.id === templateId || t.templateCode === templateId || t.sopCode === templateId);
-      if (existing) {
-        setEditingDraftTemplate(existing);
-        setIsViewOnly(true);
-        setShowCreateCompleteModal(true);
-      } else {
-        const res = await getSopTemplate(templateId).catch(() => null);
-        const data = res?.data || res;
-        if (data && (data.templateId || data.id)) {
-          setEditingDraftTemplate(data);
-          setIsViewOnly(true);
-          setShowCreateCompleteModal(true);
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  useEffect(() => {
+    async function initializeUserMap() {
+      try {
+        const { data: usersList } = await getUsers();
+
+        if (Array.isArray(usersList)) {
+          const dynamicUserMap = {};
+
+          usersList.forEach(user => {
+            const userId = user.id || user.userId;
+            const userName = user.name || user.fullName;
+
+            if (userId && userName) {
+              // Map ID -> Name (Useful for rendering names in the UI based on IDs)
+              dynamicUserMap[userId] = userName;
+
+              // Map Name -> ID (Useful for resolving IDs when saving forms)
+              dynamicUserMap[userName] = userId;
+            }
+          });
+
+          // setDynamicCreatorFilterOptions([
+          //   { value: 'ALL', label: 'All Creators' },
+          //   ...usersList.map(u => ({ value: u.id, label: u.name || u.id }))
+          // ]);
+          // setDynamicApproverFilterOptions([
+          //   { value: 'ALL', label: 'All Approvers' },
+          //   ...usersList.map(u => ({ value: u.id, label: u.name || u.id }))
+          // ]);
+
+          setUserMap(dynamicUserMap);
         }
-      }
-    } catch (e) {
-      console.error('Failed to open template by ID:', e);
-    }
-  }, [sopList]);
-
-  useEffect(() => {
-    const openId = searchParams.get('openTemplateId') || searchParams.get('templateId') || searchParams.get('reviewSopCode');
-    if (openId) {
-      handleOpenTemplateById(openId);
-    }
-  }, [searchParams, handleOpenTemplateById]);
-
-  useEffect(() => {
-    function handleEvent(e) {
-      const id = e.detail?.templateId || e.detail?.sopId || e.detail?.id;
-      if (id) {
-        handleOpenTemplateById(id);
+      } catch (error) {
+        console.error("Failed to fetch users for userMap:", error);
       }
     }
-    window.addEventListener('open-sop-template', handleEvent);
-    return () => window.removeEventListener('open-sop-template', handleEvent);
-  }, [handleOpenTemplateById]);
+    async function initializeFilterOptions() {
+      setLoading(true);
+      try {
+        const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
+        if (isAdmin) {
+          const categoriesData = await getProcessCategories().catch(() => []);
+          if (Array.isArray(categoriesData) && categoriesData.length > 0) {
+            const opts = [
+              { value: 'ALL', label: 'All Processes' },
+              ...categoriesData.map(c => ({ value: c.categoryCode, label: c.categoryName }))
+            ];
+            setDynamicProcessOptions(opts);
+          }
+        } else if (targetUid) {
+          const userCategories = await getUserAccessibleCategories(targetUid).catch(() => []);
+          if (Array.isArray(userCategories) && userCategories.length > 0) {
+            const opts = [
+              { value: 'ALL', label: 'All Processes' },
+              ...userCategories.map(c => ({ value: typeof c === 'string' ? c : (c.categoryCode || c.categoryName), label: typeof c === 'string' ? c : (c.categoryName || c.categoryCode) }))
+            ];
+            setDynamicProcessOptions(opts);
+          } else {
+            setDynamicProcessOptions([{ value: 'ALL', label: 'All Processes' }]);
+          }
+        }
 
-  useEffect(() => {
-    initializeUserMap();
-    initializeFilterOptions();
+        if (targetUid) {
+          const creatable = await getUserCreatableCategories(targetUid).catch(() => []);
+          setCreatableCategories(Array.isArray(creatable) ? [...creatable] : []);
+        }
+      } catch (error) {
+        console.log(error)
+        setErrorMsg(error || "Failed to fetch sop template data")
+
+      }
+      finally {
+        setLoading(false)
+      }
+    }
+
+    async function fetchInitialData() {
+      setLoading(true);
+      try {
+        // Run both async initialization tasks in parallel
+        await Promise.all([
+          initializeUserMap(),
+          initializeFilterOptions()
+        ]);
+      } catch (error) {
+        console.error(error);
+        setErrorMsg(error?.message || error || "Failed to fetch initial data");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchInitialData()
   }, []);
-
-
-
-
-
 
   const isFiltered = searchTerm.trim() !== '' ||
     selectedProcess !== 'ALL' ||
@@ -446,72 +392,13 @@ export default function Sops() {
     selectedApprover !== 'ALL' ||
     selectedStatus !== 'ALL';
 
-  // const filtered = sopList.filter(s => {
-  //   if (!selectedEntities.includes(s.entityCode)) return false;
-
-  //   // Non-admin users: hide raw PENDING_CREATION stubs unless assigned to currentUser
-  //   if (!isAdmin && s.status === 'PENDING_CREATION' && !isSopCreator(s, currentUser?.id)) return false;
-
-  //   if (searchTerm.trim()) {
-  //     const q = searchTerm.toLowerCase().trim();
-  //     const codeMatch = s.code?.toLowerCase().includes(q);
-  //     const nameMatch = (s.name || s.title)?.toLowerCase().includes(q);
-  //     const processMatch = (s.process || s.processCategory)?.toLowerCase().includes(q);
-  //     const makerMatch = (s.makers?.join(', ') || s.maker)?.toLowerCase().includes(q);
-  //     const checkerMatch = (s.checkers?.join(', ') || s.checker)?.toLowerCase().includes(q);
-  //     const creatorMatch = (s.assignedCreatorName || s.assignedCreatorId)?.toLowerCase().includes(q);
-  //     const approverMatch = (s.assignedApproverName || s.assignedApproverId)?.toLowerCase().includes(q);
-  //     if (!codeMatch && !nameMatch && !processMatch && !makerMatch && !checkerMatch && !creatorMatch && !approverMatch) return false;
-  //   }
-
-  //   if (selectedProcess !== 'ALL') {
-  //     const proc = s.process || s.processCategory;
-  //     if (proc !== selectedProcess) return false;
-  //   }
-
-  //   if (selectedStatus !== 'ALL') {
-  //     if (s.status !== selectedStatus) return false;
-  //   }
-
-  //   if (isAdmin) {
-  //     if (selectedCreator !== 'ALL') {
-  //       const creator = s.assignedCreatorId || s.assignedCreatorName || '';
-  //       if (!creator.toLowerCase().includes(selectedCreator.toLowerCase())) return false;
-  //     }
-
-  //     if (selectedApprover !== 'ALL') {
-  //       const approver = s.assignedApproverId || s.assignedApproverName || '';
-  //       if (!approver.toLowerCase().includes(selectedApprover.toLowerCase())) return false;
-  //     }
-  //   } else {
-  //     if (selectedFrequency !== 'ALL') {
-  //       if (s.frequency !== selectedFrequency) return false;
-  //     }
-
-  //     if (selectedMaker !== 'ALL') {
-  //       const makerStr = s.makers?.length ? s.makers.join(', ') : (s.maker || '');
-  //       if (!makerStr.toLowerCase().includes(selectedMaker.toLowerCase())) return false;
-  //     }
-
-  //     if (selectedChecker !== 'ALL') {
-  //       const checkerStr = s.checkers?.length ? s.checkers.join(', ') : (s.checker || '');
-  //       if (!checkerStr.toLowerCase().includes(selectedChecker.toLowerCase())) return false;
-  //     }
-  //   }
-
-  //   return true;
-  // });
-
-
-  const paginatedSops = sopList;
+  const paginatedSops = sopTemplateList;
 
   return (
     <>
       <div className="p-2 md:px-3 w-full max-w-full box-border">
 
-        <Toast message={successMsg} type="success" onClose={() => setSuccessMsg('')} />
-
-        {/* SOP Filter Toolbar */}
+        {/* SOP Template Filter Toolbar */}
         <div className="relative z-10 flex flex-wrap items-end gap-3 mb-6 bg-bg-surface p-[16px_20px] rounded-[12px] border border-[#e2e8f0] shadow-[0_1px_3px_rgba(0,0,0,0.04)] w-full box-border overflow-visible">
           <div className="relative flex flex-col gap-1.5 flex-[1.5] min-w-[220px]">
             <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Search SOP</span>
@@ -528,7 +415,6 @@ export default function Sops() {
                 onChange={e => {
                   setLoading(true)
                   setSearchTerm(e.target.value);
-                  setCurrentPage(1);
                 }}
               />
             </div>
@@ -587,7 +473,7 @@ export default function Sops() {
                   }}
                 />
               </div>
-               <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
+              <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
                 <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Frequency</span>
                 <CustomSelect
                   name="selectedFrequency"
@@ -672,6 +558,7 @@ export default function Sops() {
           )}
         </div>
 
+        {/* SOP Template Table  */}
         <div className="bg-bg-surface border border-[#e2e8f0] rounded-[12px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <div className="flex items-center justify-between px-6 py-[18px] bg-bg-surface border-b border-[#f1f5f9]">
             <span className="text-[14.5px] font-bold text-[#1e293b] flex items-center">
@@ -822,7 +709,7 @@ export default function Sops() {
                           )}
 
                           {/* Approve & Reject Buttons */}
-                          {sop.status === 'PENDING_APPROVAL' && currentUser?.role === 'ADMIN' && (
+                          {sop.status === 'PENDING_APPROVAL' && (isSopApprover(sop, currentUser?.id) || isAdmin) && (
                             <>
                               {/* Approve Button */}
                               <button
@@ -893,11 +780,11 @@ export default function Sops() {
           creatableCategories={creatableCategories}
           currentUser={currentUser}
           userMap={userMap}
+          onStepSuccess={() => loadData()}
           onClose={() => {
             setShowCreateCompleteModal(false);
             setEditingDraftTemplate(null);
             setIsViewOnly(false);
-            loadData();
           }}
           onSuccess={(msg) => {
             setSuccessMsg(msg);
@@ -915,7 +802,7 @@ export default function Sops() {
         onClose={() => setViewingSopHistory(null)}
       />
 
-      {rejectingSop && (
+      {/* {rejectingSop && (
         <div className="fixed inset-0 bg-[#091124]/65 backdrop-blur-sm flex items-center justify-center z-[999] p-6">
           <div className="bg-bg-surface rounded-[16px] w-full max-w-[480px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25),0_0_0_1px_rgba(255,255,255,0.1)] overflow-hidden animate-modal-slide-in">
             <div className="p-[24px_28px] bg-[#fff1f2] border-b border-[#fecdd3] flex items-start justify-between">
@@ -966,7 +853,11 @@ export default function Sops() {
             </form>
           </div>
         </div>
-      )}
+      )} */}
+
+      <Toast message={successMsg} type="success" onClose={() => setSuccessMsg('')} />
+      <Toast message={errorMsg} type="error" onClose={() => setErrorMsg('')} />
+
 
     </>
   );

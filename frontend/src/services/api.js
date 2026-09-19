@@ -155,6 +155,8 @@ export function mapSopTemplate(t) {
     effectiveFrom: t.effectiveFrom,
     effectiveUntil: t.effectiveUntil,
     status: t.status || 'DRAFT',
+    assignedApproverIds : t?.assignedApproverIds ?? [],
+    assignedApproverNames: t?.assignedApproverNames ?? [],
     makers: t.defaultMakerIds ? t.defaultMakerIds : [],
     checkers: t.defaultCheckerIds ? t.defaultCheckerIds :[],
     defaultMakerIds: t.defaultMakerIds || [],

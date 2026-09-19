@@ -119,8 +119,7 @@ export default function SopInstances() {
   const [userMap, setUserMap] = useState(USER_ID_MAP);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [editingDraftTemplate, setEditingDraftTemplate] = useState(null);
-  const [isViewOnly, setIsViewOnly] = useState(false);
+
 
 
   // Filter States
@@ -374,8 +373,6 @@ export default function SopInstances() {
 
     if (!selectedEntities) return;
 
-    console.log('SECOND USE EFFECT')
-
     loadData();
 
     function handleDraftEvent(e) {
@@ -470,7 +467,6 @@ export default function SopInstances() {
   }, [selectedEntities]);
 
   useEffect(() => {
-    console.log('FIRST USE EFFECT')
 
     if (selectedProcess && selectedProcess !== 'ALL') {
       try {
@@ -658,7 +654,7 @@ export default function SopInstances() {
 
           {isAdmin ? (
             <>
-              <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
+              {/* <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
                 <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Maker</span>
                 <CustomSelect
                   name="selectedCreator"
@@ -682,7 +678,7 @@ export default function SopInstances() {
                     setCurrentPage(1);
                   }}
                 />
-              </div>
+              </div> */}
 
               <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
                 <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Status</span>
@@ -692,6 +688,19 @@ export default function SopInstances() {
                   options={ADMIN_STATUS_FILTER_OPTIONS}
                   onChange={e => {
                     setSelectedStatus(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
+
+              <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
+                <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Frequency</span>
+                <CustomSelect
+                  name="selectedFrequency"
+                  value={selectedFrequency}
+                  options={FREQUENCY_FILTER_OPTIONS}
+                  onChange={e => {
+                    setSelectedFrequency(e.target.value);
                     setCurrentPage(1);
                   }}
                 />
@@ -786,15 +795,13 @@ export default function SopInstances() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-[#f1f5f9]">
-                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">SOP CODE</th>
-                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">PROCESS</th>
-                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ENTITY</th>
-                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">FREQUENCY</th>
-                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface  min-w-[150px]">MAKERS</th>
-                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface min-w-[150px]">CHECKERS</th>
+                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface min-w-[200px]">SOP TITLE</th>
+                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface min-w-[250px]">SOP CODE</th>
                   <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">STATUS</th>
-                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">VERSION</th>
-                  <th className="px-6 py-3 text-right text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ACTIONS</th>
+                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">PROCESS</th>
+                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">FREQUENCY</th>
+                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">TIMELINE</th>
+                  <th className="px-6 py-3 text-right text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface"></th>
                 </tr>
               </thead>
               <tbody>
@@ -811,9 +818,21 @@ export default function SopInstances() {
 
                     }}
                   >
+                    <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{sop.title}</td>
                     <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{sop.code}</td>
+                    <td className="px-6 py-3.5 text-[13.5px] align-middle">
+                      {sop.status === 'COMPLETED' && (
+                        <span className="text-[11px] bg-[#fef3c7] text-[#b45309] px-2 py-[3px] rounded-[4px] font-bold inline-block">
+                          COMPLETED
+                        </span>
+                      )}
+                      {(sop.status === 'ACTIVE' || sop.status === 'APPROVED') && (
+                        <span className="text-[11px] bg-[#dcfce7] text-[#15803d] px-2 py-[3px] rounded-[4px] font-bold inline-block">
+                          ACTIVE
+                        </span>
+                      )}
+                    </td>
                     <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{sop.process || sop.processCategory}</td>
-                    <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{sop.entity || sop.entityName}</td>
                     <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">
 
                       <span className="inline-flex items-center px-[10px] py-[3px] rounded-[6px] text-[11.5px] font-semibold bg-[#f1f5f9] text-[#475569] border border-[#e2e8f0]">
@@ -827,54 +846,7 @@ export default function SopInstances() {
                       </span>
 
                     </td>
-                    <td className="px-6 py-3.5 text-[13.5px] align-middle">
-                      <span
-                        className={`font-medium ${sop.status === 'PENDING_CREATION'
-                          ? 'text-[#94a3b8] italic text-[12px]'
-                          : 'text-[#1e293b]'
-                          }`}
-                      >
-                        {sop.makers?.length ? sop.makers.map((item) => userMap[item]).join(', ') : (sop.maker || '—')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3.5 text-[13.5px] align-middle">
-                      <span
-                        className={`font-medium ${sop.status === 'PENDING_CREATION'
-                          ? 'text-[#94a3b8] italic text-[12px]'
-                          : 'text-[#1e293b]'
-                          }`}
-                      >
-                        {sop.checkers?.length ? sop.checkers.map((item) => userMap[item]).join(', ') : (sop.checker || '—')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3.5 text-[13.5px] align-middle">
-                      {sop.status === 'DRAFT' && (
-                        <span className="text-[11px] bg-[#e0f2fe] text-[#0369a1] px-2 py-[3px] rounded-[4px] font-bold inline-block">
-                          DRAFT
-                        </span>
-                      )}
-                      {sop.status === 'PENDING_CREATION' && (
-                        <span className="text-[11px] bg-[#ffedd5] text-[#c2410c] px-2 py-[3px] rounded-[4px] font-bold inline-block">
-                          PENDING CREATION
-                        </span>
-                      )}
-                      {sop.status === 'PENDING_APPROVAL' && (
-                        <span className="text-[11px] bg-[#fef3c7] text-[#b45309] px-2 py-[3px] rounded-[4px] font-bold inline-block">
-                          PENDING APPROVAL
-                        </span>
-                      )}
-                      {(sop.status === 'ACTIVE' || sop.status === 'APPROVED') && (
-                        <span className="text-[11px] bg-[#dcfce7] text-[#15803d] px-2 py-[3px] rounded-[4px] font-bold inline-block">
-                          ACTIVE
-                        </span>
-                      )}
-                      {sop.status === 'REJECTED' && (
-                        <span className="text-[11px] bg-[#fee2e2] text-[#b91c1c] px-2 py-[3px] rounded-[4px] font-bold inline-block">
-                          REJECTED
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">v{sop.version || 1}</td>
+                    <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{sop.title}</td>
                     <td className="px-6 py-3.5 text-[13.5px] align-middle" onClick={e => e.stopPropagation()}>
                       <div className="flex gap-1.5 justify-end">
                         <button
@@ -923,23 +895,6 @@ export default function SopInstances() {
         onApprove={sop => handleApproveSop(sop)}
         onReject={sop => { setRejectingSop(sop); setRejectionReasonInput(''); }}
       />}
-
-
-
-      
-
-      <AssignedSopDetailsModal
-        isOpen={!!viewingAssignment}
-        sop={viewingAssignment}
-        onClose={() => setViewingAssignment(null)}
-        onDelete={sop => setDeletingSop(sop)}
-      />
-
-      <AssignSOPModal
-        isOpen={showAssignModal}
-        onClose={() => setShowAssignModal(false)}
-        onSuccess={(msg) => { setSuccessMsg(msg); loadData(); }}
-      />
 
       <SopActivityLogModal
         isOpen={!!viewingSopHistory}

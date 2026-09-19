@@ -10,7 +10,6 @@ import {
   getUsersByPermission,
   getProcessCategories,
   getUserCreatableCategories,
-  getUserAccessibleCategories,
   fetchEntities,
   createSopTemplate,
   updateSopTemplate,
@@ -93,7 +92,7 @@ function CustomSelect({ name, value, options, disabled, onChange }) {
   );
 }
 
- const getOffsetMax = (freq) => {
+const getOffsetMax = (freq) => {
     switch (freq) {
       case 'WEEKLY': return 7;
       case 'MONTHLY': return 31;
@@ -101,7 +100,17 @@ function CustomSelect({ name, value, options, disabled, onChange }) {
       case 'ANNUAL': return 365;
       default: return 30;
     }
-  };
+};
+
+function isSopTemplateApprover(sop, userId) {
+  if (!sop || !userId) return false;
+  if (Array.isArray(sop.assignedApproverIds) && sop.assignedApproverIds.length > 0) {
+    return sop.assignedApproverIds.includes(userId);
+  }
+  return false;
+}
+
+
 
 export default function CreateSopDrawer({
   isOpen = true,
@@ -112,6 +121,7 @@ export default function CreateSopDrawer({
   creatableCategories = [],
   onClose = () => { },
   onSuccess = () => { },
+  onStepSuccess=()=>{},
 }) {
   // Requirement #1: Multi-step tracking
   const [currentStep, setCurrentStep] = useState(1);
@@ -132,7 +142,6 @@ export default function CreateSopDrawer({
 
   const [permittedMakers, setPermittedMakers] = useState([{ id: 'usr-2', name: 'Aarav Sharma' }, { id: 'usr-4', name: 'Vikram Singh' }]);
   const [permittedCheckers, setPermittedCheckers] = useState([{ id: 'usr-1', name: 'Compliance Lead' }, { id: 'usr-3', name: 'Priya Patel' }]);
-  const [permittedApprovers, setPermittedApprovers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [localUserMap, setLocalUserMap] = useState(userMap);
 
@@ -235,15 +244,14 @@ export default function CreateSopDrawer({
 
       if (!templateId) {
         const res = await createSopTemplate(payload);
-        console.log("RES", res)
         const createdId = res.data?.templateId || res.templateId || res.data?.id;
         setTemplateId(createdId);
-        console.log("IN API CALL TEMPLATE ID", createdId)
 
         setTemplateId(createdId);
       } else {
         await updateSopTemplate(templateId, payload);
       }
+      if(onStepSuccess) onStepSuccess();
 
       setCurrentStep(2);
     } catch (err) {
@@ -268,6 +276,7 @@ export default function CreateSopDrawer({
     try {
       // Save Step 2 state (Tasks)
       await saveTemplateDraftApiCall({ templateId, tasks: taskTemplates }, 2);
+      if(onStepSuccess) onStepSuccess();
       setCurrentStep(3);
     } catch (err) {
       setErrorMsg('Failed to save Task Templates.');
@@ -285,7 +294,6 @@ export default function CreateSopDrawer({
     setIsSavingDraft(true);
 
     try {
-      console.log('HERE TOO')
       if (templateId && editingTemplate?.status == 'PENDING_APPROVAL') {
         //API Call to approve
         await actionSopTemplate(templateId, {
@@ -311,7 +319,7 @@ export default function CreateSopDrawer({
   }
 
   const handleFinalSubmit = async () => {
-    if (isViewOnly && (editingTemplate?.status === 'DRAFT' || editingTemplate.status === 'APPROVED')) {
+    if (isViewOnly && (editingTemplate?.status === 'DRAFT' || editingTemplate.status === 'ACTIVE' || editingTemplate.status === 'REJECTED')) {
       onClose();
       return;
     }
@@ -369,42 +377,25 @@ export default function CreateSopDrawer({
       setLoadingUsers(true);
 
       try {
-        const [makers, checkers, approvers] = await Promise.all([
+        const [makers, checkers] = await Promise.all([
           getUsersByPermission(category, 'MAKER'),
           getUsersByPermission(category, 'CHECKER'),
-          getUsersByPermission(category, 'APPROVER'),
         ]);
         setPermittedMakers(makers || []);
         setPermittedCheckers(checkers || []);
-        setPermittedApprovers(approvers || []);
+
+        // Reset pool selections gracefully after fetching
+        // setValue('defaultMakerIds', []);
+        // setValue('defaultCheckerIds', []);
       } catch {
         setPermittedMakers([]);
         setPermittedCheckers([]);
-        setPermittedApprovers([]);
       } finally {
         setLoadingUsers(false);
       }
     },
     [setValue]
   );
-
-  const isCategoryApprover = useMemo(() => {
-    if (isAdmin) return true;
-    const uid = currentUser?.id || currentUser?.userId || currentUser?.email;
-    const uName = currentUser?.name || currentUser?.fullName;
-
-    // 1. Check template assigned approver fields
-    const assignedIds = editingTemplate?.assignedApproverIds || [];
-    const assignedNames = editingTemplate?.assignedApproverNames || [];
-    if (uid && (assignedIds.includes(uid) || editingTemplate?.assignedApproverId === uid)) return true;
-    if (uName && assignedNames.includes(uName)) return true;
-
-    // 2. Check category permission assigned approvers
-    if (uid && permittedApprovers.some(a => a.id === uid || a.userId === uid || a.email === uid)) return true;
-    if (uName && permittedApprovers.some(a => a.name === uName || a.fullName === uName)) return true;
-
-    return false;
-  }, [isAdmin, currentUser, editingTemplate, permittedApprovers]);
 
   const getScheduleSummary = () => {
     if (!isRecurring) {
@@ -595,56 +586,48 @@ export default function CreateSopDrawer({
     }
   }, [isOpen, editingTemplate, reset, todayStr]);
 
-  // Load process categories dynamically from backend API
+  // Load process categories dynamically from backend API (creatable categories for non-admin user)
   useEffect(() => {
     if (isOpen) {
       const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
-      const templateCat = editingTemplate?.processCategory || editingTemplate?.process || '';
-
-      const applyOptions = (cats) => {
-        const list = Array.isArray(cats) ? cats : (cats?.data || []);
-        let available = list.map((c) => ({
-          value: typeof c === 'string' ? c : (c.categoryCode || c.categoryName || c),
-          label: typeof c === 'string' ? c : (c.categoryName || c.categoryCode || c),
-        })).filter(o => o.value);
-
-        if (templateCat && !available.some((o) => o.value === templateCat)) {
-          available.unshift({ value: templateCat, label: templateCat });
-        }
-
-        setProcessOptions(available);
-
-        const currentCat = getValues('processCategory');
-        if (!currentCat && available.length > 0) {
-          setValue('processCategory', available[0].value);
-        } else if (templateCat) {
-          setValue('processCategory', templateCat);
-        }
-      };
-
       if (isAdmin) {
         getProcessCategories()
-          .then(applyOptions)
-          .catch(() => {
-            if (templateCat) setProcessOptions([{ value: templateCat, label: templateCat }]);
-          });
+          .then((cats) => {
+            if (Array.isArray(cats) && cats.length > 0) {
+              const available = cats.map((c) => ({
+                value: c.categoryCode || '',
+                label: c.categoryName || '',
+              }));
+              setProcessOptions(available);
+              const currentCat = getValues('processCategory');
+              if (!currentCat || !available.some((o) => o.value === currentCat)) {
+                setValue('processCategory', available[0].value);
+              }
+            }
+          })
+          .catch(() => { });
       } else if (targetUid) {
-        // Fetch accessible or creatable categories for non-admin
-        getUserAccessibleCategories(targetUid)
-          .then(applyOptions)
-          .catch(() => {
-            getUserCreatableCategories(targetUid)
-              .then(applyOptions)
-              .catch(() => {
-                if (templateCat) setProcessOptions([{ value: templateCat, label: templateCat }]);
-              });
-          });
-      } else if (templateCat) {
-        setProcessOptions([{ value: templateCat, label: templateCat }]);
-        setValue('processCategory', templateCat);
+        getUserCreatableCategories(targetUid)
+          .then((cats) => {
+            const list = Array.isArray(cats) ? cats : (cats?.data || []);
+            if (list.length > 0) {
+              const available = list.map((c) => ({
+                value: typeof c === 'string' ? c : (c.categoryName || c.categoryCode || c),
+                label: typeof c === 'string' ? c : (c.categoryName || c.categoryCode || c),
+              }));
+              setProcessOptions(available);
+              const currentCat = getValues('processCategory');
+              if (!currentCat || !available.some((o) => o.value === currentCat)) {
+                setValue('processCategory', available[0].value);
+              }
+            } else {
+              setProcessOptions([]);
+            }
+          })
+          .catch(() => { });
       }
     }
-  }, [isOpen, isAdmin, currentUser, editingTemplate, setValue, getValues]);
+  }, [isOpen, isAdmin, currentUser, setValue, getValues]);
 
   // Load corporate entities dynamically from backend API
   useEffect(() => {
@@ -676,13 +659,11 @@ export default function CreateSopDrawer({
 
   if (!isOpen) return null;
 
-  console.log('Default maker ids', defaultMakerIds)
-
   return (
-    <div className="fixed inset-0 z-[1100] flex justify-end bg-slate-900/65 backdrop-blur-sm transition-opacity">
+    <div className="fixed inset-0 z-[1100] flex justify-end bg-slate-900/65 backdrop-blur-sm animate-fade-in">
       <div className="absolute inset-0" onClick={onClose} />
 
-      <div className="relative flex h-full w-full max-w-[1200px] flex-col bg-slate-50 shadow-2xl transition-transform">
+      <div className="relative flex h-full w-full max-w-[1200px] flex-col bg-slate-50 shadow-2xl animate-[slideInRight_0.3s_ease-out]">
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-indigo-900 bg-gradient-to-r from-slate-900 via-indigo-900 to-blue-900 px-6 py-4 text-white shadow-md">
@@ -1266,9 +1247,9 @@ export default function CreateSopDrawer({
 
           <div className="flex items-center justify-between border-t border-slate-200 bg-white px-6 py-4 shadow-inner">
             <div className="text-[11px] text-slate-500 font-medium">
-              {currentStep === 1 && 'Step 1: Configure Template and save to proceed.'}
-              {currentStep === 2 && `Step 2: ${taskTemplates.length} Tasks configured. Draft saved automatically.`}
-              {currentStep === 3 && 'Final Step: Review and Activate.'}
+              {currentStep === 1 && !isViewOnly  && 'Step 1: Configure Template and save to proceed.'}
+              {currentStep === 2  && !isViewOnly && `Step 2: ${taskTemplates.length} Tasks configured. Draft saved automatically.`}
+              {currentStep === 3  && !isViewOnly && 'Final Step: Review and Activate.'}
             </div>
 
             <div className="flex items-center gap-3">
@@ -1284,7 +1265,7 @@ export default function CreateSopDrawer({
 
               {currentStep === 2 && (
                 <>
-                  <button type="button" onClick={() => setCurrentStep(1)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                  <button type="button" onClick={() => {setErrorMsg(null),setCurrentStep(1)}} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                     ← Back to Step 1
                   </button>
                   <button type="button" onClick={handleProceedToStep3} disabled={isSavingDraft} className="rounded-lg bg-blue-600 px-6 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50">
@@ -1295,32 +1276,32 @@ export default function CreateSopDrawer({
 
               {currentStep === 3 && (
                 <>
-                  <button type="button" onClick={() => setCurrentStep(2)} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                  <button type="button" onClick={() => {setErrorMsg(null),setCurrentStep(2)}} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                     ← Back to Step 2
                   </button>
                   <button type="button" onClick={handleFinalSubmit} className="rounded-lg bg-blue-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700">
                     {isViewOnly ? 'Close SOP Template' : 'Create SOP Template'}
                   </button>
-                </>
-              )}
+                  {editingTemplate?.status === 'PENDING_APPROVAL' && isViewOnly && ( isAdmin || isSopTemplateApprover(editingTemplate,currentUser?.id) ) && (<>
+                    <button type="button" onClick={() => {
+                      setOpenConfirmationModal(true)
+                      setModalConfig('APPROVE')
+                    }
+                    }
+                      className="rounded-lg bg-emerald-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-700">
+                      Approve
+                    </button>
 
-              {editingTemplate?.status === 'PENDING_APPROVAL' && isCategoryApprover && (
-                <>
-                  <button type="button" onClick={() => {
-                    setOpenConfirmationModal(true);
-                    setModalConfig('APPROVE');
-                  }}
-                    className="rounded-lg bg-emerald-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-emerald-700">
-                    Approve
-                  </button>
+                    <button type="button" onClick={() => {
+                      setOpenConfirmationModal(true)
+                      setModalConfig('REJECT')
+                    }
+                    }
+                      className="rounded-lg bg-red-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-red-700">
+                      Reject
+                    </button>
+                  </>)}
 
-                  <button type="button" onClick={() => {
-                    setOpenConfirmationModal(true);
-                    setModalConfig('REJECT');
-                  }}
-                    className="rounded-lg bg-red-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-red-700">
-                    Reject
-                  </button>
                 </>
               )}
             </div>
@@ -1367,8 +1348,6 @@ export default function CreateSopDrawer({
         frequency={frequency}
         dueDayOffset={dueDayOffset}
         onSaveTask={async (savedTask, isEdit) => {
-          console.log("API CALL 1")
-          console.log("Template ID", templateId)
           let updatedTask = { ...savedTask };
           if (templateId) {
             const stepPayload = {
@@ -1388,7 +1367,6 @@ export default function CreateSopDrawer({
                 await updateTaskTemplateStep(templateId, savedTask.taskTemplateId, stepPayload);
                 updatedTask.savedToBackend = true;
               } else {
-                console.log("INSIDE ELSE")
                 const res = await addTaskTemplateStep(templateId, stepPayload);
                 const tDto = res.data || res;
                 if (tDto && Array.isArray(tDto.taskTemplates)) {
@@ -1425,9 +1403,6 @@ export default function CreateSopDrawer({
           onSubmit={(comment) => { handleApprove(comment), setOpenConfirmationModal(false) }}
         />
       }
-
-
-
     </div>
   );
 }
