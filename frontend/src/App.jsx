@@ -9,10 +9,17 @@ import Sops from './pages/Sops';
 import SopInstances from './pages/SopsInstances';
 import AuditLogs from './pages/AuditLogs';
 import { getSession } from './auth/auth';
+import { isAdmin } from './auth/rbac';
 import './index.css';
 import AccessControl from './pages/AccessControl';
 import ProcessCategories from './pages/ProcessCategories';
 import { EntityProvider } from './context/EntityContext';
+
+/** Redirect authenticated users to their home page based on role */
+function getDefaultRoute(session) {
+  if (!session) return '/login';
+  return isAdmin(session.user?.role) ? '/dashboard' : '/inbox';
+}
 
 function ProtectedRoute({ children }) {
   const location = useLocation();
@@ -25,11 +32,28 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+/** Only admins can view this route; non-admins are redirected to /inbox */
+function AdminRoute({ children }) {
+  const location = useLocation();
+  const session = getSession();
+
+  if (!session) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!isAdmin(session.user?.role)) {
+    return <Navigate to="/inbox" replace />;
+  }
+
+  return children;
+}
+
 function PublicOnlyRoute({ children }) {
   const session = getSession();
 
   if (session) {
-    return <Navigate to="/dashboard" replace />;
+    const dest = getDefaultRoute(session);
+    return <Navigate to={dest} replace />;
   }
 
   return children;
@@ -57,19 +81,11 @@ export default function App() {
         {
           path: "/dashboard",
           element: (
-            <ProtectedRoute>
+            <AdminRoute>
               <Dashboard />
-            </ProtectedRoute>
+            </AdminRoute>
           ),
         },
-        // {
-        //   path: "/tasks",
-        //   element: (
-        //     <ProtectedRoute>
-        //       <Tasks />
-        //     </ProtectedRoute>
-        //   ),
-        // },
         {
           path: "/inbox",
           element: (
@@ -97,30 +113,30 @@ export default function App() {
         {
           path: "/audit",
           element: (
-            <ProtectedRoute>
+            <AdminRoute>
               <AuditLogs />
-            </ProtectedRoute>
+            </AdminRoute>
           ),
         },
         {
           path: "/access-control",
           element: (
-            <ProtectedRoute>
+            <AdminRoute>
               <AccessControl/>
-            </ProtectedRoute>
+            </AdminRoute>
           ),
         },
         {
           path: "/categories",
           element: (
-            <ProtectedRoute>
+            <AdminRoute>
               <ProcessCategories />
-            </ProtectedRoute>
+            </AdminRoute>
           ),
         },
         {
           path: "/",
-          element: <Navigate to="/dashboard" replace />,
+          element: <RoleBasedHome />,
         },
 
       ]
@@ -136,3 +152,10 @@ export default function App() {
     </EntityProvider>
   );
 }
+
+/** Redirect to the user's appropriate home page */
+function RoleBasedHome() {
+  const session = getSession();
+  const dest = getDefaultRoute(session);
+  return <Navigate to={dest} replace />;
+}

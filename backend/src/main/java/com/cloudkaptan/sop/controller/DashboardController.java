@@ -3,6 +3,7 @@ package com.cloudkaptan.sop.controller;
 import com.cloudkaptan.sop.domain.enums.EntityCode;
 import com.cloudkaptan.sop.dto.ApiResponse;
 import com.cloudkaptan.sop.dto.DashboardSummaryDto;
+import com.cloudkaptan.sop.dto.SopProgressDto;
 import com.cloudkaptan.sop.service.DashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,5 +34,15 @@ public class DashboardController {
     ) {
         return ResponseEntity.ok(ApiResponse.success(dashboardService.getDashboardSummary(entities, userId)));
     }
-}
 
+    @GetMapping("/sop-progress")
+    @Operation(summary = "Get SOP-level progress overview", description = "Returns task completion progress aggregated at the SOP level, including total/completed/overdue tasks and a percentage for each SOP instance.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Successfully retrieved SOP progress data")
+    })
+    public ResponseEntity<ApiResponse<List<SopProgressDto>>> getSopProgress(
+        @Parameter(description = "Optional filter by corporate entity codes") @RequestParam(name = "entities", required = false) List<EntityCode> entities
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(dashboardService.getSopProgress(entities)));
+    }
+}

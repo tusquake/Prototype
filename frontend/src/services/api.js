@@ -400,6 +400,15 @@ export async function getDashboardSummary(selectedEntities = [], currentUser = n
   };
 }
 
+export async function getSopProgress(selectedEntities = []) {
+  const params = new URLSearchParams();
+  if (selectedEntities.length > 0) params.append('entities', selectedEntities.join(','));
+  const query = params.toString() ? `?${params.toString()}` : '';
+  const data = await fetchJson(`/dashboard/sop-progress${query}`).catch(() => null);
+  if (Array.isArray(data)) return data;
+  return [];
+}
+
 export async function getTasks({ entities = [], userId = null, userRole = null, status = null, category = null, search = null, inboxOnly = false, page = 0, size = 20 } = {}) {
   const body = {
     entities: entities.length > 0 ? entities : undefined,

@@ -8,10 +8,10 @@ export const ROLES = {
 
 export const PERMISSIONS = {
   '/dashboard': [ROLES.ADMIN],
-  '/inbox': [ROLES.ADMIN, ROLES.VIEWER],
+  '/inbox': [ROLES.ADMIN, ROLES.VIEWER, ROLES.MAKER, ROLES.CHECKER, ROLES.MAKER_CHECKER],
   // '/tasks': [ROLES.ADMIN, ROLES.VIEWER],
-  '/sop-management': [ROLES.ADMIN, ROLES.VIEWER],
-  'sop-activity': [ROLES.ADMIN, ROLES.VIEWER],
+  '/sop-management': [ROLES.ADMIN, ROLES.VIEWER, ROLES.MAKER, ROLES.CHECKER, ROLES.MAKER_CHECKER],
+  'sop-activity': [ROLES.ADMIN, ROLES.VIEWER, ROLES.MAKER, ROLES.CHECKER, ROLES.MAKER_CHECKER],
   '/audit': [ROLES.ADMIN],
   '/access-control': [ROLES.ADMIN],
   '/categories': [ROLES.ADMIN],
@@ -35,6 +35,10 @@ export function getRoleForEmail(email) {
   if (cleanEmail.includes('tushar')) return ROLES.MAKER;
   if (cleanEmail.includes('avisek')) return ROLES.VIEWER;
   return EMAIL_ROLE_MAP[cleanEmail] || ROLES.VIEWER;
+}
+
+export function isAdmin(role) {
+  return role === ROLES.ADMIN;
 }
 
 export function hasPermission(userRole, route) {

@@ -1,14 +1,18 @@
 package com.cloudkaptan.sop.service;
 
 import com.cloudkaptan.sop.domain.enums.EntityCode;
+import com.cloudkaptan.sop.domain.enums.SopStatus;
 import com.cloudkaptan.sop.domain.enums.TaskStatus;
 import com.cloudkaptan.sop.domain.enums.UserRole;
 import com.cloudkaptan.sop.dto.DashboardSummaryDto;
+import com.cloudkaptan.sop.dto.SopProgressDto;
 import com.cloudkaptan.sop.dto.TaskDto;
 import com.cloudkaptan.sop.entity.CorporateEntity;
+import com.cloudkaptan.sop.entity.Sop;
 import com.cloudkaptan.sop.entity.Task;
 import com.cloudkaptan.sop.entity.User;
 import com.cloudkaptan.sop.repository.CorporateEntityRepository;
+import com.cloudkaptan.sop.repository.SopRepository;
 import com.cloudkaptan.sop.repository.TaskRepository;
 import com.cloudkaptan.sop.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -27,6 +32,7 @@ public class DashboardService {
     private final UserRepository userRepository;
     private final CorporateEntityRepository entityRepository;
     private final TaskWorkflowService taskWorkflowService;
+    private final SopRepository sopRepository;
 
     @Transactional(readOnly = true)
     public DashboardSummaryDto getDashboardSummary(List<EntityCode> entities, String userId) {
@@ -114,5 +120,57 @@ public class DashboardService {
     @Transactional(readOnly = true)
     public DashboardSummaryDto getDashboardSummary(List<EntityCode> entities) {
         return getDashboardSummary(entities, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SopProgressDto> getSopProgress(List<EntityCode> entities) {
+        List<EntityCode> selectedEntities = (entities == null || entities.isEmpty())
+            ? Arrays.asList(EntityCode.values())
+            : entities;
+
+        List<Sop> sops = sopRepository.findByEntityIn(selectedEntities);
+        LocalDate today = LocalDate.now();
+
+        return sops.stream()
+            .filter(sop -> sop.getStatus() == SopStatus.ACTIVE
+                || sop.getStatus() == SopStatus.IN_PROGRESS
+                || sop.getStatus() == SopStatus.OVERDUE
+                || sop.getStatus() == SopStatus.COMPLETED)
+            .map(sop -> {
+                List<Task> tasks = taskRepository.findBySop_SopIdOrderByRecordNoAsc(sop.getSopId());
+                long total = tasks.size();
+                long completed = tasks.stream()
+                    .filter(t -> t.getStatus() == TaskStatus.APPROVED)
+                    .count();
+                long overdue = tasks.stream()
+                    .filter(t -> t.getStatus() != TaskStatus.APPROVED
+                        && t.getDueDate() != null
+                        && today.isAfter(t.getDueDate()))
+                    .count();
+                long pending = total - completed - overdue;
+                if (pending < 0) pending = 0;
+
+                int progressPercent = total > 0 ? (int) Math.round(((double) completed / total) * 100) : 0;
+
+                return SopProgressDto.builder()
+                    .sopId(sop.getSopId())
+                    .sopCode(sop.getSopCode())
+                    .title(sop.getTitle())
+                    .entity(sop.getEntity() != null ? sop.getEntity().getEntityName() : null)
+                    .entityCode(sop.getEntity() != null ? sop.getEntity().getEntityCode() : null)
+                    .status(sop.getStatus())
+                    .frequency(sop.getFrequency() != null ? sop.getFrequency().name() : null)
+                    .totalTasks(total)
+                    .completedTasks(completed)
+                    .pendingTasks(pending)
+                    .overdueTasks(overdue)
+                    .progressPercent(progressPercent)
+                    .dueDate(sop.getDueDate())
+                    .startDate(sop.getStartDate())
+                    .build();
+            })
+            .sorted(Comparator.comparingLong(SopProgressDto::getOverdueTasks).reversed()
+                .thenComparing(SopProgressDto::getProgressPercent))
+            .toList();
     }
 }
