@@ -1,5 +1,6 @@
 package com.cloudkaptan.sop.entity;
 
+import com.cloudkaptan.sop.dto.RequiredDocument;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -99,9 +100,8 @@ public class TaskTemplate {
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "task_template_required_docs", joinColumns = @JoinColumn(name = "task_template_id"))
-    @Column(name = "document_name", length = 255)
     @Builder.Default
-    private List<String> requiredDocumentNames = new ArrayList<>();
+    private List<RequiredDocument> requiredDocuments = new ArrayList<>();
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

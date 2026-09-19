@@ -836,12 +836,12 @@ public class TaskWorkflowService {
         boolean isApprovableStatus = task.getStatus() == TaskStatus.PENDING_REVIEW;
         Boolean canUserApprove = isApprovableStatus && (isAssignedChecker || isManagerWithReadOrWriteAccess || isAdmin) && (!isSelfMaker || isAdmin);
 
-        List<String> reqDocs = new java.util.ArrayList<>();
+        List<com.cloudkaptan.sop.dto.RequiredDocument> reqDocObjects = new ArrayList<>();
         if (task.getTaskTemplateId() != null) {
             taskTemplateRepository.findById(task.getTaskTemplateId())
                 .ifPresent(tt -> {
-                    if (tt.getRequiredDocumentNames() != null) {
-                        reqDocs.addAll(tt.getRequiredDocumentNames());
+                    if (tt.getRequiredDocuments() != null) {
+                        reqDocObjects.addAll(tt.getRequiredDocuments());
                     }
                 });
         }
@@ -892,7 +892,7 @@ public class TaskWorkflowService {
             .history(historyList)
             .reassignmentHistory(reassignList)
             .documents(documentList)
-            .requiredDocumentNames(reqDocs)
+            .requiredDocuments(reqDocObjects)
             .build();
     }
 }

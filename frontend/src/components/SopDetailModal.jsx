@@ -186,15 +186,20 @@ export default function SopDetailModal({
                             </div>
                           </div>
                           
-                          {(task.requiredDocumentNames?.length > 0 || task.requiredDocs?.length > 0) && (
+                          {task.requiredDocuments?.length > 0 && (
                             <div className="mt-3 bg-blue-50 p-3 rounded-md border border-blue-100">
                               <span className="block text-[9px] font-bold uppercase text-blue-700 mb-1.5">Required Documents</span>
                               <div className="flex flex-wrap gap-1.5">
-                                {(task.requiredDocumentNames || task.requiredDocs).map((doc, i) => (
-                                  <span key={i} className="text-[10px] font-semibold text-blue-800 bg-white border border-blue-200 px-2 py-0.5 rounded shadow-sm">
-                                    📄 {doc}
-                                  </span>
-                                ))}
+                                {task.requiredDocuments.map((doc, i) => {
+                                  const docName = typeof doc === 'string' ? doc : (doc.name || doc.title || doc.documentName || 'Document');
+                                  const docDesc = typeof doc === 'object' ? (doc.description || doc.desc || '') : '';
+                                  return (
+                                    <span key={i} className="text-[10px] font-semibold text-blue-800 bg-white border border-blue-200 px-2 py-0.5 rounded shadow-sm inline-flex items-center gap-1">
+                                      <span>📄 {docName}</span>
+                                      {docDesc && <span className="font-normal text-slate-500">({docDesc})</span>}
+                                    </span>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
@@ -274,9 +279,9 @@ export default function SopDetailModal({
                       }}
                     >
                       <span className="truncate pr-1">Day {task.etaEndDay || 0}</span>
-                      {(task.requiredDocumentNames?.length > 0 || task.requiredDocs?.length > 0) && (
+                      {task.requiredDocuments?.length > 0 && (
                         <span className="shrink-0 rounded bg-black/25 px-1 text-[8px]">
-                          📄{(task.requiredDocumentNames || task.requiredDocs).length}
+                          📄{task.requiredDocuments.length}
                         </span>
                       )}
                     </div>

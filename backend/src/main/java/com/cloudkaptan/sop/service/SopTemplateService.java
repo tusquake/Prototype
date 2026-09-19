@@ -162,7 +162,7 @@ public class SopTemplateService {
         task.setSlaHours(request.getSlaHours() != null ? request.getSlaHours() : task.getSlaHours());
         task.setMakerIds(request.getMakerIds());
         task.setCheckerIds(request.getCheckerIds());
-        task.setRequiredDocumentNames(request.getRequiredDocumentNames());
+        task.setRequiredDocuments(request.getRequiredDocuments());
 
         taskTemplateRepository.save(task);
         SopTemplate template = getTemplateOrThrow(templateId);
@@ -387,7 +387,7 @@ public class SopTemplateService {
 
         List<String> makers = (req.getMakerIds() != null) ? new ArrayList<>(req.getMakerIds()) : new ArrayList<>();
         List<String> checkers = (req.getCheckerIds() != null) ? new ArrayList<>(req.getCheckerIds()) : new ArrayList<>();
-        List<String> docs = (req.getRequiredDocumentNames() != null) ? new ArrayList<>(req.getRequiredDocumentNames()) : new ArrayList<>();
+        List<com.cloudkaptan.sop.dto.RequiredDocument> docs = (req.getRequiredDocuments() != null) ? new ArrayList<>(req.getRequiredDocuments()) : new ArrayList<>();
 
         return TaskTemplate.builder()
                 .sopTemplate(parent)
@@ -401,7 +401,7 @@ public class SopTemplateService {
                 .slaHours(req.getSlaHours() != null ? req.getSlaHours() : 24)
                 .makerIds(makers)
                 .checkerIds(checkers)
-                .requiredDocumentNames(docs)
+                .requiredDocuments(docs)
                 .build();
     }
 
@@ -585,7 +585,7 @@ public class SopTemplateService {
                 .slaHours(task.getSlaHours())
                 .makerIds(task.getMakerIds())
                 .checkerIds(task.getCheckerIds())
-                .requiredDocumentNames(task.getRequiredDocumentNames())
+                .requiredDocuments(task.getRequiredDocuments())
                 .build();
     }
 }

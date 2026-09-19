@@ -42,7 +42,7 @@ public class TaskTemplateDto {
     private Integer slaHours;
     private List<String> makerIds;
     private List<String> checkerIds;
-    private List<String> requiredDocumentNames;
+    private List<RequiredDocument> requiredDocuments;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

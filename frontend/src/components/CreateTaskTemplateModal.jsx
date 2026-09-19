@@ -28,7 +28,6 @@ export default function CreateTaskTemplateModal({
   editingTask = null,
   isViewOnly = false,
 }) {
-  const [newDocName, setNewDocName] = useState('');
   const [catTitle, setCatTitle] = useState('');
   const [catDesc, setCatDesc] = useState('');
   const [editingCatIndex, setEditingCatIndex] = useState(null);
@@ -42,17 +41,16 @@ export default function CreateTaskTemplateModal({
       taskTitle: z.string().trim().min(1, 'Task Name is required.'),
       taskDependencyMode: z.string(),
       taskEndDate: z.coerce.number().min(1, 'Completion Deadline must be at least 1.').max(calculatedMaxDeadline, `Completion Deadline cannot exceed ${calculatedMaxDeadline} days.`),
-      taskLevelDocs: z.array(z.string()),
-      documentCategories: z.array(
+      requiredDocuments: z.array(
         z.object({
-          title: z.string().min(1, "Title is required"),
+          name: z.string().min(1, "Document Name is required"),
           description: z.string().optional(),
         })
       ).optional(),
       taskMakers: z.array(z.string()).min(1, 'Please select at least one Maker for this task.'),
       taskCheckers: z.array(z.string()).min(1, 'Please select at least one Checker for this task.'),
     })
-  }, [])
+  }, [calculatedMaxDeadline])
 
   const {
     register,
@@ -72,60 +70,52 @@ export default function CreateTaskTemplateModal({
       taskEndDate: Math.min(dueDayOffset, maxDeadline),
       taskMakers: [],
       taskCheckers: [],
-      taskLevelDocs: [],
-      documentCategories: [],
+      requiredDocuments: [],
     }
   });
-
-  // Watch array fields to manually render them since they aren't standard inputs
 
   const taskTitle = useWatch({ control, name: 'taskTitle' })
   const taskEndDate = useWatch({ control, name: 'taskEndDate' })
   const taskMakers = useWatch({ control, name: 'taskMakers' })
   const taskCheckers = useWatch({ control, name: 'taskCheckers' })
-  const taskLevelDocs = useWatch({ control, name: 'taskLevelDocs' })
-  const documentCategories = useWatch({ control, name: 'documentCategories' })
-  console.log('Editing Task', editingTask)
+  const requiredDocuments = useWatch({ control, name: 'requiredDocuments' })
 
   const handleAddOrUpdateCategory = () => {
-    if (!catTitle.trim()) {
-      // You can set a local error state here if you want
-      return;
-    }
+    if (!catTitle.trim()) return;
 
-    const newCategory = {
-      title: catTitle.trim(),
+    const newDoc = {
+      name: catTitle.trim(),
       description: catDesc.trim(),
     };
 
     let updatedList;
+    const currentList = requiredDocuments || [];
     if (editingCatIndex !== null) {
-      // Update existing
-      updatedList = [...documentCategories];
-      updatedList[editingCatIndex] = newCategory;
+      updatedList = [...currentList];
+      updatedList[editingCatIndex] = newDoc;
       setEditingCatIndex(null);
     } else {
-      // Add new
-      updatedList = [...documentCategories, newCategory];
+      updatedList = [...currentList, newDoc];
     }
-    setValue('documentCategories', updatedList, { shouldValidate: true, shouldDirty: true });
-    clearErrors('documentCategories');
+    setValue('requiredDocuments', updatedList, { shouldValidate: true, shouldDirty: true });
+    clearErrors('requiredDocuments');
 
-    // Reset inputs
     setCatTitle('');
     setCatDesc('');
   };
 
   const handleEditCategory = (index) => {
-    const cat = documentCategories[index];
-    setCatTitle(cat.title);
-    setCatDesc(cat.description || '');
+    const doc = requiredDocuments[index];
+    if (!doc) return;
+    setCatTitle(doc.name || doc.title || '');
+    setCatDesc(doc.description || '');
     setEditingCatIndex(index);
   };
 
   const handleRemoveCategory = (index) => {
-    const updatedList = documentCategories.filter((_, i) => i !== index);
-    setValue('documentCategories', updatedList, { shouldValidate: true, shouldDirty: true });
+    const currentList = requiredDocuments || [];
+    const updatedList = currentList.filter((_, i) => i !== index);
+    setValue('requiredDocuments', updatedList, { shouldValidate: true, shouldDirty: true });
     if (editingCatIndex === index) {
       setEditingCatIndex(null);
       setCatTitle('');
@@ -133,18 +123,33 @@ export default function CreateTaskTemplateModal({
     }
   };
 
+  function normalizeDocs(rawDocs) {
+    if (!Array.isArray(rawDocs)) return [];
+    return rawDocs.map(item => {
+      if (typeof item === 'string') {
+        return { name: item, description: '' };
+      }
+      return {
+        name: item.name || item.title || item.documentName || '',
+        description: item.description || item.desc || item.documentDescription || ''
+      };
+    }).filter(d => d.name.trim() !== '');
+  }
 
   useEffect(() => {
     if (isOpen) {
+      setCatTitle('');
+      setCatDesc('');
+      setEditingCatIndex(null);
       if (editingTask) {
+        const rawDocs = editingTask.requiredDocuments || [];
         reset({
-          taskTitle: editingTask?.title || '',
+          taskTitle: editingTask?.title || editingTask?.taskName || '',
           taskDependencyMode: editingTask?.dependencyMode || 'INDEPENDENT',
           taskEndDate: editingTask?.etaEndDay !== undefined ? editingTask.etaEndDay : 31,
-          taskMakers: editingTask?.makers || [],
-          taskCheckers: editingTask?.checkers || [],
-          taskLevelDocs: editingTask?.requiredDocs || [],
-          documentCategories: editingTask?.documentCategories || [],
+          taskMakers: editingTask?.makers || editingTask?.makerIds || [],
+          taskCheckers: editingTask?.checkers || editingTask?.checkerIds || [],
+          requiredDocuments: normalizeDocs(rawDocs),
         });
       } else {
         reset({
@@ -153,35 +158,13 @@ export default function CreateTaskTemplateModal({
           taskEndDate: Math.min(dueDayOffset, maxDeadline),
           taskMakers: [...parentMakerPool],
           taskCheckers: [...parentCheckerPool],
-          taskLevelDocs: [],
-          documentCategories: editingTask?.documentCategories || [],
+          requiredDocuments: [],
         });
       }
     }
-  }, [isOpen, editingTask, existingTasksCount, parentMakerPool, parentCheckerPool, reset]);
+  }, [isOpen, editingTask, existingTasksCount, parentMakerPool, parentCheckerPool, reset, dueDayOffset, maxDeadline]);
 
   if (!isOpen) return null;
-
-  const handleAddDoc = () => {
-    if (isViewOnly) return;
-    const trimmed = newDocName.trim();
-    if (!trimmed) return;
-
-    const currentDocs = getValues('taskLevelDocs');
-    if (currentDocs.includes(trimmed)) {
-      setError('taskLevelDocs', { type: 'manual', message: 'Document already exists in checklist.' });
-      return;
-    }
-
-    setValue('taskLevelDocs', [...currentDocs, trimmed], { shouldValidate: true });
-    setNewDocName('');
-    clearErrors('taskLevelDocs');
-  };
-
-  const removeDoc = (doc) => {
-    if (isViewOnly) return;
-    setValue('taskLevelDocs', taskLevelDocs.filter(d => d !== doc), { shouldValidate: true });
-  };
 
   const removeMaker = (id) => {
     if (isViewOnly) return;
@@ -199,15 +182,17 @@ export default function CreateTaskTemplateModal({
       return;
     }
 
+    const docs = data.requiredDocuments || [];
+
     const newTaskTemplate = {
       id: editingTask ? editingTask.id : `task-template-${Date.now()}`,
       taskTemplateId: editingTask ? editingTask.taskTemplateId : null,
       stepSequence: editingTask ? editingTask.stepSequence : existingTasksCount + 1,
       title: data.taskTitle,
       dependencyMode: data.taskDependencyMode,
-      etaStartDay: data.taskStartDate,
+      etaStartDay: 0,
       etaEndDay: data.taskEndDate,
-      requiredDocs: data.taskLevelDocs,
+      requiredDocuments: docs,
       makers: data.taskMakers,
       checkers: data.taskCheckers,
       savedToBackend: !!editingTask?.taskTemplateId,
@@ -215,9 +200,6 @@ export default function CreateTaskTemplateModal({
 
     onSaveTask(newTaskTemplate, !!editingTask);
   };
-
-  // Get the first error message to display in the top banner (matching original behavior)
-  const firstError = Object.values(errors)[0]?.message;
 
   return (
     <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
@@ -232,17 +214,7 @@ export default function CreateTaskTemplateModal({
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 font-bold">✕</button>
         </div>
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex-1 flex flex-col min-h-0">
-
-
           <div className="flex-1 overflow-y-auto p-6 space-y-5">
-
-            {/* Matches original single error banner */}
-
-            {/* {firstError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs font-semibold text-red-600">
-                {firstError}
-              </div>
-            )} */}
 
             <div className="grid grid-cols-12 gap-8">
 
@@ -300,52 +272,14 @@ export default function CreateTaskTemplateModal({
 
                 </div>
 
-                {/* Task Level Documents */}
+                {/* Required Task Documents Section */}
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">Required Task Documents</h4>
-                  <div className="flex gap-2 mb-3">
-                    <input
-                      type="text"
-                      disabled={isViewOnly}
-                      placeholder="e.g. Form 16B"
-                      value={newDocName}
-                      onChange={(e) => {
-                        setNewDocName(e.target.value);
-                        if (errors.taskLevelDocs) clearErrors('taskLevelDocs');
-                      }}
-                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddDoc())}
-                      className="flex-1 rounded-lg border border-slate-300 p-2 text-xs focus:border-blue-600 focus:outline-none disabled:bg-slate-100"
-                    />
-                    <button
-                      type="button"
-                      disabled={isViewOnly}
-                      onClick={handleAddDoc}
-                      className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:bg-slate-400"
-                    >
-                      + Add
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {taskLevelDocs?.length === 0 ? (
-                      <span className="text-[11px] italic text-slate-400">No documents required for this step.</span>
-                    ) : (
-                      taskLevelDocs.map(doc => (
-                        <span key={doc} className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
-                          {doc}
-                          {!isViewOnly && (
-                            <button type="button" onClick={() => removeDoc(doc)} className="text-blue-400 hover:text-red-500 font-bold">✕</button>
-                          )}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 mt-4">
                   <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">
-                    Task Documents
+                    Required Task Documents
                   </h4>
+                  <p className="text-[11px] text-slate-500 mb-3">
+                    Specify evidence files or working papers required from the Maker for task completion.
+                  </p>
 
                   {/* Input Row */}
                   <div className="flex gap-2 mb-4 items-start">
@@ -353,7 +287,7 @@ export default function CreateTaskTemplateModal({
                       <input
                         type="text"
                         disabled={isViewOnly}
-                        placeholder="Document Title (e.g., Form 16) *"
+                        placeholder="Document Name (e.g., Form 16B) *"
                         value={catTitle}
                         onChange={(e) => setCatTitle(e.target.value)}
                         className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:border-blue-600 focus:outline-none disabled:bg-slate-100"
@@ -393,29 +327,28 @@ export default function CreateTaskTemplateModal({
                     )}
                   </div>
 
-                  {/* RHF Error message for the whole array if needed */}
-                  {errors.documentCategories && (
-                    <p className="text-[10px] text-red-500 mb-2">{errors.documentCategories.message}</p>
+                  {errors.requiredDocuments && (
+                    <p className="text-[10px] text-red-500 mb-2">{errors.requiredDocuments.message}</p>
                   )}
 
                   {/* Table View */}
-                  {documentCategories?.length === 0 ? (
-                    <span className="text-[11px] italic text-slate-400">No task documents added.</span>
+                  {requiredDocuments?.length === 0 ? (
+                    <span className="text-[11px] italic text-slate-400">No required documents added for this step.</span>
                   ) : (
                     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                       <table className="w-full text-left text-xs">
                         <thead className="bg-slate-100/50 border-b border-slate-200">
                           <tr>
-                            <th className="px-3 py-2 font-semibold text-slate-600 w-1/3">Name</th>
+                            <th className="px-3 py-2 font-semibold text-slate-600 w-1/3">Document Name</th>
                             <th className="px-3 py-2 font-semibold text-slate-600">Description</th>
                             {!isViewOnly && <th className="px-3 py-2 font-semibold text-slate-600 w-[80px] text-right">Actions</th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {documentCategories.map((cat, idx) => (
+                          {requiredDocuments.map((doc, idx) => (
                             <tr key={idx} className={editingCatIndex === idx ? 'bg-blue-50/50' : 'hover:bg-slate-50/50'}>
-                              <td className="px-3 py-2.5 font-medium text-slate-800 break-words">{cat.title}</td>
-                              <td className="px-3 py-2.5 text-slate-500 break-words">{cat.description || <span className="italic text-slate-300">--</span>}</td>
+                              <td className="px-3 py-2.5 font-medium text-slate-800 break-words">{doc.name}</td>
+                              <td className="px-3 py-2.5 text-slate-500 break-words">{doc.description || <span className="italic text-slate-300">--</span>}</td>
                               {!isViewOnly && (
                                 <td className="px-3 py-2.5 text-right">
                                   <div className="flex items-center justify-end gap-2">

@@ -493,7 +493,7 @@ export default function CreateSopDrawer({
             slaHours: t.slaHours !== undefined ? t.slaHours : 24,
             makers: t.makerIds || t.makers || [],
             checkers: t.checkerIds || t.checkers || [],
-            requiredDocs: t.requiredDocumentNames || t.requiredDocuments || t.requiredDocs || [],
+            requiredDocuments: t.requiredDocuments || [],
             savedToBackend: true,
           }));
           setTaskTemplates(mappedTasks);
@@ -552,7 +552,7 @@ export default function CreateSopDrawer({
                     slaHours: t.slaHours !== undefined ? t.slaHours : 24,
                     makers: t.makerIds || t.makers || [],
                     checkers: t.checkerIds || t.checkers || [],
-                    requiredDocs: t.requiredDocumentNames || t.requiredDocuments || t.requiredDocs || [],
+                    requiredDocuments: t.requiredDocuments || [],
                     savedToBackend: true,
                   }));
                   setTaskTemplates(mapped);
@@ -1192,11 +1192,18 @@ export default function CreateSopDrawer({
                                 <span className="flex items-center gap-1"><span className="text-slate-400">Checkers:</span> <strong className="text-slate-700">{task.checkers.length} assigned</strong></span>
                               </div>
 
-                              {task.requiredDocs.length > 0 && (
-                                <div className="pl-8 pt-1 flex flex-wrap gap-1">
-                                  {task.requiredDocs.map((d) => (
-                                    <span key={d} className="rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">📄 {d}</span>
-                                  ))}
+                              {task.requiredDocuments?.length > 0 && (
+                                <div className="pl-8 pt-1 flex flex-wrap gap-1.5">
+                                  {task.requiredDocuments.map((d, idx) => {
+                                    const docName = typeof d === 'string' ? d : (d.name || d.title || d.documentName || 'Document');
+                                    const docDesc = typeof d === 'object' ? (d.description || d.desc || '') : '';
+                                    return (
+                                      <span key={idx} className="rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 inline-flex items-center gap-1" title={docDesc || docName}>
+                                        <span>📄 {docName}</span>
+                                        {docDesc && <span className="font-normal text-indigo-500">({docDesc})</span>}
+                                      </span>
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
@@ -1360,7 +1367,7 @@ export default function CreateSopDrawer({
               priority: savedTask.priority,
               makerIds: savedTask.makers,
               checkerIds: savedTask.checkers,
-              requiredDocuments: savedTask.requiredDocs,
+              requiredDocuments: savedTask.requiredDocuments || [],
             };
             try {
               if (isEdit && savedTask.taskTemplateId) {
@@ -1491,9 +1498,9 @@ function GanttTimelineChart({ tasks = [], maxTimeline }) {
                 {/* Right side data inside the bar */}
                 <div className="flex shrink-0 items-center gap-1.5">
                   <span>Day {task.endDay}</span>
-                  {(task.requiredDocs?.length > 0 || task.requiredDocumentNames?.length > 0) && (
+                  {task.requiredDocuments?.length > 0 && (
                     <span className="rounded bg-black/25 px-1 py-0.5 text-[9px] leading-none">
-                      📄{(task.requiredDocs || task.requiredDocumentNames).length}
+                      📄{task.requiredDocuments.length}
                     </span>
                   )}
                 </div>
