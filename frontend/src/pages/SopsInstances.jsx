@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import CustomSelect from '../components/CustomSelect';
 import TableSkeleton from '../components/TableSkeleton';
 import Pagination from '../components/Pagination';
@@ -190,6 +190,46 @@ export default function SopInstances() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
+  const entitiesKey = Array.isArray(selectedEntities) ? selectedEntities.join(',') : String(selectedEntities || '');
+
+  // Load process categories and permissions once on mount or when user changes
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCategories() {
+      if (isAdmin) {
+        const categoriesData = await getProcessCategories().catch(() => []);
+        if (isMounted && Array.isArray(categoriesData) && categoriesData.length > 0) {
+          const opts = [
+            { value: 'ALL', label: 'All Processes' },
+            ...categoriesData.map(c => ({ value: c.categoryCode, label: c.categoryName }))
+          ];
+          setDynamicProcessOptions(opts);
+        }
+      } else if (targetUid) {
+        const userCategories = await getUserAccessibleCategories(targetUid).catch(() => []);
+        if (isMounted && Array.isArray(userCategories) && userCategories.length > 0) {
+          const opts = [
+            { value: 'ALL', label: 'All Processes' },
+            ...userCategories.map(c => ({ value: typeof c === 'string' ? c : (c.categoryCode || c.categoryName), label: typeof c === 'string' ? c : (c.categoryName || c.categoryCode) }))
+          ];
+          setDynamicProcessOptions(opts);
+        } else if (isMounted) {
+          setDynamicProcessOptions([{ value: 'ALL', label: 'All Processes' }]);
+        }
+      }
+
+      if (targetUid) {
+        const creatable = await getUserCreatableCategories(targetUid).catch(() => []);
+        if (isMounted) {
+          setCreatableCategories(Array.isArray(creatable) ? [...creatable] : []);
+        }
+      }
+    }
+    loadCategories();
+    return () => { isMounted = false; };
+  }, [isAdmin, targetUid]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -205,46 +245,17 @@ export default function SopInstances() {
       const list = res?.data || [];
       setTotalItems(res?.totalElements ?? list.length);
       setSopList(list);
-
-      const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
-      if (isAdmin) {
-        const categoriesData = await getProcessCategories().catch(() => []);
-        if (Array.isArray(categoriesData) && categoriesData.length > 0) {
-          const opts = [
-            { value: 'ALL', label: 'All Processes' },
-            ...categoriesData.map(c => ({ value: c.categoryCode, label: c.categoryName }))
-          ];
-          setDynamicProcessOptions(opts);
-        }
-      } else if (targetUid) {
-        const userCategories = await getUserAccessibleCategories(targetUid).catch(() => []);
-        if (Array.isArray(userCategories) && userCategories.length > 0) {
-          const opts = [
-            { value: 'ALL', label: 'All Processes' },
-            ...userCategories.map(c => ({ value: typeof c === 'string' ? c : (c.categoryCode || c.categoryName), label: typeof c === 'string' ? c : (c.categoryName || c.categoryCode) }))
-          ];
-          setDynamicProcessOptions(opts);
-        } else {
-          setDynamicProcessOptions([{ value: 'ALL', label: 'All Processes' }]);
-        }
-      }
-
-      if (targetUid) {
-        const creatable = await getUserCreatableCategories(targetUid).catch(() => []);
-        setCreatableCategories(Array.isArray(creatable) ? [...creatable] : []);
-      }
     } catch (error) {
       console.error("Failed to fetch SOP instances:", error);
       setErrorMsg(error?.message || error || "Failed to fetch SOP instance data");
     } finally {
       setLoading(false);
     }
-  }, [selectedStatus, selectedEntities, selectedProcess, selectedFrequency, debouncedSearchTerm, currentPage, currentUser, isAdmin]);
+  }, [selectedStatus, entitiesKey, selectedProcess, selectedFrequency, debouncedSearchTerm, currentPage]);
 
   useEffect(() => {
-    if (!selectedEntities) return;
     loadData();
-  }, [selectedEntities, selectedFrequency, selectedProcess, selectedStatus, debouncedSearchTerm, currentPage, loadData]);
+  }, [loadData]);
 
 
   function openCreateModal(targetCat) {

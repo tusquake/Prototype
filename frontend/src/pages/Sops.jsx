@@ -119,6 +119,8 @@ export default function Sops() {
   const { selectedEntities } = useEntity();
 
 
+  const entitiesKey = Array.isArray(selectedEntities) ? selectedEntities.join(',') : String(selectedEntities || '');
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -143,7 +145,7 @@ export default function Sops() {
       setLoading(false);
     }
 
-  }, [selectedStatus, selectedEntities, selectedProcess, selectedFrequency, currentPage, debouncedSearchTerm])
+  }, [selectedStatus, entitiesKey, selectedProcess, selectedFrequency, currentPage, debouncedSearchTerm]);
 
 
   // async function loadData() {
@@ -235,9 +237,8 @@ export default function Sops() {
   }
 
   useEffect(() => {
-    if (!selectedEntities) return;
     loadData();
-  }, [selectedEntities, selectedFrequency, selectedProcess, selectedStatus, debouncedSearchTerm, currentPage]);
+  }, [loadData]);
 
   // useEffect(() => {
 
