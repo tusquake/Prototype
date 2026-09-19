@@ -27,6 +27,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import com.cloudkaptan.sop.domain.enums.EntityCode;
+import com.cloudkaptan.sop.domain.enums.SopFrequency;
+import com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto;
+import com.cloudkaptan.sop.dto.NotificationEventDto;
+import com.cloudkaptan.sop.dto.TaskEventDto;
+import com.cloudkaptan.sop.entity.AuditLog;
+import com.cloudkaptan.sop.entity.SopTemplateEvent;
+import com.cloudkaptan.sop.repository.AuditLogRepository;
+import com.cloudkaptan.sop.repository.SopTemplateEventRepository;
 
 @Slf4j
 @Service
@@ -40,8 +49,8 @@ public class SopTemplateService {
     private final UserCategoryPermissionService categoryPermissionService;
     private final NotificationPublisherService notificationPublisherService;
     private final TaskSchedulerService taskSchedulerService;
-    private final com.cloudkaptan.sop.repository.AuditLogRepository auditLogRepository;
-    private final com.cloudkaptan.sop.repository.SopTemplateEventRepository sopTemplateEventRepository;
+    private final AuditLogRepository auditLogRepository;
+    private final SopTemplateEventRepository sopTemplateEventRepository;
 
 
     @Transactional
@@ -204,13 +213,13 @@ public class SopTemplateService {
         SopTemplate saved = sopTemplateRepository.save(template);
 
         try {
-            com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto catAssignments = categoryPermissionService.getCategoryAssignments(template.getProcessCategory());
+            CategoryAccessAssignmentDto catAssignments = categoryPermissionService.getCategoryAssignments(template.getProcessCategory());
             List<String> approvers = (catAssignments != null && catAssignments.getApproverUserIds() != null && !catAssignments.getApproverUserIds().isEmpty())
                     ? catAssignments.getApproverUserIds()
                     : List.of("usr-vivek-108");
 
             for (String approverId : approvers) {
-                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                notificationPublisherService.publishNotification(NotificationEventDto.builder()
                         .recipientUserId(approverId)
                         .eventType("SOP_SUBMITTED")
                         .title("SOP Template Approval Required")
@@ -298,9 +307,9 @@ public class SopTemplateService {
 
     @Transactional(readOnly = true)
     public Page<SopTemplateDto> getFilteredTemplates(SopTemplateStatus status,
-                                                    java.util.List<com.cloudkaptan.sop.domain.enums.EntityCode> entities,
+                                                    java.util.List<EntityCode> entities,
                                                     String category,
-                                                    com.cloudkaptan.sop.domain.enums.SopFrequency frequency,
+                                                    SopFrequency frequency,
                                                     String search,
                                                     Pageable pageable) {
         List<SopTemplate> templates = sopTemplateRepository.findAll();
@@ -396,7 +405,7 @@ public class SopTemplateService {
                 .build();
     }
 
-    public static int getEffectiveDueDayOffset(Integer customOffset, com.cloudkaptan.sop.domain.enums.SopFrequency frequency, java.time.LocalDate startDate) {
+    public static int getEffectiveDueDayOffset(Integer customOffset, SopFrequency frequency, java.time.LocalDate startDate) {
         if (customOffset != null && customOffset > 0) {
             return customOffset;
         }
@@ -454,7 +463,7 @@ public class SopTemplateService {
         List<String> approverIds = new ArrayList<>();
         List<String> approverNames = new ArrayList<>();
         try {
-            com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto catAssignments = categoryPermissionService.getCategoryAssignments(template.getProcessCategory());
+            CategoryAccessAssignmentDto catAssignments = categoryPermissionService.getCategoryAssignments(template.getProcessCategory());
             if (catAssignments != null && catAssignments.getApproverUserIds() != null && !catAssignments.getApproverUserIds().isEmpty()) {
                 approverIds.addAll(catAssignments.getApproverUserIds());
             } else {
@@ -470,15 +479,15 @@ public class SopTemplateService {
             log.warn("Could not fetch category approvers for template [{}]: {}", template.getTemplateId(), e.getMessage());
         }
 
-        List<com.cloudkaptan.sop.dto.TaskEventDto> historyList = new ArrayList<>();
+        List<TaskEventDto> historyList = new ArrayList<>();
         try {
-            List<com.cloudkaptan.sop.entity.SopTemplateEvent> events = sopTemplateEventRepository
+            List<SopTemplateEvent> events = sopTemplateEventRepository
                     .findBySopTemplate_TemplateIdOrderByTimestampDesc(template.getTemplateId());
             if (events != null && !events.isEmpty()) {
-                for (com.cloudkaptan.sop.entity.SopTemplateEvent e : events) {
+                for (SopTemplateEvent e : events) {
                     String actorName = (e.getActor() != null) ? e.getActor().getFullName() : "System";
                     String actorIdStr = (e.getActor() != null) ? e.getActor().getUserId() : null;
-                    historyList.add(com.cloudkaptan.sop.dto.TaskEventDto.builder()
+                    historyList.add(TaskEventDto.builder()
                             .eventId(e.getEventId())
                             .actorId(actorIdStr)
                             .actorName(actorName)
@@ -488,13 +497,13 @@ public class SopTemplateService {
                             .build());
                 }
             } else {
-                List<com.cloudkaptan.sop.entity.AuditLog> audits = auditLogRepository
+                List<AuditLog> audits = auditLogRepository
                         .findByEntityTypeAndEntityIdOrderByTimestampDesc("SOP_TEMPLATE", template.getTemplateId().toString());
-                for (com.cloudkaptan.sop.entity.AuditLog a : audits) {
+                for (AuditLog a : audits) {
                     String actorName = userRepository.findById(a.getActorId())
                             .map(User::getFullName)
                             .orElse(a.getActorId());
-                    historyList.add(com.cloudkaptan.sop.dto.TaskEventDto.builder()
+                    historyList.add(TaskEventDto.builder()
                             .eventId(0L)
                             .actorId(a.getActorId())
                             .actorName(actorName)
@@ -542,7 +551,7 @@ public class SopTemplateService {
                     ? actorId
                     : (template.getCreatedBy() != null ? template.getCreatedBy().getUserId() : "usr-manoj-042");
 
-            auditLogRepository.save(com.cloudkaptan.sop.entity.AuditLog.builder()
+            auditLogRepository.save(AuditLog.builder()
                     .actorId(actId)
                     .action(action)
                     .entityType("SOP_TEMPLATE")
@@ -551,7 +560,7 @@ public class SopTemplateService {
                     .build());
 
             User actor = userRepository.findById(actId).orElse(null);
-            sopTemplateEventRepository.save(com.cloudkaptan.sop.entity.SopTemplateEvent.builder()
+            sopTemplateEventRepository.save(SopTemplateEvent.builder()
                     .sopTemplate(template)
                     .actor(actor)
                     .action(action)

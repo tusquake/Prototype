@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import com.cloudkaptan.sop.domain.enums.DocumentStatus;
 
 @Data
 @Builder
@@ -22,7 +23,7 @@ public class TaskDocumentDto {
     private String uploadedById;
     private String uploadedByName;
     private OffsetDateTime uploadedAt;
-    private com.cloudkaptan.sop.domain.enums.DocumentStatus status;
+    private DocumentStatus status;
     private String rejectionReason;
     private String actionedById;
     private String actionedByName;

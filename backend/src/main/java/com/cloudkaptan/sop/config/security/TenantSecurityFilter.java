@@ -19,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import com.cloudkaptan.sop.domain.entity.UserHierarchy;
 
 /**
  * Servlet filter that extracts tenant ID (corporate entity), user ID, and user role from incoming HTTP requests
@@ -70,7 +71,7 @@ public class TenantSecurityFilter extends OncePerRequestFilter {
 
                 // Execute in-memory recursive traversal to fetch downline hierarchy for targetUserId
                 try {
-                    List<com.cloudkaptan.sop.domain.entity.UserHierarchy> allRelations = userHierarchyRepository.findAll();
+                    List<UserHierarchy> allRelations = userHierarchyRepository.findAll();
                     java.util.Set<String> readSubIds = new java.util.HashSet<>();
                     java.util.Set<String> writeSubIds = new java.util.HashSet<>();
                     java.util.Set<String> visited = new java.util.HashSet<>();
@@ -141,11 +142,11 @@ public class TenantSecurityFilter extends OncePerRequestFilter {
         return "usr-manoj-042";
     }
 
-    private void collectDownline(String managerId, List<com.cloudkaptan.sop.domain.entity.UserHierarchy> allRelations, java.util.Set<String> readSubIds, java.util.Set<String> writeSubIds, java.util.Set<String> visited) {
+    private void collectDownline(String managerId, List<UserHierarchy> allRelations, java.util.Set<String> readSubIds, java.util.Set<String> writeSubIds, java.util.Set<String> visited) {
         if (managerId == null || visited.contains(managerId)) return;
         visited.add(managerId);
 
-        for (com.cloudkaptan.sop.domain.entity.UserHierarchy rel : allRelations) {
+        for (UserHierarchy rel : allRelations) {
             if (managerId.equals(rel.getManagerId())) {
                 String subId = rel.getSubordinateId();
                 if (subId != null && !subId.isBlank()) {

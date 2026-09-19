@@ -8,6 +8,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 import com.cloudkaptan.sop.domain.enums.UploadTiming;
+import com.cloudkaptan.sop.domain.enums.DocumentStatus;
 
 @Entity
 @Table(name = "task_documents")
@@ -56,7 +57,7 @@ public class TaskDocument {
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 30, nullable = false)
-    private com.cloudkaptan.sop.domain.enums.DocumentStatus status = com.cloudkaptan.sop.domain.enums.DocumentStatus.PENDING_REVIEW;
+    private DocumentStatus status = DocumentStatus.PENDING_REVIEW;
 
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;

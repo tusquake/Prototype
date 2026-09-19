@@ -31,6 +31,12 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import com.cloudkaptan.sop.entity.AuditLog;
+import com.cloudkaptan.sop.entity.TaskComment;
+import com.cloudkaptan.sop.entity.TaskEvent;
+import com.cloudkaptan.sop.repository.AuditLogRepository;
+import com.cloudkaptan.sop.repository.TaskCommentRepository;
+import com.cloudkaptan.sop.repository.TaskEventRepository;
 
 @Service
 public class TaskDocumentService {
@@ -43,9 +49,9 @@ public class TaskDocumentService {
     private final UserRepository userRepository;
     private final StorageService storageService;
     private final Environment environment;
-    private final com.cloudkaptan.sop.repository.AuditLogRepository auditLogRepository;
-    private final com.cloudkaptan.sop.repository.TaskEventRepository taskEventRepository;
-    private final com.cloudkaptan.sop.repository.TaskCommentRepository taskCommentRepository;
+    private final AuditLogRepository auditLogRepository;
+    private final TaskEventRepository taskEventRepository;
+    private final TaskCommentRepository taskCommentRepository;
 
     @Value("${gcp.gcs.bucket-name:finsop-task-documents}")
     private String bucketName;
@@ -63,9 +69,9 @@ public class TaskDocumentService {
                                UserRepository userRepository,
                                StorageService storageService,
                                Environment environment,
-                               com.cloudkaptan.sop.repository.AuditLogRepository auditLogRepository,
-                               com.cloudkaptan.sop.repository.TaskEventRepository taskEventRepository,
-                               com.cloudkaptan.sop.repository.TaskCommentRepository taskCommentRepository) {
+                               AuditLogRepository auditLogRepository,
+                               TaskEventRepository taskEventRepository,
+                               TaskCommentRepository taskCommentRepository) {
         this.storage = storage;
         this.taskRepository = taskRepository;
         this.taskDocumentRepository = taskDocumentRepository;
@@ -215,7 +221,7 @@ public class TaskDocumentService {
         String action = resubmit ? "DOCUMENT_RESUBMITTED" : "DOCUMENT_UPLOADED";
         String taskRecordNo = task.getRecordNo() != null ? task.getRecordNo() : taskId.toString();
 
-        auditLogRepository.save(com.cloudkaptan.sop.entity.AuditLog.builder()
+        auditLogRepository.save(AuditLog.builder()
                 .actorId(actor.getUserId())
                 .action(action)
                 .entityType("TASK")
@@ -223,7 +229,7 @@ public class TaskDocumentService {
                 .correlationId(UUID.randomUUID().toString())
                 .build());
 
-        taskEventRepository.save(com.cloudkaptan.sop.entity.TaskEvent.builder()
+        taskEventRepository.save(TaskEvent.builder()
                 .task(task)
                 .actor(actor)
                 .action(action)
@@ -231,7 +237,7 @@ public class TaskDocumentService {
                 .toStatus(task.getStatus())
                 .build());
 
-        taskCommentRepository.save(com.cloudkaptan.sop.entity.TaskComment.builder()
+        taskCommentRepository.save(TaskComment.builder()
                 .task(task)
                 .author(actor)
                 .commentText("Uploaded evidence file: " + fileName + (resubmit ? " (Re-submitted in place of rejected document)" : ""))
@@ -367,7 +373,7 @@ public class TaskDocumentService {
         // Save Task-Level Audit Logs & Activity History
         String taskRecordNo = task.getRecordNo() != null ? task.getRecordNo() : taskId.toString();
 
-        auditLogRepository.save(com.cloudkaptan.sop.entity.AuditLog.builder()
+        auditLogRepository.save(AuditLog.builder()
                 .actorId(actor.getUserId())
                 .action("DOCUMENT_DELETED")
                 .entityType("TASK")
@@ -375,7 +381,7 @@ public class TaskDocumentService {
                 .correlationId(UUID.randomUUID().toString())
                 .build());
 
-        taskEventRepository.save(com.cloudkaptan.sop.entity.TaskEvent.builder()
+        taskEventRepository.save(TaskEvent.builder()
                 .task(task)
                 .actor(actor)
                 .action("DOCUMENT_DELETED")
@@ -383,7 +389,7 @@ public class TaskDocumentService {
                 .toStatus(task.getStatus())
                 .build());
 
-        taskCommentRepository.save(com.cloudkaptan.sop.entity.TaskComment.builder()
+        taskCommentRepository.save(TaskComment.builder()
                 .task(task)
                 .author(actor)
                 .commentText("Deleted evidence file: " + document.getFileName())

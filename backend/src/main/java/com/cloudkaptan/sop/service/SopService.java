@@ -22,6 +22,7 @@ import com.cloudkaptan.sop.repository.UserNotificationRepository;
 import com.cloudkaptan.sop.repository.SopVersionRepository;
 import com.cloudkaptan.sop.entity.SopVersion;
 import com.cloudkaptan.sop.entity.SopEvent;
+import com.cloudkaptan.sop.entity.TaskEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -39,6 +40,11 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Objects;
 import java.util.stream.Stream;
+import com.cloudkaptan.sop.domain.enums.SopFrequency;
+import com.cloudkaptan.sop.dto.NotificationEventDto;
+import com.cloudkaptan.sop.entity.Task;
+import com.cloudkaptan.sop.repository.TaskEventRepository;
+import com.cloudkaptan.sop.repository.TaskRepository;
 
 @Slf4j
 @Service
@@ -55,8 +61,8 @@ public class SopService {
     private final NotificationPublisherService notificationPublisherService;
     private final UserNotificationRepository userNotificationRepository;
     private final UserCategoryPermissionService categoryPermissionService;
-    private final com.cloudkaptan.sop.repository.TaskRepository taskRepository;
-    private final com.cloudkaptan.sop.repository.TaskEventRepository taskEventRepository;
+    private final TaskRepository taskRepository;
+    private final TaskEventRepository taskEventRepository;
     private final TaskWorkflowService taskWorkflowService;
     private final SopSecurityEvaluator sopSecurityEvaluator;
 
@@ -75,7 +81,7 @@ public class SopService {
     @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
     public Page<SopDto> getSopsForUser(List<EntityCode> entities, SopStatus status, String processCategory,
-                                       com.cloudkaptan.sop.domain.enums.SopFrequency frequency, String search,
+                                       SopFrequency frequency, String search,
                                        String userId, String userRole, Pageable pageable) {
         List<SopDto> allDtos = getSopsForUser(entities, status, processCategory, frequency, search, userId, userRole);
         int start = (int) pageable.getOffset();
@@ -95,7 +101,7 @@ public class SopService {
     @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
     public List<SopDto> getSopsForUser(List<EntityCode> entities, SopStatus status, String processCategory,
-                                       com.cloudkaptan.sop.domain.enums.SopFrequency frequency, String search,
+                                       SopFrequency frequency, String search,
                                        String userId, String userRole) {
         List<Sop> sops = (entities == null || entities.isEmpty())
                 ? sopRepository.findAll()
@@ -342,7 +348,7 @@ public class SopService {
                 .description("SOP assigned by Admin. Pending drafting by assigned creator.")
                 .processCategory(request.getProcessCategory())
                 .entity(entity)
-                .frequency(com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY)
+                .frequency(SopFrequency.MONTHLY)
                 .dueDayOffset(15)
                 .isRecurring(false)
                 .assignedCreatorId(primaryCreatorId)
@@ -377,7 +383,7 @@ public class SopService {
         // Notify ALL assigned creators
         for (String creatorId : creatorIds) {
             try {
-                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                notificationPublisherService.publishNotification(NotificationEventDto.builder()
                         .recipientUserId(creatorId)
                         .eventType("SOP_ASSIGNED")
                         .title("SOP Creation Task Assigned")
@@ -465,7 +471,7 @@ public class SopService {
 
         for (String approverId : approversToNotify) {
             try {
-                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                notificationPublisherService.publishNotification(NotificationEventDto.builder()
                         .recipientUserId(approverId)
                         .eventType("SOP_SUBMITTED")
                         .title("SOP Approval Required")
@@ -517,7 +523,7 @@ public class SopService {
             OffsetDateTime startDT = startD.atStartOfDay().atOffset(ZoneOffset.UTC);
             OffsetDateTime dueDT = dueD.atStartOfDay().atOffset(ZoneOffset.UTC);
 
-            version.setFrequency(saved.getFrequency() != null ? saved.getFrequency() : com.cloudkaptan.sop.domain.enums.SopFrequency.MONTHLY);
+            version.setFrequency(saved.getFrequency() != null ? saved.getFrequency() : SopFrequency.MONTHLY);
             version.setStartDateTime(startDT);
             version.setDueDateTime(dueDT);
             version.setIsRecurring(Boolean.TRUE.equals(saved.getIsRecurring()));
@@ -571,7 +577,7 @@ public class SopService {
 
         for (String creatorId : creatorsToNotify) {
             try {
-                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                notificationPublisherService.publishNotification(NotificationEventDto.builder()
                         .recipientUserId(creatorId)
                         .eventType(isApproved ? "SOP_APPROVED" : "SOP_REJECTED")
                         .title(isApproved ? "SOP Approved & Activated" : "SOP Draft Rejected")
@@ -665,7 +671,7 @@ public class SopService {
 
         // Publish In-App Notification to Assigned Approver
         if (saved.getAssignedApproverId() != null) {
-            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+            notificationPublisherService.publishNotification(NotificationEventDto.builder()
                     .recipientUserId(saved.getAssignedApproverId())
                     .eventType("SOP_SUBMITTED")
                     .title("SOP Modified — Approval Required")
@@ -784,7 +790,7 @@ public class SopService {
         // 5. Notify assigned approvers derived from category permissions
         for (String approverId : categoryApprovers) {
             try {
-                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                notificationPublisherService.publishNotification(NotificationEventDto.builder()
                         .recipientUserId(approverId)
                         .eventType("SOP_SUBMITTED")
                         .title("SOP Approval Required")
@@ -813,9 +819,9 @@ public class SopService {
 
         List<SopEventDto> historyList = new java.util.ArrayList<>();
         try {
-            List<com.cloudkaptan.sop.entity.SopEvent> rawSopEvents = sopEventRepository
+            List<SopEvent> rawSopEvents = sopEventRepository
                     .findBySop_SopIdOrderByTimestampAsc(sop.getSopId());
-            for (com.cloudkaptan.sop.entity.SopEvent e : rawSopEvents) {
+            for (SopEvent e : rawSopEvents) {
                 historyList.add(SopEventDto.builder()
                         .eventId(e.getEventId())
                         .action(e.getAction())
@@ -829,9 +835,9 @@ public class SopService {
                         .build());
             }
 
-            List<com.cloudkaptan.sop.entity.TaskEvent> rawTaskEvents = taskEventRepository
+            List<TaskEvent> rawTaskEvents = taskEventRepository
                     .findByTask_Sop_SopIdOrderByTimestampAsc(sop.getSopId());
-            for (com.cloudkaptan.sop.entity.TaskEvent te : rawTaskEvents) {
+            for (TaskEvent te : rawTaskEvents) {
                 String taskRef = (te.getTask() != null) ? te.getTask().getRecordNo() : "Task";
                 historyList.add(SopEventDto.builder()
                         .eventId(te.getEventId())
@@ -910,7 +916,7 @@ public class SopService {
 
         List<TaskDto> taskList = new java.util.ArrayList<>();
         try {
-            List<com.cloudkaptan.sop.entity.Task> tasks = taskRepository.findBySop_SopIdOrderByRecordNoAsc(sop.getSopId());
+            List<Task> tasks = taskRepository.findBySop_SopIdOrderByRecordNoAsc(sop.getSopId());
             taskList = tasks.stream().map(taskWorkflowService::mapToDto).toList();
         } catch (Exception e) {
             log.warn("Could not fetch tasks for SOP [{}]: {}", sop.getSopId(), e.getMessage());

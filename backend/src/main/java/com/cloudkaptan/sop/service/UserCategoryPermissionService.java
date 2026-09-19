@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  
 import java.util.*;
 import java.util.stream.Collectors;
+import com.cloudkaptan.sop.dto.NotificationEventDto;
  
 @Slf4j
 @Service
@@ -68,7 +69,7 @@ public class UserCategoryPermissionService {
 
         if (Boolean.TRUE.equals(request.getCanCreateSop())) {
             try {
-                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                notificationPublisherService.publishNotification(NotificationEventDto.builder()
                         .recipientUserId(request.getUserId())
                         .eventType("CATEGORY_PERMISSION_GRANTED")
                         .title("SOP Creation Access Granted")
@@ -232,7 +233,7 @@ public class UserCategoryPermissionService {
             // Send in-app notification to each newly granted creator
             for (String creatorId : addedCreators) {
                 try {
-                    notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                    notificationPublisherService.publishNotification(NotificationEventDto.builder()
                             .recipientUserId(creatorId)
                             .eventType("CATEGORY_PERMISSION_GRANTED")
                             .title("SOP Creation Access Granted")

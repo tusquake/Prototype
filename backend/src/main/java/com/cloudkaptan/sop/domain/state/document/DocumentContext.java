@@ -4,6 +4,7 @@ import com.cloudkaptan.sop.entity.TaskDocument;
 import com.cloudkaptan.sop.entity.User;
 import lombok.Getter;
 import lombok.Setter;
+import com.cloudkaptan.sop.domain.enums.DocumentStatus;
 
 @Getter
 public class DocumentContext {
@@ -15,7 +16,7 @@ public class DocumentContext {
 
     public DocumentContext(TaskDocument document) {
         this.document = document;
-        this.state = switch (document.getStatus() != null ? document.getStatus() : com.cloudkaptan.sop.domain.enums.DocumentStatus.PENDING_REVIEW) {
+        this.state = switch (document.getStatus() != null ? document.getStatus() : DocumentStatus.PENDING_REVIEW) {
             case PENDING_REVIEW -> new PendingReviewDocumentState();
             case APPROVED -> new ApprovedDocumentState();
             case REJECTED -> new RejectedDocumentState();

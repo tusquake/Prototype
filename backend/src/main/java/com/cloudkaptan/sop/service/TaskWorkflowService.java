@@ -26,6 +26,27 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import com.cloudkaptan.sop.config.security.SopSecurityEvaluator;
+import com.cloudkaptan.sop.dto.NotificationEventDto;
+import com.cloudkaptan.sop.dto.TaskActionRequest;
+import com.cloudkaptan.sop.dto.TaskDocumentDto;
+import com.cloudkaptan.sop.dto.TaskEventDto;
+import com.cloudkaptan.sop.dto.TaskReassignmentHistoryDto;
+import com.cloudkaptan.sop.dto.TaskReassignRequest;
+import com.cloudkaptan.sop.entity.AuditLog;
+import com.cloudkaptan.sop.entity.ProcessCategory;
+import com.cloudkaptan.sop.entity.Sop;
+import com.cloudkaptan.sop.entity.TaskComment;
+import com.cloudkaptan.sop.entity.TaskEvent;
+import com.cloudkaptan.sop.entity.TaskReassignmentHistory;
+import com.cloudkaptan.sop.repository.AuditLogRepository;
+import com.cloudkaptan.sop.repository.ProcessCategoryRepository;
+import com.cloudkaptan.sop.repository.TaskCommentRepository;
+import com.cloudkaptan.sop.repository.TaskDocumentRepository;
+import com.cloudkaptan.sop.repository.TaskEventRepository;
+import com.cloudkaptan.sop.repository.TaskReassignmentHistoryRepository;
+import com.cloudkaptan.sop.repository.TaskTemplateRepository;
+import com.cloudkaptan.sop.repository.UserNotificationRepository;
 
 @Slf4j
 @Service
@@ -35,21 +56,21 @@ public class TaskWorkflowService {
     private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final com.cloudkaptan.sop.repository.AuditLogRepository auditLogRepository;
-    private final com.cloudkaptan.sop.repository.TaskEventRepository taskEventRepository;
-    private final com.cloudkaptan.sop.repository.TaskCommentRepository taskCommentRepository;
+    private final AuditLogRepository auditLogRepository;
+    private final TaskEventRepository taskEventRepository;
+    private final TaskCommentRepository taskCommentRepository;
     private final NotificationPublisherService notificationPublisherService;
-    private final com.cloudkaptan.sop.repository.UserNotificationRepository userNotificationRepository;
-    private final com.cloudkaptan.sop.config.security.SopSecurityEvaluator sopSecurityEvaluator;
+    private final UserNotificationRepository userNotificationRepository;
+    private final SopSecurityEvaluator sopSecurityEvaluator;
     private final UserCategoryPermissionService categoryPermissionService;
-    private final com.cloudkaptan.sop.repository.TaskReassignmentHistoryRepository taskReassignmentHistoryRepository;
+    private final TaskReassignmentHistoryRepository taskReassignmentHistoryRepository;
     private final TaskSchedulerService taskSchedulerService;
-    private final com.cloudkaptan.sop.repository.TaskDocumentRepository taskDocumentRepository;
-    private final com.cloudkaptan.sop.repository.ProcessCategoryRepository processCategoryRepository;
-    private final com.cloudkaptan.sop.repository.TaskTemplateRepository taskTemplateRepository;
+    private final TaskDocumentRepository taskDocumentRepository;
+    private final ProcessCategoryRepository processCategoryRepository;
+    private final TaskTemplateRepository taskTemplateRepository;
 
     @Transactional
-    public TaskDto processTaskAction(UUID taskId, com.cloudkaptan.sop.dto.TaskActionRequest request) {
+    public TaskDto processTaskAction(UUID taskId, TaskActionRequest request) {
         String act = request.getAction() != null ? request.getAction().trim().toUpperCase() : "";
         switch (act) {
             case "SUBMIT":
@@ -137,7 +158,7 @@ public class TaskWorkflowService {
 
         for (String cId : checkerIds) {
             if (!cId.equals(actorId)) {
-                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                notificationPublisherService.publishNotification(NotificationEventDto.builder()
                         .recipientUserId(cId)
                         .eventType("TASK_SUBMITTED")
                         .title("Compliance Task Review Required")
@@ -180,7 +201,7 @@ public class TaskWorkflowService {
                     List<String> makerIds = unlocked.getAssignedMakerIds();
                     if (makerIds != null && !makerIds.isEmpty()) {
                         for (String mId : makerIds) {
-                            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                            notificationPublisherService.publishNotification(NotificationEventDto.builder()
                                     .recipientUserId(mId)
                                     .eventType("TASK_UNLOCKED")
                                     .title("Dependent Task Unlocked")
@@ -238,7 +259,7 @@ public class TaskWorkflowService {
         // Publish In-App Notification to assigned Maker
         String makerId = saved.getMaker() != null ? saved.getMaker().getUserId() : (saved.getAssignedMakerIds() != null && !saved.getAssignedMakerIds().isEmpty() ? saved.getAssignedMakerIds().get(0) : null);
         if (makerId != null) {
-            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+            notificationPublisherService.publishNotification(NotificationEventDto.builder()
                     .recipientUserId(makerId)
                     .eventType("TASK_APPROVED")
                     .title("Compliance Task Approved")
@@ -290,7 +311,7 @@ public class TaskWorkflowService {
         // Publish In-App Notification to assigned Maker
         String makerId = saved.getMaker() != null ? saved.getMaker().getUserId() : (saved.getAssignedMakerIds() != null && !saved.getAssignedMakerIds().isEmpty() ? saved.getAssignedMakerIds().get(0) : null);
         if (makerId != null) {
-            notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+            notificationPublisherService.publishNotification(NotificationEventDto.builder()
                     .recipientUserId(makerId)
                     .eventType("TASK_REJECTED")
                     .title("Compliance Task Rejected")
@@ -314,7 +335,7 @@ public class TaskWorkflowService {
         Task task = getTaskOrThrow(taskId);
         taskRepository.delete(task);
 
-        com.cloudkaptan.sop.entity.AuditLog auditLog = com.cloudkaptan.sop.entity.AuditLog.builder()
+        AuditLog auditLog = AuditLog.builder()
             .actorId("usr-manoj-042")
             .action("DELETE_TASK")
             .entityType("TASK")
@@ -505,7 +526,7 @@ public class TaskWorkflowService {
     }
 
     @Transactional
-    public TaskDto reassignTask(UUID taskId, com.cloudkaptan.sop.dto.TaskReassignRequest request) {
+    public TaskDto reassignTask(UUID taskId, TaskReassignRequest request) {
         Task task = getTaskOrThrow(taskId);
         User actor = getUserOrThrow(request.getActorId());
 
@@ -515,7 +536,7 @@ public class TaskWorkflowService {
         String userRole = actor.getRole() != null ? actor.getRole().name() : "";
         boolean isAdmin = "ADMIN".equalsIgnoreCase(userRole);
 
-        com.cloudkaptan.sop.entity.Sop sop = task.getSop();
+        Sop sop = task.getSop();
         boolean isSopCreator = (sop.getCreatedBy() != null && (actorId.equalsIgnoreCase(sop.getCreatedBy().getUserId()) || (actorEmail != null && actorEmail.equalsIgnoreCase(sop.getCreatedBy().getEmail()))))
                 || (sop.getAssignedCreatorId() != null && (actorId.equalsIgnoreCase(sop.getAssignedCreatorId()) || (actorEmail != null && actorEmail.equalsIgnoreCase(sop.getAssignedCreatorId()))))
                 || (sop.getAssignedCreatorIds() != null && (sop.getAssignedCreatorIds().contains(actorId) || (actorEmail != null && sop.getAssignedCreatorIds().contains(actorEmail))))
@@ -564,7 +585,7 @@ public class TaskWorkflowService {
                 .collect(java.util.stream.Collectors.joining(", "));
 
         // Save Reassignment History record
-        com.cloudkaptan.sop.entity.TaskReassignmentHistory historyRecord = com.cloudkaptan.sop.entity.TaskReassignmentHistory.builder()
+        TaskReassignmentHistory historyRecord = TaskReassignmentHistory.builder()
                 .task(task)
                 .previousMakerIds(String.join(", ", prevMakerIds))
                 .previousMakerNames(prevMakerNames)
@@ -585,7 +606,7 @@ public class TaskWorkflowService {
         Task saved = taskRepository.save(task);
 
         // Record global audit log
-        com.cloudkaptan.sop.entity.AuditLog auditLog = com.cloudkaptan.sop.entity.AuditLog.builder()
+        AuditLog auditLog = AuditLog.builder()
                 .actorId(actorId)
                 .action("REASSIGN_TASK")
                 .entityType("TASK")
@@ -597,7 +618,7 @@ public class TaskWorkflowService {
         // 1. Notify newly assigned Makers
         for (String mId : newMakerIds) {
             if (!mId.equals(actorId)) {
-                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                notificationPublisherService.publishNotification(NotificationEventDto.builder()
                         .recipientUserId(mId)
                         .eventType("TASK_REASSIGNED")
                         .title("Task Assigned to You (Maker Pool)")
@@ -611,7 +632,7 @@ public class TaskWorkflowService {
         // 2. Notify newly assigned Checkers
         for (String cId : newCheckerIds) {
             if (!cId.equals(actorId) && !newMakerIds.contains(cId)) {
-                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                notificationPublisherService.publishNotification(NotificationEventDto.builder()
                         .recipientUserId(cId)
                         .eventType("TASK_REASSIGNED")
                         .title("Task Assigned to You (Checker Pool)")
@@ -632,7 +653,7 @@ public class TaskWorkflowService {
 
         for (String stId : sopStakeholders) {
             if (stId != null && !stId.equals(actorId) && !newMakerIds.contains(stId) && !newCheckerIds.contains(stId)) {
-                notificationPublisherService.publishNotification(com.cloudkaptan.sop.dto.NotificationEventDto.builder()
+                notificationPublisherService.publishNotification(NotificationEventDto.builder()
                         .recipientUserId(stId)
                         .eventType("TASK_REASSIGNED")
                         .title("Task Reassignment Notice")
@@ -680,22 +701,22 @@ public class TaskWorkflowService {
         String actualCheckerName = (task.getChecker() != null && (task.getStatus() == TaskStatus.APPROVED || task.getStatus() == TaskStatus.REJECTED || task.getStatus() == TaskStatus.PERMANENTLY_REJECTED))
             ? task.getChecker().getFullName() : null;
 
-        List<com.cloudkaptan.sop.entity.TaskEvent> rawEvents = taskEventRepository.findByTask_TaskIdOrderByTimestampAsc(task.getTaskId());
-        List<com.cloudkaptan.sop.entity.TaskComment> rawComments = taskCommentRepository.findByTask_TaskIdOrderByCreatedAtAsc(task.getTaskId());
+        List<TaskEvent> rawEvents = taskEventRepository.findByTask_TaskIdOrderByTimestampAsc(task.getTaskId());
+        List<TaskComment> rawComments = taskCommentRepository.findByTask_TaskIdOrderByCreatedAtAsc(task.getTaskId());
 
-        List<com.cloudkaptan.sop.dto.TaskEventDto> historyList = new java.util.ArrayList<>();
+        List<TaskEventDto> historyList = new java.util.ArrayList<>();
         for (int idx = 0; idx < rawEvents.size(); idx++) {
-            com.cloudkaptan.sop.entity.TaskEvent e = rawEvents.get(idx);
+            TaskEvent e = rawEvents.get(idx);
             String commentText = (idx < rawComments.size()) ? rawComments.get(idx).getCommentText() : null;
             if (commentText == null && !rawComments.isEmpty()) {
                 commentText = rawComments.stream()
                     .filter(c -> c.getAuthor().getUserId().equals(e.getActor().getUserId()))
-                    .map(com.cloudkaptan.sop.entity.TaskComment::getCommentText)
+                    .map(TaskComment::getCommentText)
                     .reduce((first, second) -> second)
                     .orElse(null);
             }
 
-            historyList.add(com.cloudkaptan.sop.dto.TaskEventDto.builder()
+            historyList.add(TaskEventDto.builder()
                 .eventId(e.getEventId())
                 .actorId(e.getActor().getUserId())
                 .actorName(e.getActor().getFullName())
@@ -709,7 +730,7 @@ public class TaskWorkflowService {
 
         boolean hasCreateEvent = historyList.stream().anyMatch(h -> h.getAction() != null && h.getAction().toUpperCase().contains("CREATE"));
         if (!hasCreateEvent) {
-            historyList.add(0, com.cloudkaptan.sop.dto.TaskEventDto.builder()
+            historyList.add(0, TaskEventDto.builder()
                 .eventId(0L)
                 .actorId(task.getMaker() != null ? task.getMaker().getUserId() : "usr-manoj-042")
                 .actorName("System Scheduler")
@@ -721,11 +742,11 @@ public class TaskWorkflowService {
                 .build());
         }
 
-        List<com.cloudkaptan.sop.entity.TaskReassignmentHistory> rawReassignments =
+        List<TaskReassignmentHistory> rawReassignments =
                 taskReassignmentHistoryRepository.findByTask_TaskIdOrderByWorkedUntilDesc(task.getTaskId());
 
-        List<com.cloudkaptan.sop.dto.TaskReassignmentHistoryDto> reassignList = rawReassignments.stream()
-                .map(r -> com.cloudkaptan.sop.dto.TaskReassignmentHistoryDto.builder()
+        List<TaskReassignmentHistoryDto> reassignList = rawReassignments.stream()
+                .map(r -> TaskReassignmentHistoryDto.builder()
                         .historyId(r.getHistoryId())
                         .taskId(task.getTaskId())
                         .previousMakerNames(r.getPreviousMakerNames())
@@ -753,8 +774,8 @@ public class TaskWorkflowService {
             if (task.getSop().getAssignedApproverIds() != null) approverList.addAll(task.getSop().getAssignedApproverIds());
         }
 
-        List<com.cloudkaptan.sop.dto.TaskDocumentDto> documentList = taskDocumentRepository.findByTaskTaskIdOrderByUploadedAtDesc(task.getTaskId()).stream()
-                .map(doc -> com.cloudkaptan.sop.dto.TaskDocumentDto.builder()
+        List<TaskDocumentDto> documentList = taskDocumentRepository.findByTaskTaskIdOrderByUploadedAtDesc(task.getTaskId()).stream()
+                .map(doc -> TaskDocumentDto.builder()
                         .documentId(doc.getDocumentId())
                         .taskId(doc.getTask().getTaskId())
                         .fileName(doc.getFileName())
@@ -835,7 +856,7 @@ public class TaskWorkflowService {
             .categoryCode(task.getSop().getProcessCategory())
             .categoryName(task.getSop().getProcessCategory() != null ? 
                 processCategoryRepository.findByCategoryCode(task.getSop().getProcessCategory())
-                    .map(com.cloudkaptan.sop.entity.ProcessCategory::getCategoryName)
+                    .map(ProcessCategory::getCategoryName)
                     .orElse(task.getSop().getProcessCategory()) : null)
             .periodKey(task.getPeriodKey())
             .entityCode(task.getEntity().getEntityCode())
