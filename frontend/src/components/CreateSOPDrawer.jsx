@@ -10,6 +10,7 @@ import {
   getUsersByPermission,
   getProcessCategories,
   getUserCreatableCategories,
+  getUserAccessibleCategories,
   fetchEntities,
   createSopTemplate,
   updateSopTemplate,
