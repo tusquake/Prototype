@@ -8,9 +8,6 @@ import { useEntity } from '../context/EntityContext';
 
 const PAGE_SIZE = 5;
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Task-level KPI Cards
-// ──────────────────────────────────────────────────────────────────────────────
 const METRICS_ARR = [
   {
     id: 'trackedTasks',
@@ -84,9 +81,6 @@ function MetricCard({ loading, value, label, valueColorClass, iconBgClass, iconC
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// SOP status colour mapping
-// ──────────────────────────────────────────────────────────────────────────────
 function sopStatusChip(status) {
   const map = {
     ACTIVE: { bg: 'bg-[rgba(5,150,105,0.1)]', text: 'text-[#059669]', label: 'Active' },
@@ -102,9 +96,6 @@ function sopStatusChip(status) {
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Horizontal progress bar
-// ──────────────────────────────────────────────────────────────────────────────
 function ProgressBar({ pct, overdue }) {
   const color = overdue > 0 ? '#dc2626' : pct >= 80 ? '#059669' : pct >= 40 ? '#2563eb' : '#f59e0b';
   return (
@@ -120,11 +111,7 @@ function ProgressBar({ pct, overdue }) {
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// SOP Timeline Bar Chart
-// ──────────────────────────────────────────────────────────────────────────────
 function SopBarChart({ sopList }) {
-  // show top 8 by overdue then name
   const items = [...sopList].slice(0, 8);
   if (items.length === 0) return null;
 
@@ -178,7 +165,7 @@ function SopBarChart({ sopList }) {
           </div>
         );
       })}
-      {/* Legend */}
+
       <div className="flex items-center gap-4 mt-2 pt-2 border-t border-[#f1f5f9]">
         <span className="flex items-center gap-1 text-[11px] text-[#64748b]">
           <span className="inline-block w-3 h-3 rounded-sm bg-[#059669]" /> Completed
@@ -194,9 +181,6 @@ function SopBarChart({ sopList }) {
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Main Component
-// ──────────────────────────────────────────────────────────────────────────────
 const TABS = ['Task Overview', 'SOP Overview'];
 
 export default function Dashboard() {
@@ -212,7 +196,6 @@ export default function Dashboard() {
   const session = getSession();
   const currentUser = session?.user;
 
-  // Load task dashboard summary
   useEffect(() => {
     async function loadSummary() {
       setLoading(true);
@@ -223,7 +206,6 @@ export default function Dashboard() {
     loadSummary();
   }, [selectedEntities, currentUser?.email]);
 
-  // Load SOP progress data
   useEffect(() => {
     async function loadSopProgress() {
       setSopLoading(true);
@@ -234,7 +216,6 @@ export default function Dashboard() {
     loadSopProgress();
   }, [selectedEntities]);
 
-  // Task metrics
   const trackedTasks = summaryData?.metrics?.trackedTasks ?? 0;
   const approvedThisCycle = summaryData?.metrics?.approvedThisCycle ?? 0;
   const pendingReview = summaryData?.metrics?.pendingReview ?? 0;
@@ -243,7 +224,6 @@ export default function Dashboard() {
   const overdueList = summaryData?.overdueList ?? [];
   const paginatedOverdue = overdueList.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  // SOP metrics
   const totalSops = sopProgressData.length;
   const activeSops = sopProgressData.filter(s => s.status === 'ACTIVE' || s.status === 'IN_PROGRESS').length;
   const completedSops = sopProgressData.filter(s => s.status === 'COMPLETED').length;
@@ -281,7 +261,6 @@ export default function Dashboard() {
     <>
       <div className="p-6 md:px-8 w-full max-w-full box-border">
 
-        {/* ── Tabs ── */}
         <div className="flex items-center gap-1 mb-6 border-b border-[#e2e8f0]">
           {TABS.map(tab => (
             <button
@@ -299,12 +278,8 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* ══════════════════════════════════════════════════════════════════
-            TASK OVERVIEW TAB
-        ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'Task Overview' && (
           <>
-            {/* Metrics Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-[28px]">
               {METRICS_ARR.map((metric) => {
                 const value =
@@ -327,7 +302,6 @@ export default function Dashboard() {
               })}
             </div>
 
-            {/* Compliance Scorecard */}
             <div className="bg-bg-surface border border-[#e2e8f0] rounded-[12px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
               <div className="px-6 py-[18px] border-b border-[#f1f5f9] flex items-center justify-between bg-bg-surface">
                 <span className="text-[14.5px] font-bold text-[#1e293b] flex items-center">
@@ -375,7 +349,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Overdue Watchlist */}
             <div className="bg-bg-surface border border-[#e2e8f0] rounded-[12px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)] mt-6">
               <div className="px-6 py-[18px] border-b border-[#f1f5f9] flex items-center justify-between bg-bg-surface">
                 <span className="text-[14.5px] font-bold text-[#1e293b] flex items-center">
@@ -440,12 +413,8 @@ export default function Dashboard() {
           </>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════
-            SOP OVERVIEW TAB
-        ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'SOP Overview' && (
           <>
-            {/* SOP KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-[28px]">
               {SOP_KPI.map((kpi) => (
                 <MetricCard
@@ -461,7 +430,6 @@ export default function Dashboard() {
               ))}
             </div>
 
-            {/* SOP Progress Timeline Chart */}
             <div className="bg-bg-surface border border-[#e2e8f0] rounded-[12px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-6">
               <div className="px-6 py-[18px] border-b border-[#f1f5f9] flex items-center justify-between">
                 <span className="text-[14.5px] font-bold text-[#1e293b] flex items-center">
@@ -491,7 +459,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* SOP Progress Detail Table */}
             <div className="bg-bg-surface border border-[#e2e8f0] rounded-[12px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
               <div className="px-6 py-[18px] border-b border-[#f1f5f9] flex items-center justify-between">
                 <span className="text-[14.5px] font-bold text-[#1e293b] flex items-center">
