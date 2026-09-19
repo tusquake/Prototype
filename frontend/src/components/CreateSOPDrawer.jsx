@@ -131,6 +131,7 @@ export default function CreateSopDrawer({
 
   const [permittedMakers, setPermittedMakers] = useState([{ id: 'usr-2', name: 'Aarav Sharma' }, { id: 'usr-4', name: 'Vikram Singh' }]);
   const [permittedCheckers, setPermittedCheckers] = useState([{ id: 'usr-1', name: 'Compliance Lead' }, { id: 'usr-3', name: 'Priya Patel' }]);
+  const [permittedApprovers, setPermittedApprovers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [localUserMap, setLocalUserMap] = useState(userMap);
 
@@ -367,25 +368,42 @@ export default function CreateSopDrawer({
       setLoadingUsers(true);
 
       try {
-        const [makers, checkers] = await Promise.all([
+        const [makers, checkers, approvers] = await Promise.all([
           getUsersByPermission(category, 'MAKER'),
           getUsersByPermission(category, 'CHECKER'),
+          getUsersByPermission(category, 'APPROVER'),
         ]);
         setPermittedMakers(makers || []);
         setPermittedCheckers(checkers || []);
-
-        // Reset pool selections gracefully after fetching
-        // setValue('defaultMakerIds', []);
-        // setValue('defaultCheckerIds', []);
+        setPermittedApprovers(approvers || []);
       } catch {
         setPermittedMakers([]);
         setPermittedCheckers([]);
+        setPermittedApprovers([]);
       } finally {
         setLoadingUsers(false);
       }
     },
     [setValue]
   );
+
+  const isCategoryApprover = useMemo(() => {
+    if (isAdmin) return true;
+    const uid = currentUser?.id || currentUser?.userId || currentUser?.email;
+    const uName = currentUser?.name || currentUser?.fullName;
+
+    // 1. Check template assigned approver fields
+    const assignedIds = editingTemplate?.assignedApproverIds || [];
+    const assignedNames = editingTemplate?.assignedApproverNames || [];
+    if (uid && (assignedIds.includes(uid) || editingTemplate?.assignedApproverId === uid)) return true;
+    if (uName && assignedNames.includes(uName)) return true;
+
+    // 2. Check category permission assigned approvers
+    if (uid && permittedApprovers.some(a => a.id === uid || a.userId === uid || a.email === uid)) return true;
+    if (uName && permittedApprovers.some(a => a.name === uName || a.fullName === uName)) return true;
+
+    return false;
+  }, [isAdmin, currentUser, editingTemplate, permittedApprovers]);
 
   const getScheduleSummary = () => {
     if (!isRecurring) {
@@ -1285,7 +1303,7 @@ export default function CreateSopDrawer({
                 </>
               )}
 
-              {editingTemplate?.status === 'PENDING_APPROVAL' && (
+              {editingTemplate?.status === 'PENDING_APPROVAL' && isCategoryApprover && (
                 <>
                   <button type="button" onClick={() => {
                     setOpenConfirmationModal(true);
