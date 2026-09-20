@@ -20,6 +20,7 @@ import com.cloudkaptan.sop.repository.TaskRepository;
 import com.google.cloud.tasks.v2.CloudTasksClient;
 import com.google.cloud.tasks.v2.HttpMethod;
 import com.google.cloud.tasks.v2.HttpRequest;
+import com.google.cloud.tasks.v2.OidcToken;
 import com.google.cloud.tasks.v2.QueueName;
 import com.google.protobuf.ByteString;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +48,12 @@ public class TaskSchedulerService {
     private final AuditLogRepository auditLogRepository;
     private final NotificationPublisherService notificationPublisherService;
 
-    private final String backendWorkerUrl = "http://136.69.60.68/finsop/v1/internal/tasks/process-single-template";
+
+    @Value("${app.cloud-run.self-url}")
+    private String backendWorkerUrl;
+
+    @Value("${gcp.cloud-tasks.invoker-service-account}")
+    private String invokerServiceAccountEmail;
 
     @Value("${gcp.project-id:finance-sop-portal}")
     private String projectId;
@@ -64,7 +70,10 @@ public class TaskSchedulerService {
         log.info("Executing scheduled task generation engine...");
         LocalDate today = LocalDate.now();
 
-        // PATH 2: New SOP Template-based generation via CLOUD TASKS
+        // ─── PATH 1: Legacy SOP-version based generation (backward compat) ────
+        // generateFromSopVersions(today);
+
+        // ─── PATH 2: New SOP Template-based generation via CLOUD TASKS ────────
         generateFromSopTemplates(today);
 
         log.info("Scheduled task generation cycle dispatched for date [{}].", today);
@@ -113,8 +122,8 @@ public class TaskSchedulerService {
                             : new ArrayList<>(List.of("usr-tushar-304"));
 
                     List<String> checkerPool = (sop.getDefaultCheckerIds() != null && !sop.getDefaultCheckerIds().isEmpty())
-                            ? new ArrayList<>(sop.getDefaultCheckerIds())
-                            : new ArrayList<>(List.of("usr-prayasa-410"));
+                                    ? new ArrayList<>(sop.getDefaultCheckerIds())
+                                    : new ArrayList<>(List.of("usr-prayasa-410"));
 
                     Task task = Task.builder()
                             .sop(sop)
@@ -167,6 +176,7 @@ public class TaskSchedulerService {
 
             for (SopTemplate template : schedulableTemplates) {
                 try {
+                    // Pre-check if already generated to save Cloud Task enqueue costs
                     RecurrenceStrategy strategy = recurrenceStrategyFactory.getStrategy(template.getFrequency());
                     String periodKey = strategy.calculatePeriodKey(today);
                     boolean sopInstanceExists = sopRepository
@@ -176,17 +186,26 @@ public class TaskSchedulerService {
                         continue;
                     }
 
+                    // Build JSON payload for the worker
                     String payload = String.format("{\"templateId\":\"%s\",\"executionDate\":\"%s\"}",
                             template.getTemplateId(), today);
 
+                    // Idempotent Task Name (Prevents duplicate queueing on the same day)
                     String taskName = String.format("%s/tasks/soptpl-%s-%s",
                             queuePath, template.getTemplateId(), today);
 
+                    // CHANGED: added OIDC token so Cloud Run's built-in IAM auth accepts the
+                    // call, no need for --allow-unauthenticated or a load balancer.
                     HttpRequest httpRequest = HttpRequest.newBuilder()
                             .setUrl(backendWorkerUrl)
                             .setHttpMethod(HttpMethod.POST)
                             .putHeaders("Content-Type", "application/json")
                             .setBody(ByteString.copyFromUtf8(payload))
+                            .setOidcToken(
+                                    OidcToken.newBuilder()
+                                            .setServiceAccountEmail(invokerServiceAccountEmail)
+                                            .setAudience(backendWorkerUrl)
+                                            .build())
                             .build();
 
                     com.google.cloud.tasks.v2.Task cloudTask = com.google.cloud.tasks.v2.Task.newBuilder()
@@ -213,9 +232,7 @@ public class TaskSchedulerService {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
     // SHARED WORKER LOGIC - Kept intact for both Cloud Tasks & Manual triggers
-    // ─────────────────────────────────────────────────────────────────────────
     @Transactional
     public Sop instantiateSingleSopTemplate(SopTemplate template, LocalDate today) {
         if (template == null) return null;

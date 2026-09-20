@@ -1,6 +1,8 @@
 app:
   messaging:
     provider: pubsub
+  cloud-run:
+    self-url: ${APP_CLOUD_RUN_SELF_URL:https://fin-sop-backend-3b5udzmxha-el.a.run.app/finsop/v1/internal/tasks/process-single-template}
 
 spring:
   config:
@@ -42,3 +44,12 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration/postgresql,classpath:db/migration
+
+# Used directly by TaskSchedulerService (@Value bindings) — separate namespace
+# from spring.cloud.gcp.* above, which is Spring Cloud GCP's own Pub/Sub config.
+gcp:
+  project-id: ${GCP_PROJECT_ID:finance-sop-portal}
+  location-id: ${GCP_LOCATION_ID:asia-south1}
+  cloud-tasks:
+    queue-id: ${GCP_CLOUD_TASKS_QUEUE_ID:sop-instantiation-queue}
+    invoker-service-account: ${GCP_CLOUD_TASKS_INVOKER_SA:fin-sop-tasks-sa@finance-sop-portal.iam.gserviceaccount.com}
