@@ -11,4 +11,6 @@ public interface RecurrenceStrategy {
     String calculatePeriodKey(LocalDate date);
 
     LocalDate calculateDueDate(LocalDate date, int dueDayOffset);
+
+    boolean isDueToday(LocalDate date, String recurrenceConfig);
 }

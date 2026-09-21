@@ -176,8 +176,16 @@ public class TaskSchedulerService {
 
             for (SopTemplate template : schedulableTemplates) {
                 try {
-                    // Pre-check if already generated to save Cloud Task enqueue costs
                     RecurrenceStrategy strategy = recurrenceStrategyFactory.getStrategy(template.getFrequency());
+
+                    // Check if template is due today based on recurrenceConfig JSON
+                    if (!strategy.isDueToday(today, template.getRecurrenceConfig())) {
+                        log.debug("Template [{}] is not due today [{}] based on recurrenceConfig [{}]. Skipping.",
+                                template.getTemplateCode(), today, template.getRecurrenceConfig());
+                        continue;
+                    }
+
+                    // Pre-check if already generated to save Cloud Task enqueue costs
                     String periodKey = strategy.calculatePeriodKey(today);
                     boolean sopInstanceExists = sopRepository
                             .findBySopCode(buildSopCode(template.getTemplateCode(), periodKey)).isPresent();

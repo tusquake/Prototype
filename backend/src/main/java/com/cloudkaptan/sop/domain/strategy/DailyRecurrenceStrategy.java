@@ -25,4 +25,9 @@ public class DailyRecurrenceStrategy implements RecurrenceStrategy {
     public LocalDate calculateDueDate(LocalDate date, int dueDayOffset) {
         return date;
     }
+
+    @Override
+    public boolean isDueToday(LocalDate date, String recurrenceConfig) {
+        return true;
+    }
 }
