@@ -3,17 +3,12 @@ import CustomSelect from '../components/CustomSelect';
 import TableSkeleton from '../components/TableSkeleton';
 import Pagination from '../components/Pagination';
 import SopDetailModal from '../components/SopDetailModal';
-import AssignedSopDetailsModal from '../components/AssignedSopDetailsModal';
-import AssignSOPModal from '../components/AssignSOPModal';
-import ConfirmationModal from '../components/ConfirmationModal';
 import SopActivityLogModal from '../components/SopActivityLogModal';
 import Toast from '../components/Toast';
 import { getSession } from '../auth/auth';
-import { getSops, getSopTemplates, getSopTemplate, getSop, deleteSop, getUsers, actionSop, activateSopTemplate, rejectSopTemplate, getProcessCategories, getUserCreatableCategories, getUserAccessibleCategories, getUsersByPermission } from '../services/api';
+import { getSops, getSopTemplate, getSop, getUsers, getProcessCategories, getUserAccessibleCategories } from '../services/api';
 import { useEntity } from '../context/EntityContext';
-
-import { z } from 'zod';
-
+import dayjs from 'dayjs';
 
 
 const FREQ_LABEL = {
@@ -81,7 +76,6 @@ const FREQUENCY_FILTER_OPTIONS = [
   { value: 'QUARTERLY', label: 'Quarterly' },
   { value: 'ANNUAL', label: 'Annual' },
   { value: 'WEEKLY', label: 'Weekly' },
-  { value: 'DAILY', label: 'Daily' },
 ];
 
 const MAKER_FILTER_OPTIONS = [
@@ -114,6 +108,42 @@ const USER_STATUS_FILTER_OPTIONS = [
   { value: 'COMPLETED', label: 'Completed' },
 ];
 
+function formatSopTimeline(startDateStr, dueDateStr) {
+  console.log('Start', startDateStr, typeof startDateStr)
+  console.log('Due', dueDateStr, typeof dueDateStr)
+  if (!startDateStr || !dueDateStr) return 'Invalid dates';
+
+  const start = dayjs(startDateStr);
+  const end = dayjs(dueDateStr);
+
+  // 1. Format the dates
+  const formattedStart = start.format('DD MMM YYYY'); // "20 Sep 2026"
+  const formattedEnd = end.format('DD MMM YYYY');     // "21 Oct 2026"
+
+  // 2. Calculate the difference
+  const diffDays = end.diff(start, 'days');
+
+  // 3. Determine the duration text
+  let durationText = diffDays < 30
+    ? `${diffDays} day${diffDays !== 1 ? 's' : ''}`
+    : `${Math.round(diffDays / 30)} month${Math.round(diffDays / 30) !== 1 ? 's' : ''}`;
+
+  return `${formattedStart} - ${formattedEnd} (${durationText})`;
+}
+
+function getTaskCompletionRatio(tasks) {
+  if (!Array.isArray(tasks) || tasks.length === 0) {
+    return '0 / 0';
+  }
+
+  const totalTasks = tasks.length;
+  
+  // Counting tasks where status is 'OPEN' as completed, exactly as requested
+  const completedTasks = tasks.filter(task => task.status != 'OPEN').length;
+
+  return `${completedTasks} / ${totalTasks}`;
+}
+
 export default function SopInstances() {
   const [sopList, setSopList] = useState([]);
   const [userMap, setUserMap] = useState(USER_ID_MAP);
@@ -124,111 +154,33 @@ export default function SopInstances() {
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [totalItems, setTotalItems] = useState(0);
   const [selectedProcess, setSelectedProcess] = useState('ALL');
   const [selectedFrequency, setSelectedFrequency] = useState('ALL');
-  const [selectedMaker, setSelectedMaker] = useState('ALL');
-  const [selectedChecker, setSelectedChecker] = useState('ALL');
-  const [selectedCreator, setSelectedCreator] = useState('ALL');
-  const [selectedApprover, setSelectedApprover] = useState('ALL');
+  // const [selectedMaker, setSelectedMaker] = useState('ALL');
+  // const [selectedChecker, setSelectedChecker] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
 
-  // Modal States
+  // Filter Options
   const [dynamicProcessOptions, setDynamicProcessOptions] = useState(PROCESS_FILTER_OPTIONS);
-  const [dynamicCreatorFilterOptions, setDynamicCreatorFilterOptions] = useState(CREATOR_FILTER_OPTIONS);
-  const [dynamicApproverFilterOptions, setDynamicApproverFilterOptions] = useState(APPROVER_FILTER_OPTIONS);
 
-  const [creatableCategories, setCreatableCategories] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [editingSop, setEditingSop] = useState(null);
-  const [lockedAssignment, setLockedAssignment] = useState(null); // sidebar notification click
+  // SOP Details Modal States
   const [viewingSop, setViewingSop] = useState(null);
-  const [viewingAssignment, setViewingAssignment] = useState(null);
   const [viewingSopHistory, setViewingSopHistory] = useState(null);
-  const [deletingSop, setDeletingSop] = useState(null);
-  const [targetCategory, setTargetCategory] = useState(null);
 
-  const [formData, setFormData] = useState(INITIAL_FORM);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [showCreateCompleteModal, setShowCreateCompleteModal] = useState(false);
 
-  const [runningScheduler, setRunningScheduler] = useState(false);
-  // Admin Assignment Modal State
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [assignForm, setAssignForm] = useState({
-    sopCode: '',
-    entityCode: '',
-    processCategory: '',
-    assignedCreatorId: '',
-    assignedApproverId: '',
-  });
-
-  // Rejection Modal State
-  const [rejectingSop, setRejectingSop] = useState(null);
-  const [rejectionReasonInput, setRejectionReasonInput] = useState('');
 
 
   const session = getSession();
   const currentUser = session?.user;
-  const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.email?.includes('mainak');
+  const isAdmin = currentUser?.role === 'ADMIN';
   const { selectedEntities } = useEntity();
-
-
-  // Handler for sidebar SOP task notification card click
-
-
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [totalItems, setTotalItems] = useState(0);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm ? searchTerm.trim() : '');
-      setCurrentPage(1);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
 
   const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
   const entitiesKey = Array.isArray(selectedEntities) ? selectedEntities.join(',') : String(selectedEntities || '');
-
-  // Load process categories and permissions once on mount or when user changes
-  useEffect(() => {
-    let isMounted = true;
-    async function loadCategories() {
-      if (isAdmin) {
-        const categoriesData = await getProcessCategories().catch(() => []);
-        if (isMounted && Array.isArray(categoriesData) && categoriesData.length > 0) {
-          const opts = [
-            { value: 'ALL', label: 'All Processes' },
-            ...categoriesData.map(c => ({ value: c.categoryCode, label: c.categoryName }))
-          ];
-          setDynamicProcessOptions(opts);
-        }
-      } else if (targetUid) {
-        const userCategories = await getUserAccessibleCategories(targetUid).catch(() => []);
-        if (isMounted && Array.isArray(userCategories) && userCategories.length > 0) {
-          const opts = [
-            { value: 'ALL', label: 'All Processes' },
-            ...userCategories.map(c => ({ value: typeof c === 'string' ? c : (c.categoryCode || c.categoryName), label: typeof c === 'string' ? c : (c.categoryName || c.categoryCode) }))
-          ];
-          setDynamicProcessOptions(opts);
-        } else if (isMounted) {
-          setDynamicProcessOptions([{ value: 'ALL', label: 'All Processes' }]);
-        }
-      }
-
-      if (targetUid) {
-        const creatable = await getUserCreatableCategories(targetUid).catch(() => []);
-        if (isMounted) {
-          setCreatableCategories(Array.isArray(creatable) ? [...creatable] : []);
-        }
-      }
-    }
-    loadCategories();
-    return () => { isMounted = false; };
-  }, [isAdmin, targetUid]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -253,274 +205,29 @@ export default function SopInstances() {
     }
   }, [selectedStatus, entitiesKey, selectedProcess, selectedFrequency, debouncedSearchTerm, currentPage]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+
 
   const handleOpenSopDetail = async (sopItem) => {
     if (!sopItem) return;
     setViewingSop(sopItem);
-    const targetId = sopItem.templateId || sopItem.id || sopItem.sopId;
+    const targetId =sopItem.id || sopItem.sopId;
     if (targetId) {
       try {
-        let fullDetail = await getSopTemplate(targetId).catch(() => null);
-        if (!fullDetail || !fullDetail.id) {
-          fullDetail = await getSop(targetId).catch(() => null);
-        }
+        let fullDetail = await getSop(targetId).catch(() => null);
         if (fullDetail && (fullDetail.templateId || fullDetail.id)) {
           setViewingSop((prev) => (prev && (prev.id === sopItem.id || prev.templateId === targetId || prev.sopId === targetId) ? { ...prev, ...fullDetail } : prev));
         }
       } catch (err) {
         console.error("Failed to fetch full SOP details on row click:", err);
+        setErrorMsg(err);
       }
     }
   };
-
-
-  function openCreateModal(targetCat) {
-    const canCreate = isAdmin || (Array.isArray(creatableCategories) && creatableCategories.length > 0);
-    if (!canCreate) {
-      setSuccessMsg('');
-      setErrorMsg('Access Denied: You do not have permission to create SOPs for any process category. Please ask an Admin to grant SOP Creator access.');
-      return;
-    }
-    const catString = (typeof targetCat === 'string' && targetCat.trim()) ? targetCat.trim() : null;
-    setEditingSop(null);
-    setLockedAssignment(null);
-    setTargetCategory(catString);
-    const initialCategory = catString
-      || ((creatableCategories && creatableCategories.length > 0) ? creatableCategories[0] : '');
-    setFormData({
-      ...INITIAL_FORM,
-      processCategory: initialCategory
-    });
-    setErrorMsg('');
-    setShowModal(true);
-  }
-
-  function openEditModal(sop) {
-    const isAllowed = isAdmin || currentUser?.role === 'ADMIN' || isSopCreator(sop, currentUser?.id);
-    if (!isAllowed) {
-      setSuccessMsg('');
-      setErrorMsg('Access Denied: Only assigned creators or Admin users have permission to edit this SOP.');
-      return;
-    }
-    setEditingSop(sop);
-
-    let rawMakers = sop.defaultMakerIds || (sop.defaultMakerNames ? sop.defaultMakerNames.map(n => USER_ID_MAP[n] || n) : (sop.defaultMakerId ? [sop.defaultMakerId] : []));
-    let rawCheckers = sop.defaultCheckerIds || (sop.defaultCheckerNames ? sop.defaultCheckerNames.map(n => USER_ID_MAP[n] || n) : (sop.defaultCheckerId ? [sop.defaultCheckerId] : []));
-
-    const makers = Array.from(new Set(rawMakers.map(id => USER_ID_MAP[id] || id)));
-    const checkers = Array.from(new Set(rawCheckers.map(id => USER_ID_MAP[id] || id)));
-
-    setFormData({
-      sopCode: sop.code || sop.sopCode || '',
-      title: sop.name || sop.title || '',
-      description: sop.description || '',
-      processCategory: sop.process || sop.processCategory || '',
-      entityCode: sop.entityCode || '',
-      frequency: sop.frequency || 'MONTHLY',
-      dueDayOffset: sop.dueDay || sop.dueDayOffset || 15,
-      isRecurring: sop.isRecurring !== undefined ? !!sop.isRecurring : false,
-      defaultMakerIds: makers,
-      defaultCheckerIds: checkers,
-    });
-    setErrorMsg('');
-    setShowModal(true);
-  }
-
-
-  async function handleApproveSop(sop) {
-    try {
-      setSaving(true);
-      if (sop.isTemplate || sop.templateId) {
-        await activateSopTemplate(sop.templateId || sop.id, currentUser?.id || 'usr-vivek-108');
-      } else {
-        await actionSop(sop.id || sop.sopId, { action: 'APPROVE', actorId: currentUser?.id || 'usr-vivek-108' });
-      }
-      window.dispatchEvent(new Event('sop-updated'));
-      setSuccessMsg(`SOP "${sop.name || sop.title || sop.code}" approved successfully! Status is now ACTIVE for compliance task generation.`);
-      await loadData();
-    } catch (err) {
-      setErrorMsg(err.message || 'Failed to approve SOP');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-
-  async function confirmDeleteSop() {
-    if (!deletingSop) return;
-    try {
-      setDeleting(true);
-      await deleteSop(deletingSop.sopId || deletingSop.id || deletingSop.code);
-      setSuccessMsg(`SOP "${deletingSop.name || deletingSop.title}" deleted successfully!`);
-      setDeletingSop(null);
-      await loadData();
-    } catch (err) {
-      setErrorMsg('Failed to delete SOP.');
-    } finally {
-      setDeleting(false);
-    }
-  }
 
   function getNamesForIds(ids = []) {
     if (!ids.length) return 'None assigned';
     return ids.map(id => userMap[id] || id).join(', ');
   }
-
-  function resetFilters() {
-    setSearchTerm('');
-    setSelectedProcess('ALL');
-    setSelectedFrequency('ALL');
-    setSelectedMaker('ALL');
-    setSelectedChecker('ALL');
-    setSelectedCreator('ALL');
-    setSelectedApprover('ALL');
-    setSelectedStatus('ALL');
-    setCurrentPage(1);
-  }
-
-
-
-  // useEffect to change the filter list of creators and approvers based on process category filter
-
-  useEffect(() => {
-
-    if (!selectedEntities) return;
-
-    loadData();
-
-    function handleDraftEvent(e) {
-      if (e.detail) {
-        setLockedAssignment(e.detail);
-        setEditingSop(null);
-        setShowModal(true);
-      }
-    }
-
-    function handleReviewEvent(e) {
-      if (e.detail) {
-        setViewingSop(e.detail);
-      }
-    }
-
-    function handleViewEvent(e) {
-      if (e.detail) {
-        setViewingSop(e.detail);
-      }
-    }
-
-    function handleUpdateEvent() {
-      loadData();
-    }
-
-    function handleCreateSopEvent(e) {
-      const cat = e?.detail?.category;
-      openCreateModal(cat);
-    }
-
-    window.addEventListener('open-create-sop', handleCreateSopEvent);
-    window.addEventListener('open-sop-draft', handleDraftEvent);
-    window.addEventListener('open-sop-review', handleReviewEvent);
-    window.addEventListener('open-sop-view', handleViewEvent);
-    window.addEventListener('sop-updated', handleUpdateEvent);
-
-    // Check for draftSopCode, reviewSopCode, viewSopCode, action=createSop or sopId query params
-    const params = new URLSearchParams(window.location.search);
-    const draftCode = params.get('draftSopCode');
-    const reviewCode = params.get('reviewSopCode');
-    const viewCode = params.get('viewSopCode') || params.get('sopId') || params.get('sopCode');
-    const actionParam = params.get('action');
-    const categoryParam = params.get('category');
-
-    if (actionParam === 'createSop') {
-      openCreateModal(categoryParam);
-      window.history.replaceState({}, '', window.location.pathname);
-    } else if (draftCode) {
-      getSops({}).then(result => {
-        const all = result?.data || [];
-        const target = all.find(s => (s.code === draftCode || s.sopCode === draftCode || s.id === draftCode || s.sopId === draftCode));
-        if (target) {
-          setLockedAssignment(target);
-          setEditingSop(null);
-          setShowModal(true);
-        }
-      });
-      window.history.replaceState({}, '', window.location.pathname);
-    } else if (reviewCode) {
-      getSops({}).then(result => {
-        const all = result?.data || [];
-        const target = all.find(s => (s.code === reviewCode || s.sopCode === reviewCode || s.id === reviewCode || s.sopId === reviewCode));
-        if (target) {
-          setViewingSop(target);
-        }
-      });
-      window.history.replaceState({}, '', window.location.pathname);
-    } else if (viewCode) {
-      getSops({}).then(result => {
-        const all = result?.data || [];
-        const target = all.find(s => (s.code === viewCode || s.sopCode === viewCode || s.id === viewCode || s.sopId === viewCode));
-        if (target) {
-          if (target.status === 'PENDING_CREATION' || target.status === 'REJECTED') {
-            setLockedAssignment(target);
-            setShowModal(true);
-          } else {
-            setViewingSop(target);
-          }
-        }
-      });
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-
-    return () => {
-      window.removeEventListener('open-create-sop', handleCreateSopEvent);
-      window.removeEventListener('open-sop-draft', handleDraftEvent);
-      window.removeEventListener('open-sop-review', handleReviewEvent);
-      window.removeEventListener('open-sop-view', handleViewEvent);
-      window.removeEventListener('sop-updated', handleUpdateEvent);
-    };
-  }, [selectedEntities]);
-
-  useEffect(() => {
-
-    if (selectedProcess && selectedProcess !== 'ALL') {
-      try {
-        const [creators, approvers] = Promise.all([
-          getUsersByPermission(selectedProcess, 'CREATOR'),
-          getUsersByPermission(selectedProcess, 'APPROVER')
-        ])
-        const crList = Array.isArray(creators) ? creators : [];
-        const aList = Array.isArray(approvers) ? approvers : [];
-
-        setDynamicCreatorFilterOptions([
-          { value: 'ALL', label: 'All Makers' },
-          ...crList.map(u => ({ value: u.id, label: u.name || u.id }))
-        ]);
-        setDynamicApproverFilterOptions([
-          { value: 'ALL', label: 'All Checkers' },
-          ...aList.map(u => ({ value: u.id, label: u.name || u.id }))
-        ]);
-      } catch {
-        setDynamicCreatorFilterOptions([{ value: 'ALL', label: 'All Creators' }]);
-        setDynamicApproverFilterOptions([{ value: 'ALL', label: 'All Checkers' }]);
-      };
-    } else {
-      getUsers().then(res => {
-        const users = Array.isArray(res) ? res : (res?.data || []);
-        if (users.length > 0) {
-          setDynamicCreatorFilterOptions([
-            { value: 'ALL', label: 'All Makers' },
-            ...users.map(u => ({ value: u.id || u.userId, label: u.name || u.fullName }))
-          ]);
-          setDynamicApproverFilterOptions([
-            { value: 'ALL', label: 'All Checkers' },
-            ...users.map(u => ({ value: u.id || u.userId, label: u.name || u.fullName }))
-          ]);
-        }
-      }).catch(() => { });
-    }
-  }, [selectedProcess]);
 
   // 1. Function to fetch and map users dynamically
   async function initializeUserMap() {
@@ -552,80 +259,102 @@ export default function SopInstances() {
     }
   }
 
+  function resetFilters() {
+    setSearchTerm('');
+    setSelectedProcess('ALL');
+    setSelectedFrequency('ALL');
+    // setSelectedChecker('ALL');
+    // setSelectedMaker('ALL');
+    setSelectedStatus('ALL');
+    setCurrentPage(1);
+  }
+
+  useEffect(() => {
+
+    if (!selectedEntities) return;
+
+    loadData();
+
+    function handleViewEvent(e) {
+      if (e.detail) {
+        setViewingSop(e.detail);
+      }
+    }
+
+    window.addEventListener('open-sop-view', handleViewEvent);
+
+    // Check for draftSopCode, reviewSopCode, viewSopCode, action=createSop or sopId query params
+    const params = new URLSearchParams(window.location.search);
+    const viewCode = params.get('viewSopCode') || params.get('sopId') || params.get('sopCode');
+    const actionParam = params.get('action');
+
+    if (actionParam === 'viewSop' && viewCode) {
+      getSops({}).then(result => {
+        const all = result?.data || [];
+        const target = all.find(s => (s.code === viewCode || s.sopCode === viewCode || s.id === viewCode || s.sopId === viewCode));
+        if (target) {
+          setViewingSop(target);
+        }
+      });
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    return () => {
+      window.removeEventListener('open-sop-view', handleViewEvent);
+    };
+  }, [selectedEntities, loadData]);
+
   // 2. Call it exactly once on the first render
   useEffect(() => {
     initializeUserMap();
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+    async function loadCategories() {
+      if (isAdmin) {
+        const categoriesData = await getProcessCategories().catch(() => []);
+        if (isMounted && Array.isArray(categoriesData) && categoriesData.length > 0) {
+          const opts = [
+            { value: 'ALL', label: 'All Processes' },
+            ...categoriesData.map(c => ({ value: c.categoryCode, label: c.categoryName }))
+          ];
+          setDynamicProcessOptions(opts);
+        }
+      } else if (targetUid) {
+        const userCategories = await getUserAccessibleCategories(targetUid).catch(() => []);
+        if (isMounted && Array.isArray(userCategories) && userCategories.length > 0) {
+          const opts = [
+            { value: 'ALL', label: 'All Processes' },
+            ...userCategories.map(c => ({ value: typeof c === 'string' ? c : (c.categoryCode || c.categoryName), label: typeof c === 'string' ? c : (c.categoryName || c.categoryCode) }))
+          ];
+          setDynamicProcessOptions(opts);
+        } else if (isMounted) {
+          setDynamicProcessOptions([{ value: 'ALL', label: 'All Processes' }]);
+        }
+      }
+    }
+    loadCategories();
+    return () => { isMounted = false; };
+  }, []);
 
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm ? searchTerm.trim() : '');
+      setCurrentPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const isFiltered = searchTerm.trim() !== '' ||
     selectedProcess !== 'ALL' ||
     selectedFrequency !== 'ALL' ||
-    selectedMaker !== 'ALL' ||
-    selectedChecker !== 'ALL' ||
-    selectedCreator !== 'ALL' ||
-    selectedApprover !== 'ALL' ||
+    // selectedMaker !== 'ALL' ||
+    // selectedChecker !== 'ALL' ||
     selectedStatus !== 'ALL';
 
-  const filtered = sopList.filter(s => {
-    if (!selectedEntities.includes(s.entityCode)) return false;
-
-    // Non-admin users: hide raw PENDING_CREATION stubs unless assigned to currentUser
-    if (!isAdmin && s.status === 'PENDING_CREATION' && !isSopCreator(s, currentUser?.id)) return false;
-
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase().trim();
-      const codeMatch = s.code?.toLowerCase().includes(q);
-      const nameMatch = (s.name || s.title)?.toLowerCase().includes(q);
-      const processMatch = (s.process || s.processCategory)?.toLowerCase().includes(q);
-      const makerMatch = (s.makers?.join(', ') || s.maker)?.toLowerCase().includes(q);
-      const checkerMatch = (s.checkers?.join(', ') || s.checker)?.toLowerCase().includes(q);
-      const creatorMatch = (s.assignedCreatorName || s.assignedCreatorId)?.toLowerCase().includes(q);
-      const approverMatch = (s.assignedApproverName || s.assignedApproverId)?.toLowerCase().includes(q);
-      if (!codeMatch && !nameMatch && !processMatch && !makerMatch && !checkerMatch && !creatorMatch && !approverMatch) return false;
-    }
-
-    if (selectedProcess !== 'ALL') {
-      const proc = s.process || s.processCategory;
-      if (proc !== selectedProcess) return false;
-    }
-
-    if (selectedStatus !== 'ALL') {
-      if (s.status !== selectedStatus) return false;
-    }
-
-    if (isAdmin) {
-      if (selectedCreator !== 'ALL') {
-        const creator = s.assignedCreatorId || s.assignedCreatorName || '';
-        if (!creator.toLowerCase().includes(selectedCreator.toLowerCase())) return false;
-      }
-
-      if (selectedApprover !== 'ALL') {
-        const approver = s.assignedApproverId || s.assignedApproverName || '';
-        if (!approver.toLowerCase().includes(selectedApprover.toLowerCase())) return false;
-      }
-    } else {
-      if (selectedFrequency !== 'ALL') {
-        if (s.frequency !== selectedFrequency) return false;
-      }
-
-      if (selectedMaker !== 'ALL') {
-        const makerStr = s.makers?.length ? s.makers.join(', ') : (s.maker || '');
-        if (!makerStr.toLowerCase().includes(selectedMaker.toLowerCase())) return false;
-      }
-
-      if (selectedChecker !== 'ALL') {
-        const checkerStr = s.checkers?.length ? s.checkers.join(', ') : (s.checker || '');
-        if (!checkerStr.toLowerCase().includes(selectedChecker.toLowerCase())) return false;
-      }
-    }
-
-    return true;
-  });
-
-  const paginatedSops = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  console.log('SOP list', sopList)
 
   return (
     <>
@@ -645,7 +374,7 @@ export default function SopInstances() {
               <input
                 type="text"
                 className="w-full h-[40px] pl-[38px] pr-[14px] bg-bg-surface border border-[#cbd5e1] rounded-[8px] text-[13.5px] text-text-primary outline-none transition-all duration-150 box-border focus:border-[#2563eb] focus:ring-3 focus:ring-[rgba(37,99,235,0.1)]"
-                placeholder="Search code, title, process..."
+                placeholder="Search by SOP code or title"
                 value={searchTerm}
                 onChange={e => {
                   setSearchTerm(e.target.value);
@@ -737,7 +466,7 @@ export default function SopInstances() {
                 />
               </div>
 
-              <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
+              {/* <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
                 <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Maker</span>
                 <CustomSelect
                   name="selectedMaker"
@@ -761,7 +490,7 @@ export default function SopInstances() {
                     setCurrentPage(1);
                   }}
                 />
-              </div>
+              </div> */}
 
               <div className="relative flex flex-col gap-1.5 flex-1 min-w-[135px]">
                 <span className="text-[11px] font-bold text-text-muted uppercase tracking-[0.04em]">Status</span>
@@ -803,7 +532,7 @@ export default function SopInstances() {
                 <line x1="16" y1="13" x2="8" y2="13" />
                 <line x1="16" y1="17" x2="8" y2="17" />
               </svg>
-              SOP Instances
+              SOP Activities
             </span>
           </div>
 
@@ -815,9 +544,8 @@ export default function SopInstances() {
                   <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface min-w-[250px]">SOP CODE</th>
                   <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">STATUS</th>
                   <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">PROCESS</th>
-                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">FREQUENCY</th>
-                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">TIMELINE</th>
-                  <th className="px-6 py-3 text-right text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface"></th>
+                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface min-w-[250px]">TIMELINE</th>
+                  <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">TASKS</th>
                 </tr>
               </thead>
               <tbody>
@@ -833,12 +561,12 @@ export default function SopInstances() {
                   >
                     <td className="px-6 py-3.5 align-middle min-w-[200px]">
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-[13.5px] font-semibold text-text-primary group-hover:text-primary transition-colors">
-                          {sop.name || sop.title}
+                        <span className="text-[13.5px] font-semibold text-blue-500 underline align-middle">
+                          {sop.title || sop.name}
                         </span>
-                        {sop.description && (
+                        {/* {sop.description && (
                           <span className="text-[12px] text-text-muted line-clamp-1">{sop.description}</span>
-                        )}
+                        )} */}
                       </div>
                     </td>
 
@@ -847,21 +575,19 @@ export default function SopInstances() {
                     </td>
 
                     <td className="px-6 py-3.5 align-middle">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] text-[12px] font-medium border ${
-                        sop.status === 'ACTIVE'
-                          ? 'bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]'
-                          : sop.status === 'COMPLETED'
+                      <span className={`inline-flex items-center gap-1.5 px-1 py-1 rounded-[6px] text-[10px] font-medium border ${sop.status === 'ACTIVE'
+                        ? 'bg-[#ecfdf5] text-[#047857] border-[#a7f3d0]'
+                        : sop.status === 'COMPLETED'
                           ? 'bg-[#f1f5f9] text-[#475569] border-[#cbd5e1]'
                           : 'bg-[#fffbeb] text-[#b45309] border-[#fde68a]'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          sop.status === 'ACTIVE'
-                            ? 'bg-[#10b981]'
-                            : sop.status === 'COMPLETED'
+                        }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${sop.status === 'ACTIVE'
+                          ? 'bg-[#10b981]'
+                          : sop.status === 'COMPLETED'
                             ? 'bg-[#64748b]'
                             : 'bg-[#f59e0b]'
-                        }`} />
-                        {sop.status}
+                          }`} />
+                        {sop.status === 'ACTIVE' ? 'IN PROGRESS' : sop.status}
                       </span>
                     </td>
 
@@ -870,35 +596,17 @@ export default function SopInstances() {
                     </td>
 
                     <td className="px-6 py-3.5 align-middle">
-                      <span className="text-[13px] text-text-secondary">{FREQ_LABEL[sop.frequency] || sop.frequency || 'N/A'}</span>
+                      <div className="flex flex-col gap-0.5 text-[12px] text-text-muted">
+                        {formatSopTimeline(sop.startDateTime, sop.dueDateTime)}
+                      </div>
                     </td>
 
                     <td className="px-6 py-3.5 align-middle">
                       <div className="flex flex-col gap-0.5 text-[12px] text-text-muted">
-                        {sop.dueDayOffset != null && (
-                          <span>Due Day Offset: {sop.dueDayOffset}</span>
-                        )}
-                        {sop.isRecurring != null && (
-                          <span>{sop.isRecurring ? 'Recurring' : 'One-time'}</span>
-                        )}
+                        {getTaskCompletionRatio(sop.taskStatusArr)}
                       </div>
                     </td>
 
-                    <td className="px-6 py-3.5 text-right align-middle" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#334155] rounded-[6px] px-2 py-[4px] cursor-pointer text-[12px] font-semibold inline-flex items-center gap-1 hover:bg-[#e2e8f0]"
-                          onClick={() => handleOpenSopDetail(sop)}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
-                          View
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -925,10 +633,6 @@ export default function SopInstances() {
         currentUser={currentUser}
         userMap={userMap}
         onClose={() => setViewingSop(null)}
-        onEdit={sop => openEditModal(sop)}
-        onDelete={sop => setDeletingSop(sop)}
-        onApprove={sop => handleApproveSop(sop)}
-        onReject={sop => { setRejectingSop(sop); setRejectionReasonInput(''); }}
       />}
 
       <SopActivityLogModal

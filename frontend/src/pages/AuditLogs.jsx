@@ -2,38 +2,47 @@ import { useState, useEffect, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
 import CustomSelect from '../components/CustomSelect';
 import AuditDateRangePicker from '../components/AuditDateRangePicker';
-import EntityPills from '../components/EntityPills';
 import TableSkeleton from '../components/TableSkeleton';
 import AuditDetailModal from '../components/AuditDetailModal';
 import Pagination from '../components/Pagination';
-import { getAuditLogs, ENTITIES } from '../services/api';
+import Toast from '../components/Toast';
+import { getAuditLogs, getUsers } from '../services/api';
 import { useEntity } from '../context/EntityContext';
 
 
 const LOG_TYPE_OPTIONS = [
   { value: 'ALL', label: 'All Log Types' },
+  { value: 'CREATE_PROCESS_CATEGORY', label: 'Create Process Category' },
+  { value: 'UPDATE_PROCESS_CATEGORY', label: 'Update Process Category' },
+  { value: 'DELETE_PROCESS_CATEGORY', label: 'Delete Process Category' },
   { value: 'ACCESS_CONTROL_UPDATED', label: 'Access Control Updated' },
+  { value: 'SUBMIT_FOR_APPROVAL', label: 'Create SOP Template' },
+  { value: 'UPDATE_TEMPLATE', label: 'Update SOP Template' },
+  // { value: 'DELETE_TEMPLATE', label: 'Delete SOP Template' },
+  { value: 'APPROVE_TEMPLATE', label: 'Approve SOP Template' },
+  { value: 'CREATE_TASK_FROM_TEMPLATE', label: 'Create Task Template' },
+  { value: 'UPDATE_TASK_TEMPLATE', label: 'Update Task Template' },
+  { value: 'DELETE_TASK_TEMPLATE', label: 'Delete Task Template' },
+  { value: 'CREATE_TASK', label: 'Create Task' },
+  { value: 'DELETE_TASK', label: 'Delete Task' },
   { value: 'SUBMIT_TASK', label: 'Submit Task' },
   { value: 'RESUBMIT_TASK', label: 'Resubmit Task' },
   { value: 'APPROVE_TASK', label: 'Approve Task' },
   { value: 'REJECT_TASK', label: 'Reject Task' },
   { value: 'PERMANENT_REJECT', label: 'Permanent Reject' },
-  { value: 'CREATE_SOP', label: 'Create SOP' },
-  { value: 'UPDATE_SOP', label: 'Update SOP' },
-  { value: 'DELETE_SOP', label: 'Delete SOP' },
-  { value: 'CREATE_TASK', label: 'Create Task' },
-  { value: 'DELETE_TASK', label: 'Delete Task' },
-  { value: 'CREATE_PROCESS_CATEGORY', label: 'Create Process Category' },
-  { value: 'UPDATE_PROCESS_CATEGORY', label: 'Update Process Category' },
-  { value: 'DELETE_PROCESS_CATEGORY', label: 'Delete Process Category' },
+  // { value: 'CREATE_SOP', label: 'Create SOP' },
+  // { value: 'UPDATE_SOP', label: 'Update SOP' },
+  // { value: 'DELETE_SOP', label: 'Delete SOP' },
 ];
 
 const ENTITY_TYPE_OPTIONS = [
   { value: 'ALL', label: 'All Component Types' },
-  { value: 'ACCESS_CONTROL', label: 'Access Control Rules' },
-  { value: 'TASK', label: 'Task Records' },
-  { value: 'SOP', label: 'SOP Master Definitions' },
   { value: 'PROCESS_CATEGORY', label: 'Process Categories' },
+  { value: 'ACCESS_CONTROL', label: 'Access Control Rules' },
+  { value: 'SOP_TEMPLATE', label: 'SOP Templates' },
+  { value: 'SOP', label: 'SOP Definitions' },
+  { value: 'TASK', label: 'Task Templates' },
+  { value: 'TASK_TEMPLATE', label: 'Tasks' },
 ];
 
 const ACTOR_OPTIONS = [
@@ -73,7 +82,9 @@ function formatActionLabel(action) {
 export default function AuditLogs() {
   const [logs, setLogs] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
+  const [userList, setUserList] = useState([])
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -87,6 +98,7 @@ export default function AuditLogs() {
   const [entityType, setEntityType] = useState('ALL');
   const [actorFilter, setActorFilter] = useState('ALL');
   const [activeLog, setActiveLog] = useState(null);
+  const [totalElemets, setTotalElements] = useState(0)
 
   const { selectedEntities } = useEntity();
 
@@ -118,6 +130,7 @@ export default function AuditLogs() {
   useEffect(() => {
     loadLogs();
   }, [loadLogs]);
+
 
   function resetFilters() {
     setSearchTerm('');
@@ -189,7 +202,9 @@ export default function AuditLogs() {
    * Export Filtered Audit Logs to CSV / Excel
    */
   function handleExportExcel() {
-    if (!filteredLogs || filteredLogs.length === 0) return;
+
+
+    if (!logs || logs.length === 0) return;
 
     // Define CSV Headers
     const headers = [
@@ -212,7 +227,7 @@ export default function AuditLogs() {
     };
 
     // Format Data Rows
-    const rows = filteredLogs.map(log => [
+    const rows = logs.map(log => [
       escapeCsvField(log.auditId),
       escapeCsvField(formatTimestamp(log.timestamp)),
       escapeCsvField(log.actorId),
@@ -320,6 +335,40 @@ export default function AuditLogs() {
     }
   }
 
+  useEffect(() => {
+    async function initializeUserMap() {
+      setLoading(true);
+      try {
+        const { data: usersList } = await getUsers();
+
+        if (Array.isArray(usersList)) {
+          const users = usersList.map(user => {
+            const userId = user?.userId || user.id;
+            const userName = user?.fullName || user.name;
+
+            return {
+              value: userId,
+              label: userName
+            }
+
+          });
+
+          setUserList([{ value: 'ALL', label: 'All User Actors' }, ...users]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch users for userMap:", error);
+        setError(error);
+      }
+      finally{
+        setLoading(false);
+      }
+    }
+
+    initializeUserMap()
+  }, [])
+
+  console.log('options',userList)
+
   const isFiltered = searchTerm.trim() !== '' || dateRangeState.rangeType !== 'ALL' || actionType !== 'ALL' || entityType !== 'ALL' || actorFilter !== 'ALL';
 
   return (
@@ -391,7 +440,7 @@ export default function AuditLogs() {
             <CustomSelect
               name="actorFilter"
               value={actorFilter}
-              options={ACTOR_OPTIONS}
+              options={userList}
               onChange={e => {
                 setActorFilter(e.target.value);
                 setCurrentPage(1);
@@ -491,6 +540,7 @@ export default function AuditLogs() {
             <Pagination
               currentPage={currentPage}
               totalItems={totalItems}
+              totalItems={totalElemets}
               pageSize={PAGE_SIZE}
               onPageChange={setCurrentPage}
               itemLabel="audit records"
@@ -506,6 +556,8 @@ export default function AuditLogs() {
         log={activeLog}
         onClose={() => setActiveLog(null)}
       />
+
+       <Toast message={error} type="error" onClose={() => setError('')} />
 
     </>
   );

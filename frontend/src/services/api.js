@@ -168,6 +168,103 @@ export function mapSopTemplate(t) {
 
 }
 
+export function mapSopTask(dto) {
+  if (!dto) return null;
+
+  const makerList = (dto.assignedMakerNames && dto.assignedMakerNames.length > 0)
+    ? dto.assignedMakerNames
+    : (dto.assignedMakers && dto.assignedMakers.length > 0 ? dto.assignedMakers : (dto.makerName ? [dto.makerName] : []));
+
+  const checkerList = (dto.assignedCheckerNames && dto.assignedCheckerNames.length > 0)
+    ? dto.assignedCheckerNames
+    : (dto.assignedCheckers && dto.assignedCheckers.length > 0 ? dto.assignedCheckers : (dto.checkerName ? [dto.checkerName] : []));
+
+  const isSubmittedOrDone = dto.status === 'PENDING_REVIEW' || dto.status === 'APPROVED' || dto.status === 'REJECTED' || dto.status === 'PERMANENTLY_REJECTED';
+  const lockedMaker = dto.actualMakerName || dto.actualMaker || (isSubmittedOrDone ? dto.makerName : null);
+
+  const isCompleted = dto.status === 'APPROVED' || dto.status === 'REJECTED' || dto.status === 'PERMANENTLY_REJECTED';
+  const lockedChecker = dto.actualCheckerName || dto.actualChecker || (isCompleted ? dto.checkerName : null);
+
+  const rawHistory = (dto.history && dto.history.length > 0)
+    ? dto.history.map(h => ({
+      eventId: h.eventId,
+      actorId: h.actorId,
+      actorName: h.actorName,
+      action: h.action,
+      fromStatus: h.fromStatus,
+      toStatus: h.toStatus,
+      comment: h.comment,
+      timestamp: h.timestamp,
+    }))
+    : [];
+
+  const hasCreate = rawHistory.some(h => (h.action || '').toUpperCase().includes('CREATE'));
+  const historyList = hasCreate
+    ? rawHistory
+    : [
+      {
+        eventId: 0,
+        action: 'CREATE_TASK',
+        actorName: 'System Scheduler',
+        fromStatus: null,
+        toStatus: 'OPEN',
+        comment: 'Compliance task cycle created automatically',
+        timestamp: dto.createdAt || new Date().toISOString(),
+      },
+      ...rawHistory,
+    ];
+
+  return {
+    id: dto.taskId || dto.id,
+    taskId: dto.taskId || dto.id,
+    version: dto?.version ?? '',
+    recordNo: dto.recordNo || dto.record || 'N/A',
+    sopId: dto?.sopId ?? '',
+    sopTitle: dto.sopTitle || dto.sop || 'N/A',
+    sopCode: dto?.sopCode ?? '',
+    categoryCode: dto?.categoryCode ?? '',
+    categoryName: dto?.categoryName ?? '',   
+    entityName: dto.entityName || dto.entity || dto.entityCode || 'N/A',
+    entityCode: dto.entityCode || dto.entityId,
+    periodKey: dto.periodKey || dto.period || 'N/A',
+    maker: makerList.join(', '),
+    makerName: makerList.join(', '),
+    actualMakerId: dto.actualMakerId,
+    actualMakerName: dto.actualMakerName,   
+    assignedMakers: makerList,
+    assignedMakerNames: makerList,
+    lockedMaker: lockedMaker,
+    actualMaker: lockedMaker,
+    checker: checkerList.join(', '),
+    checkerName: checkerList.join(', '),
+    checkerId: dto.checkerId,
+    assignedCheckers: checkerList,
+    assignedCheckerNames: checkerList,
+    lockedChecker: lockedChecker,
+    actualChecker: lockedChecker,
+    actualCheckerId: dto.actualCheckerId,
+    actualCheckerName: dto.actualCheckerName, 
+    startDateTime: dto.startDate
+      ? dto.startDate
+      : (dto.createdAt ? dto.createdAt : 'N/A'),
+    dueDate: dto.dueDate
+      ? dto.dueDate
+      : (dto.dueDate && dto.dueDate !== 'N/A'
+        ? (dto.dueDate.includes(':') ? dto.dueDate : dto.dueDate)
+        : 'N/A'),
+    dueDateTime: dto.dueDate || null,
+    daysOverdue: dto.daysOverdue || 0,
+    completedAt: dto.completedAt ,
+    approvedAt: dto.approvedAt,
+    status: dto.status || 'OPEN',
+    canUserSubmit: dto.canUserSubmit,
+    canUserApprove: dto.canUserApprove,
+    documents: dto.documents || [],
+    requiredDocuments: dto.requiredDocuments || [],
+    history: historyList,
+  };
+}
+
 export function mapTask(dto) {
   if (!dto) return null;
 
@@ -270,6 +367,12 @@ export function mapSop(dto) {
     ? dto.defaultCheckerNames
     : (dto.defaultCheckerName ? [dto.defaultCheckerName] : []);
 
+  const taskStatus = dto.tasks ? dto.tasks.map((task)=>{
+    return {
+      status:task.status
+    }
+  }) : []
+
   const rawHistory = (dto.history && dto.history.length > 0)
     ? dto.history.map(h => ({
       eventId: h.eventId,
@@ -322,6 +425,8 @@ export function mapSop(dto) {
     status: (dto.status && typeof dto.status === 'string') ? dto.status : 'PENDING_CREATION',
     version: dto.version != null ? dto.version : (dto.versionNumber != null ? dto.versionNumber : 1),
     history: rawHistory,
+    tasks: dto.tasks.map(mapSopTask),
+    taskStatusArr: taskStatus,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
   };
@@ -505,7 +610,7 @@ export async function getAuditLogs({ entityType = null, entityId = null, actorId
 
 export async function getSop(sopId) {
   if (!sopId) return null;
-  const res = await fetchJson(`/sops/${sopId}`).catch(() => null);
+  const res = await fetchJson(`/sops/${sopId}`);
   return res ? mapSop(res) : null;
 }
 
@@ -1224,8 +1329,7 @@ export async function getSopTemplates({ status = null, entities = [], category =
 
 export async function getSopTemplate(templateId) {
   if (!templateId) return null;
-  const res = await fetchJson(`/sop-templates/${templateId}`).catch(() => null);
-  if (!res) return null;
+  const res = await fetchJson(`/sop-templates/${templateId}`);
   if (Array.isArray(res)) {
     return res.map(mapSopTemplate);
   }

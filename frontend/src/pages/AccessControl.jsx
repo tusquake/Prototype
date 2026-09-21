@@ -11,6 +11,7 @@ import {
 } from '../services/api';
 import TableSkeleton from '../components/TableSkeleton';
 import Pagination from '../components/Pagination';
+import UserAvatarGroup from '../components/UserAvatarGroup';
 
 const PAGE_SIZE = 10;
 
@@ -38,7 +39,7 @@ const ACCESS_PERMISSIONS_ARR = [{
 
 
 export default function AccessControl() {
-  const [allUsers, setAllUsers] = useState(MOCK_ORGANIZATION_USERS);
+  const [allUsers, setAllUsers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [categoryAssignments, setCategoryAssignments] = useState({});
   const [loading, setLoading] = useState(true);
@@ -77,31 +78,19 @@ export default function AccessControl() {
     userIds: [],
   });
 
-
-  useEffect(() => {
-    loadAllData();
-  }, []);
-
-  useEffect(() => {
-    if (activeCategory && activeModalTab === 'ACTIVITY') {
-      const code = activeCategory.categoryCode || activeCategory.categoryName;
-      fetchCategoryLogs(code);
-    }
-  }, [activeCategory, activeModalTab]);
-
   async function loadAllData() {
     setLoading(true);
     setError(null);
     try {
-      const [catList, userRes] = await Promise.all([
+      const [catList, userList] = await Promise.all([
         getProcessCategories().catch(() => []),
         getUsers().catch(() => null),
       ]);
       const list = Array.isArray(catList) ? catList : [];
       setCategories(list);
-      const userList = Array.isArray(userRes) ? userRes : (userRes?.data || []);
-      if (userList.length > 0) {
-        setAllUsers(userList);
+      console.log('Userlist in fetch',userList)
+      if (Array.isArray(userList.data) && userList.data.length > 0) {
+        setAllUsers(userList.data);
       }
 
       const assignmentsMap = {};
@@ -132,6 +121,19 @@ export default function AccessControl() {
       setLoadingLogs(false);
     }
   }
+
+
+  useEffect(() => {
+    loadAllData();
+  }, []);
+
+  useEffect(() => {
+    if (activeCategory && activeModalTab === 'ACTIVITY') {
+      const code = activeCategory.categoryCode || activeCategory.categoryName;
+      fetchCategoryLogs(code);
+    }
+  }, [activeCategory, activeModalTab]);
+
 
   function handleOpenConfigureModal(cat, initialTab = 'CONFIGURE') {
     const code = cat.categoryCode || cat.categoryName;
@@ -218,6 +220,7 @@ export default function AccessControl() {
 
   function getUserNames(userIds = []) {
     if (!userIds || userIds.length === 0) return 'None assigned';
+    console.log('HERE',allUsers)
     const names = userIds.map(id => allUsers.find(u => u.id === id || u.userId === id)?.name || allUsers.find(u => u.id === id || u.userId === id)?.fullName || id);
     return names.join(', ');
   }
@@ -228,50 +231,18 @@ export default function AccessControl() {
     }
 
     const userObjects = userIds.map(id => allUsers.find(u => u.id === id || u.userId === id) || { id, name: id, fullName: id, role: 'USER' });
-    const formattedNames = userObjects.map(u => u.name || u.fullName || u.id).join(', ');
+    const formattedNames = userObjects.map(u => u.name || u.fullName || u.id);
+    console.log("state", allUsers)
+    console.log('User objects', userObjects)
+    console.log('Formateed names', formattedNames)
 
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', minWidth: 0 }}>
-        <span
-          style={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            fontSize: 12.5,
-            fontWeight: 500,
-            color: '#1e293b',
-            display: 'inline-block',
-            maxWidth: 130,
-          }}
-          title={formattedNames}
-        >
-          {formattedNames}
-        </span>
-
-        <button
-          type="button"
-          onClick={() => handleOpenViewUsers(roleTitle, categoryName, userIds)}
-          title={`View full list of assigned ${roleTitle}`}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: '#0284c7',
-            cursor: 'pointer',
-            padding: 2,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justify: 'center',
-            borderRadius: '50%',
-            flexShrink: 0,
-          }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-        </button>
-      </div>
+      <>
+        <UserAvatarGroup
+          users={formattedNames}
+          max={2}
+        />
+      </>
     );
   }
 
@@ -300,46 +271,46 @@ export default function AccessControl() {
   const paginatedCategories = filteredCategories.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const renderLogDetails = (details) => {
-  if (!details) return null;
+    if (!details) return null;
 
-  // Check if details string is an access control update
-  if (details.startsWith("Updated access permissions:")) {
-    const rawContent = details.replace("Updated access permissions:", "").trim();
-    // Split segments separated by semicolons (e.g. "Added Task Submitter(s): ...")
-    const segments = rawContent.split(";").map((s) => s.trim()).filter(Boolean);
+    // Check if details string is an access control update
+    if (details.startsWith("Updated access permissions:")) {
+      const rawContent = details.replace("Updated access permissions:", "").trim();
+      // Split segments separated by semicolons (e.g. "Added Task Submitter(s): ...")
+      const segments = rawContent.split(";").map((s) => s.trim()).filter(Boolean);
 
-    return (
-      <div className="mt-1 flex flex-col gap-2">
-        <span className="text-[12px] font-medium text-slate-500">Updated access permissions:</span>
-        <div className="flex flex-col gap-2">
-          {segments.map((segment, idx) => {
-            const [label, usersString] = segment.split(":");
-            const users = usersString ? usersString.split(",").map((u) => u.trim()) : [];
+      return (
+        <div className="mt-1 flex flex-col gap-2">
+          <span className="text-[12px] font-medium text-slate-500">Updated access permissions:</span>
+          <div className="flex flex-col gap-2">
+            {segments.map((segment, idx) => {
+              const [label, usersString] = segment.split(":");
+              const users = usersString ? usersString.split(",").map((u) => u.trim()) : [];
 
-            return (
-              <div key={idx} className="flex flex-wrap items-center gap-1.5 text-[12px]">
-                <span className="font-medium text-slate-700">{label}:</span>
-                <div className="flex flex-wrap items-center gap-1">
-                  {users.map((user, uIdx) => (
-                    <span
-                      key={uIdx}
-                      className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-mono font-medium text-slate-700 border border-slate-200"
-                    >
-                      {user}
-                    </span>
-                  ))}
+              return (
+                <div key={idx} className="flex flex-wrap items-center gap-1.5 text-[12px]">
+                  <span className="font-medium text-slate-700">{label}:</span>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {users.map((user, uIdx) => (
+                      <span
+                        key={uIdx}
+                        className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-mono font-medium text-slate-700 border border-slate-200"
+                      >
+                        {user}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  // Default fallback for other detail string formats
-  return <div className="text-[13px] leading-normal text-slate-800">{details}</div>;
-};
+    // Default fallback for other detail string formats
+    return <div className="text-[13px] leading-normal text-slate-800">{details}</div>;
+  };
 
   return (
     <>
@@ -456,19 +427,19 @@ export default function AccessControl() {
           </div>
 
           {!loading && (
-                    <Pagination
-                      currentPage={currentPage}
-                      totalItems={filteredCategories.length}
-                      pageSize={PAGE_SIZE}
-                      onPageChange={setCurrentPage}
-                      itemLabel="Categories"
-                    />
-                  )}
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredCategories.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={setCurrentPage}
+              itemLabel="Categories"
+            />
+          )}
 
-        
+
         </div>
 
-        
+
       </div>
 
       {/* Modal for Configuring Access Control & Viewing Category Activity Logs */}
@@ -534,7 +505,7 @@ export default function AccessControl() {
             </div>
 
             {/* Body Content based on Active Tab */}
-            <div className="p-7 max-h-[440px] overflow-y-auto [scrollbar-gutter:stable]">
+            <div className="p-4 max-h-[440px] overflow-y-auto [scrollbar-gutter:stable]">
               {activeModalTab === 'CONFIGURE' ? (
                 <>
                   {hasSoDWarning && (
@@ -547,15 +518,15 @@ export default function AccessControl() {
                   <form id="access-control-form" onSubmit={handleSaveAccess} className="flex flex-col gap-[18px]">
 
                     {/* Read-Only Process Category Field */}
-                    <div className="flex flex-col gap-1.5 min-w-0">
-                      <span className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">Process Category (Read-Only)</span>
+                    {/* <div className="flex flex-col gap-1.5 min-w-0">
+                      <span className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">Process Category</span>
                       <input
                         type="text"
                         value={`${activeCategory.categoryName} (${activeCategory.categoryCode})`}
                         disabled
                         className="w-full px-3 py-[10px] border border-[#cbd5e1] rounded-[8px] text-[13px] bg-[#f1f5f9] text-[#475569] font-semibold outline-none cursor-not-allowed box-border"
                       />
-                    </div>
+                    </div> */}
 
                     {/* 1. SOP Creators Trigger Field */}
 
@@ -585,86 +556,6 @@ export default function AccessControl() {
                         </>
                       )
                     })}
-
-                    {/* <div className="flex flex-col gap-1.5 min-w-0">
-                      <span className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">SOP Creators</span>
-                      <div
-                        onClick={() => handleOpenUserPicker('creators')}
-                        className="flex items-center justify-between p-[10px_14px] border border-[#cbd5e1] rounded-[8px] bg-bg-surface cursor-pointer hover:border-[#94a3b8] transition-colors duration-150"
-                      >
-                        <div>
-                          <div className={`text-[13px] font-semibold ${creators.length ? 'text-text-primary' : 'text-[#94a3b8]'}`}>
-                            {getUserNames(creators)}
-                          </div>
-                          <div className="text-[11px] text-text-muted mt-0.5">
-                            Allowed to draft new SOP specifications
-                          </div>
-                        </div>
-                        <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
-                          {creators.length} Selected
-                        </span>
-                      </div>
-                    </div> */}
-                    {/* 2. SOP Approvers Trigger Field */}
-                    {/* <div className="flex flex-col gap-1.5 min-w-0">
-                      <span className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">SOP Approvers</span>
-                      <div
-                        onClick={() => handleOpenUserPicker('approvers')}
-                        className="flex items-center justify-between p-[10px_14px] border border-[#cbd5e1] rounded-[8px] bg-bg-surface cursor-pointer hover:border-[#94a3b8] transition-colors duration-150"
-                      >
-                        <div>
-                          <div className={`text-[13px] font-semibold ${approvers.length ? 'text-text-primary' : 'text-[#94a3b8]'}`}>
-                            {getUserNames(approvers)}
-                          </div>
-                          <div className="text-[11px] text-text-muted mt-0.5">
-                            Allowed to review &amp; approve SOP drafts
-                          </div>
-                        </div>
-                        <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
-                          {approvers.length} Selected
-                        </span>
-                      </div>
-                    </div> */}
-                    {/* 3. Task Submitters (Makers) Trigger Field */}
-                    {/* <div className="flex flex-col gap-1.5 min-w-0">
-                      <span className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">Task Submitters (Makers)</span>
-                      <div
-                        onClick={() => handleOpenUserPicker('makers')}
-                        className="flex items-center justify-between p-[10px_14px] border border-[#cbd5e1] rounded-[8px] bg-bg-surface cursor-pointer hover:border-[#94a3b8] transition-colors duration-150"
-                      >
-                        <div>
-                          <div className={`text-[13px] font-semibold ${makers.length ? 'text-text-primary' : 'text-[#94a3b8]'}`}>
-                            {getUserNames(makers)}
-                          </div>
-                          <div className="text-[11px] text-text-muted mt-0.5">
-                            Allowed to execute &amp; submit compliance tasks
-                          </div>
-                        </div>
-                        <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
-                          {makers.length} Selected
-                        </span>
-                      </div>
-                    </div> */}
-                    {/* 4. Task Approvers (Checkers) Trigger Field */}
-                    {/* <div className="flex flex-col gap-1.5 min-w-0">
-                      <span className="text-[12px] font-semibold text-[#1e293b] uppercase tracking-[0.4px]">Task Approvers (Checkers)</span>
-                      <div
-                        onClick={() => handleOpenUserPicker('checkers')}
-                        className="flex items-center justify-between p-[10px_14px] border border-[#cbd5e1] rounded-[8px] bg-bg-surface cursor-pointer hover:border-[#94a3b8] transition-colors duration-150"
-                      >
-                        <div>
-                          <div className={`text-[13px] font-semibold ${checkers.length ? 'text-text-primary' : 'text-[#94a3b8]'}`}>
-                            {getUserNames(checkers)}
-                          </div>
-                          <div className="text-[11px] text-text-muted mt-0.5">
-                            Allowed to verify &amp; approve compliance tasks
-                          </div>
-                        </div>
-                        <span className="bg-[#f1f5f9] border border-[#cbd5e1] text-[#0284c7] p-[4px_10px] rounded-[6px] text-[12px] font-bold">
-                          {checkers.length} Selected
-                        </span>
-                      </div>
-                    </div> */}
 
                   </form>
                 </>
@@ -709,7 +600,7 @@ export default function AccessControl() {
 
                               {renderLogDetails(log?.details)}
 
-                              
+
                             </div>
 
                           </div>

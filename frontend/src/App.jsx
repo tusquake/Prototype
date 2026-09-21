@@ -86,6 +86,14 @@ export default function App() {
             </AdminRoute>
           ),
         },
+        // {
+        //   path: "/tasks",
+        //   element: (
+        //     <ProtectedRoute>
+        //       <Tasks />
+        //     </ProtectedRoute>
+        //   ),
+        // },
         {
           path: "/inbox",
           element: (
@@ -158,4 +166,4 @@ function RoleBasedHome() {
   const session = getSession();
   const dest = getDefaultRoute(session);
   return <Navigate to={dest} replace />;
-}
+}

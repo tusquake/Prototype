@@ -111,258 +111,72 @@ function ProgressBar({ pct, overdue }) {
   );
 }
 
-const CHART_COLORS = {
-  completed: '#059669',
-  pending: '#60a5fa',
-  overdue: '#f87171',
-};
-
-const CHART_ICONS = {
-  bar: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-      <rect x="3" y="12" width="4" height="9" rx="1"/>
-      <rect x="10" y="7" width="4" height="14" rx="1"/>
-      <rect x="17" y="3" width="4" height="18" rx="1"/>
-    </svg>
-  ),
-  stacked: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-      <rect x="3" y="15" width="4" height="6" rx="1"/>
-      <rect x="3" y="9" width="4" height="6" rx="1" opacity="0.65"/>
-      <rect x="3" y="3" width="4" height="6" rx="1" opacity="0.35"/>
-      <rect x="10" y="11" width="4" height="10" rx="1"/>
-      <rect x="10" y="6" width="4" height="5" rx="1" opacity="0.65"/>
-      <rect x="10" y="3" width="4" height="3" rx="1" opacity="0.35"/>
-      <rect x="17" y="8" width="4" height="13" rx="1"/>
-      <rect x="17" y="4" width="4" height="4" rx="1" opacity="0.65"/>
-    </svg>
-  ),
-  line: (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 17 8 10 13 14 19 5"/>
-      <circle cx="3" cy="17" r="2" fill="currentColor" stroke="none"/>
-      <circle cx="8" cy="10" r="2" fill="currentColor" stroke="none"/>
-      <circle cx="13" cy="14" r="2" fill="currentColor" stroke="none"/>
-      <circle cx="19" cy="5" r="2" fill="currentColor" stroke="none"/>
-    </svg>
-  ),
-};
-
-function SopChart({ sopList }) {
-  const [chartType, setChartType] = useState('bar');
-  const [tooltip, setTooltip] = useState(null);
-
-  const items = [...sopList].slice(0, 10);
+function SopBarChart({ sopList }) {
+  const items = [...sopList].slice(0, 8);
   if (items.length === 0) return null;
 
-  const W = 760, H = 300;
-  const PAD = { top: 20, right: 20, bottom: 64, left: 44 };
-  const chartW = W - PAD.left - PAD.right;
-  const chartH = H - PAD.top - PAD.bottom;
-
-  const maxVal = chartType === 'line'
-    ? 100
-    : Math.max(...items.map(s => s.totalTasks), 1);
-
-  const yTicks = 5;
-  const xStep = chartW / items.length;
-  const barGroupW = xStep * 0.7;
-
-  function yPos(val) {
-    return PAD.top + chartH - (val / maxVal) * chartH;
-  }
-
-  function xCenter(i) {
-    return PAD.left + i * xStep + xStep / 2;
-  }
-
-  const gridLines = Array.from({ length: yTicks + 1 }, (_, i) => {
-    const val = Math.round((maxVal / yTicks) * i);
-    return { val, y: yPos(val) };
-  });
-
-  function renderBars(i, sop) {
-    if (chartType === 'stacked') {
-      const cx = xCenter(i);
-      const bw = barGroupW;
-      const x = cx - bw / 2;
-      const cH = (sop.completedTasks / maxVal) * chartH;
-      const pH = (sop.pendingTasks / maxVal) * chartH;
-      const oH = (sop.overdueTasks / maxVal) * chartH;
-      const base = PAD.top + chartH;
-      return (
-        <g key={sop.sopId}>
-          <rect x={x} y={base - cH} width={bw} height={cH || 1} fill={CHART_COLORS.completed} rx="2"/>
-          <rect x={x} y={base - cH - pH} width={bw} height={pH || (sop.pendingTasks > 0 ? 1 : 0)} fill={CHART_COLORS.pending} rx="2"/>
-          <rect x={x} y={base - cH - pH - oH} width={bw} height={oH || (sop.overdueTasks > 0 ? 1 : 0)} fill={CHART_COLORS.overdue} rx="2"/>
-          <rect
-            x={x} y={PAD.top} width={bw} height={chartH}
-            fill="transparent"
-            onMouseEnter={e => setTooltip({ i, sop, x: xCenter(i), y: yPos(sop.totalTasks) })}
-            onMouseLeave={() => setTooltip(null)}
-            style={{ cursor: 'default' }}
-          />
-        </g>
-      );
-    }
-    const n = 3;
-    const bw = barGroupW / n;
-    const cx = xCenter(i) - barGroupW / 2;
-    const base = PAD.top + chartH;
-    const bars = [
-      { val: sop.completedTasks, color: CHART_COLORS.completed },
-      { val: sop.pendingTasks, color: CHART_COLORS.pending },
-      { val: sop.overdueTasks, color: CHART_COLORS.overdue },
-    ];
-    return (
-      <g key={sop.sopId}>
-        {bars.map(({ val, color }, bi) => {
-          const bH = (val / maxVal) * chartH;
-          return <rect key={bi} x={cx + bi * bw} y={base - bH} width={bw - 1} height={bH || (val > 0 ? 1 : 0)} fill={color} rx="2"/>;
-        })}
-        <rect
-          x={xCenter(i) - barGroupW / 2} y={PAD.top} width={barGroupW} height={chartH}
-          fill="transparent"
-          onMouseEnter={() => setTooltip({ i, sop, x: xCenter(i), y: PAD.top })}
-          onMouseLeave={() => setTooltip(null)}
-          style={{ cursor: 'default' }}
-        />
-      </g>
-    );
-  }
-
-  function buildPolyline(key, color) {
-    const pts = items.map((sop, i) => {
-      const val = key === 'completed' ? sop.progressPercent
-        : key === 'pending' ? (sop.totalTasks > 0 ? Math.round((sop.pendingTasks / sop.totalTasks) * 100) : 0)
-        : (sop.totalTasks > 0 ? Math.round((sop.overdueTasks / sop.totalTasks) * 100) : 0);
-      return `${xCenter(i)},${yPos(val)}`;
-    }).join(' ');
-    const dots = items.map((sop, i) => {
-      const val = key === 'completed' ? sop.progressPercent
-        : key === 'pending' ? (sop.totalTasks > 0 ? Math.round((sop.pendingTasks / sop.totalTasks) * 100) : 0)
-        : (sop.totalTasks > 0 ? Math.round((sop.overdueTasks / sop.totalTasks) * 100) : 0);
-      return { x: xCenter(i), y: yPos(val), sop, val };
-    });
-    return (
-      <g key={key}>
-        <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>
-        {dots.map(({ x, y, sop, val }, i) => (
-          <circle
-            key={i} cx={x} cy={y} r="4" fill={color} stroke="white" strokeWidth="1.5"
-            onMouseEnter={() => setTooltip({ i, sop, x, y })}
-            onMouseLeave={() => setTooltip(null)}
-            style={{ cursor: 'pointer' }}
-          />
-        ))}
-      </g>
-    );
-  }
-
-  const tooltipW = 180, tooltipH = 94;
-  const tooltipX = tooltip
-    ? Math.min(Math.max(tooltip.x - tooltipW / 2, PAD.left), W - PAD.right - tooltipW)
-    : 0;
-  const tooltipY = tooltip
-    ? Math.max(tooltip.y - tooltipH - 12, PAD.top)
-    : 0;
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5 text-[11px] text-[#64748b]">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ background: CHART_COLORS.completed }} /> Completed
-          </span>
-          <span className="flex items-center gap-1.5 text-[11px] text-[#64748b]">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ background: CHART_COLORS.pending }} /> Pending
-          </span>
-          <span className="flex items-center gap-1.5 text-[11px] text-[#64748b]">
-            <span className="inline-block w-3 h-3 rounded-sm" style={{ background: CHART_COLORS.overdue }} /> Overdue
-          </span>
-          {chartType === 'line' && (
-            <span className="text-[11px] text-[#94a3b8]">Y-axis shows % of total tasks</span>
-          )}
-        </div>
-        <div className="flex items-center gap-1 bg-[#f1f5f9] rounded-[8px] p-1">
-          {[['bar','Bar'], ['stacked','Stacked'], ['line','Line']].map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setChartType(id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-[12px] font-semibold transition-all ${
-                chartType === id
-                  ? 'bg-white text-[#2563eb] shadow-sm'
-                  : 'text-[#64748b] hover:text-[#1e293b]'
-              }`}
-            >
-              {CHART_ICONS[id]}
-              {label}
-            </button>
-          ))}
-        </div>
+    <div className="flex flex-col gap-3 py-2">
+      {items.map((sop) => {
+        const pct = sop.progressPercent ?? 0;
+        const hasOverdue = sop.overdueTasks > 0;
+        const barColor = hasOverdue ? '#dc2626' : pct >= 80 ? '#059669' : pct >= 40 ? '#2563eb' : '#f59e0b';
+        const pendingPct = sop.totalTasks > 0
+          ? Math.round((sop.pendingTasks / sop.totalTasks) * 100)
+          : 0;
+        const overduePct = sop.totalTasks > 0
+          ? Math.round((sop.overdueTasks / sop.totalTasks) * 100)
+          : 0;
+        const donePct = pct;
+        return (
+          <div key={sop.sopId} className="flex items-center gap-3">
+            <div className="w-[180px] shrink-0 truncate text-[12px] font-medium text-[#334155]" title={sop.title}>
+              {sop.sopCode || sop.title}
+            </div>
+            <div className="flex-1 flex h-[22px] rounded-[5px] overflow-hidden bg-[#f1f5f9]">
+              {donePct > 0 && (
+                <div
+                  style={{ width: `${donePct}%`, background: '#059669' }}
+                  title={`Completed: ${sop.completedTasks}`}
+                  className="h-full"
+                />
+              )}
+              {pendingPct > 0 && (
+                <div
+                  style={{ width: `${pendingPct}%`, background: '#93c5fd' }}
+                  title={`Pending: ${sop.pendingTasks}`}
+                  className="h-full"
+                />
+              )}
+              {overduePct > 0 && (
+                <div
+                  style={{ width: `${overduePct}%`, background: '#fca5a5' }}
+                  title={`Overdue: ${sop.overdueTasks}`}
+                  className="h-full"
+                />
+              )}
+            </div>
+            <div className="w-[80px] shrink-0 text-right">
+              <span className="text-[12px] font-bold" style={{ color: barColor }}>{donePct}%</span>
+              <span className="text-[11px] text-[#94a3b8] ml-1">
+                ({sop.completedTasks}/{sop.totalTasks})
+              </span>
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="flex items-center gap-4 mt-2 pt-2 border-t border-[#f1f5f9]">
+        <span className="flex items-center gap-1 text-[11px] text-[#64748b]">
+          <span className="inline-block w-3 h-3 rounded-sm bg-[#059669]" /> Completed
+        </span>
+        <span className="flex items-center gap-1 text-[11px] text-[#64748b]">
+          <span className="inline-block w-3 h-3 rounded-sm bg-[#93c5fd]" /> Pending
+        </span>
+        <span className="flex items-center gap-1 text-[11px] text-[#64748b]">
+          <span className="inline-block w-3 h-3 rounded-sm bg-[#fca5a5]" /> Overdue
+        </span>
       </div>
-
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ overflow: 'visible' }}>
-        {gridLines.map(({ val, y }) => (
-          <g key={val}>
-            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="#f1f5f9" strokeWidth="1"/>
-            <text x={PAD.left - 6} y={y + 4} textAnchor="end" fontSize="10" fill="#94a3b8">
-              {chartType === 'line' ? `${val}%` : val}
-            </text>
-          </g>
-        ))}
-
-        <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + chartH} stroke="#e2e8f0" strokeWidth="1"/>
-        <line x1={PAD.left} y1={PAD.top + chartH} x2={W - PAD.right} y2={PAD.top + chartH} stroke="#e2e8f0" strokeWidth="1"/>
-
-        {chartType !== 'line' && items.map((sop, i) => renderBars(i, sop))}
-        {chartType === 'line' && (
-          <>
-            {buildPolyline('completed', CHART_COLORS.completed)}
-            {buildPolyline('pending', CHART_COLORS.pending)}
-            {buildPolyline('overdue', CHART_COLORS.overdue)}
-          </>
-        )}
-
-        {items.map((sop, i) => (
-          <text
-            key={sop.sopId}
-            x={xCenter(i)}
-            y={PAD.top + chartH + 14}
-            textAnchor="end"
-            fontSize="10"
-            fill="#64748b"
-            transform={`rotate(-35, ${xCenter(i)}, ${PAD.top + chartH + 14})`}
-          >
-            {sop.sopCode || sop.title?.slice(0, 10)}
-          </text>
-        ))}
-
-        {tooltip && (
-          <g>
-            <rect
-              x={tooltipX} y={tooltipY}
-              width={tooltipW} height={tooltipH}
-              rx="6" fill="#1e293b" opacity="0.93"
-            />
-            <text x={tooltipX + 10} y={tooltipY + 16} fontSize="11" fontWeight="600" fill="white">
-              {tooltip.sop.sopCode || tooltip.sop.title?.slice(0, 20)}
-            </text>
-            <text x={tooltipX + 10} y={tooltipY + 32} fontSize="10" fill={CHART_COLORS.completed}>
-              ✓ Completed: {tooltip.sop.completedTasks} ({tooltip.sop.progressPercent}%)
-            </text>
-            <text x={tooltipX + 10} y={tooltipY + 48} fontSize="10" fill={CHART_COLORS.pending}>
-              ◷ Pending: {tooltip.sop.pendingTasks}
-            </text>
-            <text x={tooltipX + 10} y={tooltipY + 64} fontSize="10" fill={CHART_COLORS.overdue}>
-              ⚠ Overdue: {tooltip.sop.overdueTasks}
-            </text>
-            <text x={tooltipX + 10} y={tooltipY + 80} fontSize="10" fill="#94a3b8">
-              Total: {tooltip.sop.totalTasks} tasks · {tooltip.sop.entity}
-            </text>
-          </g>
-        )}
-      </svg>
     </div>
   );
 }
@@ -624,6 +438,7 @@ export default function Dashboard() {
                   </svg>
                   SOP Task Completion Progress
                 </span>
+                <span className="text-[12px] text-[#94a3b8] font-medium">Top SOPs by activity</span>
               </div>
               <div className="px-6 py-5">
                 {sopLoading ? (
@@ -639,7 +454,7 @@ export default function Dashboard() {
                 ) : sopProgressData.length === 0 ? (
                   <div className="text-center py-10 text-[#94a3b8] text-[13.5px]">No SOP activity data for the selected entities.</div>
                 ) : (
-                  <SopChart sopList={sopProgressData} />
+                  <SopBarChart sopList={sopProgressData} />
                 )}
               </div>
             </div>

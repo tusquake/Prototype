@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 
 
-export default function CustomSelect({ value, options, onChange, name, dropUp: explicitDropUp }) {
+export default function CustomSelect({ value, options=[], onChange, name, dropUp: explicitDropUp }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isUp, setIsUp] = useState(false);
   const containerRef = useRef(null);

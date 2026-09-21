@@ -48,9 +48,8 @@ export default function UserPickerModal({
         setUsers(pList);
         return;
       }
-      const eligibleUsers = await getUsers(entityCode, targetRole);
-      const userList = Array.isArray(eligibleUsers) ? eligibleUsers : (eligibleUsers?.data || []);
-      setUsers(userList);
+      const {data:eligibleUsers} = await getUsers(entityCode, targetRole);
+      setUsers(eligibleUsers);
     } catch {
       setUsers([]);
     } finally {
@@ -80,7 +79,6 @@ export default function UserPickerModal({
     setTempSelected(prev => {
       const selected = isUserSelected(user);
       if (selected) {
-        if (prev.length <= 1) return prev; // Keep at least 1 user selected
         return prev.filter(x => x !== targetId && x !== user.id && x !== user.name && x !== ID_MAP[user.name]);
       }
       return Array.from(new Set([...prev, targetId]));
@@ -93,7 +91,7 @@ export default function UserPickerModal({
 
   function handleClearAll() {
     if (filteredUsers.length > 0) {
-      setTempSelected([filteredUsers[0].id]);
+      setTempSelected([]);
     }
   }
 

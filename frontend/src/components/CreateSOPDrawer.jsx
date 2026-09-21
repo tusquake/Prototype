@@ -271,6 +271,19 @@ export default function CreateSopDrawer({
       setErrorMsg('You must add at least one task template to the execution flow.');
       return;
     }
+    if (taskTemplates.length > 1) {
+      console.log('Checking',dueDayOffset)
+      const hasInvalidDuration = taskTemplates.slice(0, -1).some(task => task.etaEndDay >= dueDayOffset);
+      
+      if (hasInvalidDuration) {
+        setErrorMsg(`Only the final task in the sequence can end on the maximum SOP deadline (${dueDayOffset} days). Please adjust the earlier tasks.`);
+        return;
+      }
+    }
+    if(taskTemplates.length > 0 && taskTemplates[taskTemplates.length -1].etaEndDay > dueDayOffset){
+      setErrorMsg(`Task ETA cannot be greater than SOP deadline (${dueDayOffset} days). Please adjust the tasks. `);
+      return;
+    }
     setErrorMsg('');
     setIsSavingDraft(true);
     try {
