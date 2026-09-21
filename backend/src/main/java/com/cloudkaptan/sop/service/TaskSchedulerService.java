@@ -47,7 +47,7 @@ public class TaskSchedulerService {
     private final RecurrenceStrategyFactory recurrenceStrategyFactory;
     private final AuditLogRepository auditLogRepository;
     private final NotificationPublisherService notificationPublisherService;
-
+    private final DemoRuntimeSettingsService demoRuntimeSettingsService;
 
     @Value("${app.cloud-run.self-url}")
     private String backendWorkerUrl;
@@ -67,14 +67,20 @@ public class TaskSchedulerService {
     // @Scheduled(cron = "${app.task-scheduler.cron:0 0 0 * * ?}")
     @Transactional
     public void generateScheduledTasks() {
-        log.info("Executing scheduled task generation engine...");
-        LocalDate today = LocalDate.now();
+        generateScheduledTasks(null, null);
+    }
+
+    @Transactional
+    public void generateScheduledTasks(LocalDate overrideDate, Boolean bypassRecurrenceCheck) {
+        LocalDate today = overrideDate != null ? overrideDate : demoRuntimeSettingsService.getEffectiveDate(LocalDate.now());
+        log.info("Executing scheduled task generation engine for date [{}] (Bypass checks: {})...", 
+                today, Boolean.TRUE.equals(bypassRecurrenceCheck) || demoRuntimeSettingsService.isBypassRecurrenceCheckEnabled());
 
         // ─── PATH 1: Legacy SOP-version based generation (backward compat) ────
         // generateFromSopVersions(today);
 
         // ─── PATH 2: New SOP Template-based generation via CLOUD TASKS ────────
-        generateFromSopTemplates(today);
+        generateFromSopTemplates(today, bypassRecurrenceCheck);
 
         log.info("Scheduled task generation cycle dispatched for date [{}].", today);
     }
@@ -159,8 +165,11 @@ public class TaskSchedulerService {
         log.info("(Legacy) Idempotently created [{}] tasks from SOP versions.", generatedCount);
     }
 
-    // TEMPLATE PATH — Cloud Tasks Fan-out Orchestrator
     private void generateFromSopTemplates(LocalDate today) {
+        generateFromSopTemplates(today, null);
+    }
+
+    private void generateFromSopTemplates(LocalDate today, Boolean bypassRecurrenceCheck) {
         List<SopTemplate> schedulableTemplates = sopTemplateRepository.findSchedulableTemplates(
                 SopTemplateStatus.ACTIVE, today);
 
@@ -170,6 +179,7 @@ public class TaskSchedulerService {
         }
 
         String queuePath = QueueName.of(projectId, locationId, queueId).toString();
+        boolean skipChecks = Boolean.TRUE.equals(bypassRecurrenceCheck) || demoRuntimeSettingsService.isBypassRecurrenceCheckEnabled();
 
         try (CloudTasksClient client = CloudTasksClient.create()) {
             int queuedCount = 0;
@@ -178,20 +188,24 @@ public class TaskSchedulerService {
                 try {
                     RecurrenceStrategy strategy = recurrenceStrategyFactory.getStrategy(template.getFrequency());
 
-                    // Check if template is due today based on recurrenceConfig JSON
-                    if (!strategy.isDueToday(today, template.getRecurrenceConfig())) {
-                        log.debug("Template [{}] is not due today [{}] based on recurrenceConfig [{}]. Skipping.",
-                                template.getTemplateCode(), today, template.getRecurrenceConfig());
-                        continue;
-                    }
+                    if (!skipChecks) {
+                        // Check if template is due today based on recurrenceConfig JSON
+                        if (!strategy.isDueToday(today, template.getRecurrenceConfig())) {
+                            log.debug("Template [{}] is not due today [{}] based on recurrenceConfig [{}]. Skipping.",
+                                    template.getTemplateCode(), today, template.getRecurrenceConfig());
+                            continue;
+                        }
 
-                    // Pre-check if already generated to save Cloud Task enqueue costs
-                    String periodKey = strategy.calculatePeriodKey(today);
-                    boolean sopInstanceExists = sopRepository
-                            .findBySopCode(buildSopCode(template.getTemplateCode(), periodKey)).isPresent();
+                        // Pre-check if already generated to save Cloud Task enqueue costs
+                        String periodKey = strategy.calculatePeriodKey(today);
+                        boolean sopInstanceExists = sopRepository
+                                .findBySopCode(buildSopCode(template.getTemplateCode(), periodKey)).isPresent();
 
-                    if (sopInstanceExists) {
-                        continue;
+                        if (sopInstanceExists) {
+                            continue;
+                        }
+                    } else {
+                        log.info("[Demo Mode] Bypassing recurrence & DB existence checks for Template [{}]", template.getTemplateCode());
                     }
 
                     // Build JSON payload for the worker

@@ -52,6 +52,7 @@ public class SopTemplateService {
     private final TaskSchedulerService taskSchedulerService;
     private final AuditLogRepository auditLogRepository;
     private final SopTemplateEventRepository sopTemplateEventRepository;
+    private final DemoRuntimeSettingsService demoRuntimeSettingsService;
 
 
     @Transactional
@@ -248,11 +249,13 @@ public class SopTemplateService {
         logTemplateAudit(saved, null, "APPROVE_TEMPLATE", "Approved and Activated SOP Template blueprint");
         log.info("Activated SOP Template [{}]", templateId);
 
-        // Automatically spawn SOP Instance & Task Instances immediately upon approval!
-        try {
-            taskSchedulerService.instantiateSingleSopTemplate(saved, java.time.LocalDate.now());
-        } catch (Exception e) {
-            log.warn("Auto-instantiation on template approval failed for template [{}]: {}", templateId, e.getMessage());
+        if (demoRuntimeSettingsService.isAutoInstantiateOnApprovalEnabled()) {
+            try {
+                taskSchedulerService.instantiateSingleSopTemplate(saved, java.time.LocalDate.now());
+                log.info("[Demo Mode] Auto-instantiated SOP instance for template [{}] upon approval.", templateId);
+            } catch (Exception e) {
+                log.warn("[Demo Mode] Auto-instantiation on template approval failed for template [{}]: {}", templateId, e.getMessage());
+            }
         }
 
         return toDto(saved);
