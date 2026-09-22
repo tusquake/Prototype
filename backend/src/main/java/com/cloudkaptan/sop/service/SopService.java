@@ -65,6 +65,9 @@ public class SopService {
     private final TaskEventRepository taskEventRepository;
     private final TaskWorkflowService taskWorkflowService;
     private final SopSecurityEvaluator sopSecurityEvaluator;
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
 
     @ApplyRowLevelSecurity
     @Transactional(readOnly = true)
@@ -687,20 +690,43 @@ public class SopService {
 
     @Transactional
     public void deleteSop(UUID id) {
+        try {
+            entityManager.createNativeQuery("SET LOCAL sop.allow_deletion = 'true'").executeUpdate();
+        } catch (Exception e) {
+            log.debug("Could not set session deletion override: {}", e.getMessage());
+        }
+
         Sop sop = sopRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("SOP not found with ID: " + id));
 
-        sop.setStatus(SopStatus.ARCHIVED);
-        sopRepository.save(sop);
 
-        AuditLog auditLog = AuditLog.builder()
+        List<Task> tasks = taskRepository.findBySop_SopIdOrderByRecordNoAsc(id);
+        if (tasks != null && !tasks.isEmpty()) {
+            for (Task task : tasks) {
+                taskWorkflowService.deleteTask(task.getTaskId());
+            }
+        }
+
+        try {
+            List<SopEvent> sopEvents = sopEventRepository.findBySop_SopIdOrderByTimestampAsc(id);
+            if (sopEvents != null && !sopEvents.isEmpty()) {
+                sopEventRepository.deleteAll(sopEvents);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to cleanup events for SOP [{}]: {}", id, e.getMessage());
+        }
+
+        sopRepository.delete(sop);
+
+        auditLogRepository.save(AuditLog.builder()
                 .actorId(sop.getCreatedBy() != null ? sop.getCreatedBy().getUserId() : "usr-manoj-042")
                 .action("DELETE_SOP")
                 .entityType("SOP")
                 .entityId(sop.getSopCode())
                 .correlationId(UUID.randomUUID().toString())
-                .build();
-        auditLogRepository.save(auditLog);
+                .build());
+
+        log.info("Deleted SOP [{}] ({}) and all associated tasks", sop.getSopCode(), id);
     }
 
     @Transactional

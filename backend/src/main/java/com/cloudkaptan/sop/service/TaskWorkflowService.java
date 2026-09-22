@@ -69,6 +69,9 @@ public class TaskWorkflowService {
     private final TaskDocumentRepository taskDocumentRepository;
     private final ProcessCategoryRepository processCategoryRepository;
     private final TaskTemplateRepository taskTemplateRepository;
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
 
     @Transactional
     public TaskDto processTaskAction(UUID taskId, TaskActionRequest request) {
@@ -347,7 +350,43 @@ public class TaskWorkflowService {
 
     @Transactional
     public void deleteTask(UUID taskId) {
+        try {
+            entityManager.createNativeQuery("SET LOCAL sop.allow_deletion = 'true'").executeUpdate();
+        } catch (Exception e) {
+            log.debug("Could not set session deletion override: {}", e.getMessage());
+        }
+
         Task task = getTaskOrThrow(taskId);
+
+
+        try {
+            taskDocumentRepository.findByTaskTaskIdOrderByUploadedAtDesc(taskId)
+                    .forEach(taskDocumentRepository::delete);
+        } catch (Exception e) {
+            log.warn("Failed to cleanup documents for task [{}]: {}", taskId, e.getMessage());
+        }
+
+        try {
+            taskEventRepository.findByTask_TaskIdOrderByTimestampAsc(taskId)
+                    .forEach(taskEventRepository::delete);
+        } catch (Exception e) {
+            log.warn("Failed to cleanup events for task [{}]: {}", taskId, e.getMessage());
+        }
+
+        try {
+            taskCommentRepository.findByTask_TaskIdOrderByCreatedAtAsc(taskId)
+                    .forEach(taskCommentRepository::delete);
+        } catch (Exception e) {
+            log.warn("Failed to cleanup comments for task [{}]: {}", taskId, e.getMessage());
+        }
+
+        try {
+            taskReassignmentHistoryRepository.findByTask_TaskIdOrderByWorkedUntilDesc(taskId)
+                    .forEach(taskReassignmentHistoryRepository::delete);
+        } catch (Exception e) {
+            log.warn("Failed to cleanup reassignment history for task [{}]: {}", taskId, e.getMessage());
+        }
+
         taskRepository.delete(task);
 
         AuditLog auditLog = AuditLog.builder()

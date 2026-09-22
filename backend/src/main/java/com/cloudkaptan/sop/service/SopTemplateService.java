@@ -269,6 +269,33 @@ public class SopTemplateService {
     }
 
     @Transactional
+    public void deleteTemplate(UUID templateId) {
+        SopTemplate template = getTemplateOrThrow(templateId);
+
+        try {
+            List<SopTemplateEvent> events = sopTemplateEventRepository.findBySopTemplate_TemplateIdOrderByTimestampDesc(templateId);
+            if (events != null && !events.isEmpty()) {
+                sopTemplateEventRepository.deleteAll(events);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to cleanup events for SOP Template [{}]: {}", templateId, e.getMessage());
+        }
+
+        sopTemplateRepository.delete(template);
+
+        auditLogRepository.save(AuditLog.builder()
+                .actorId(template.getCreatedBy() != null ? template.getCreatedBy().getUserId() : "usr-manoj-042")
+                .action("DELETE_SOP_TEMPLATE")
+                .entityType("SOP_TEMPLATE")
+                .entityId(template.getTemplateId().toString())
+                .correlationId(UUID.randomUUID().toString())
+                .build());
+
+        log.info("Deleted SOP Template [{}] ({}) and all associated task templates", template.getTemplateCode(), templateId);
+    }
+
+
+    @Transactional
     public SopTemplateDto deactivateTemplate(UUID templateId) {
         SopTemplate template = getTemplateOrThrow(templateId);
         SopTemplateContext context = new SopTemplateContext(template);

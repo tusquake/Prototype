@@ -143,4 +143,15 @@ public class SopTemplateController {
         sopTemplateService.instantiateTemplate(templateId);
         return ResponseEntity.ok(ApiResponse.success("SOP Instance and Task instances generated successfully from template.", "Instantiated successfully"));
     }
+
+    @DeleteMapping("/{templateId}")
+    @Operation(summary = "Delete SOP Template",
+               description = "Deletes an SOP Template blueprint and all associated task step templates.")
+    public ResponseEntity<ApiResponse<Void>> deleteTemplate(
+            @PathVariable UUID templateId
+    ) {
+        sopTemplateService.deleteTemplate(templateId);
+        return ResponseEntity.ok(ApiResponse.success(null, "SOP Template and all associated task step templates deleted successfully."));
+    }
 }
+
