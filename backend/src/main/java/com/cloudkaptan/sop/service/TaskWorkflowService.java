@@ -36,6 +36,7 @@ import com.cloudkaptan.sop.dto.TaskReassignmentHistoryDto;
 import com.cloudkaptan.sop.dto.TaskReassignRequest;
 import com.cloudkaptan.sop.repository.AuditLogRepository;
 import com.cloudkaptan.sop.repository.ProcessCategoryRepository;
+import com.cloudkaptan.sop.repository.SopRepository;
 import com.cloudkaptan.sop.repository.TaskCommentRepository;
 import com.cloudkaptan.sop.repository.TaskDocumentRepository;
 import com.cloudkaptan.sop.repository.TaskEventRepository;
@@ -49,6 +50,7 @@ import com.cloudkaptan.sop.repository.UserNotificationRepository;
 public class TaskWorkflowService {
 
     private final TaskRepository taskRepository;
+    private final SopRepository sopRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final AuditLogRepository auditLogRepository;
@@ -281,7 +283,28 @@ public class TaskWorkflowService {
                     .build());
         }
 
+        // Check if all tasks for this SOP are now approved; if so, mark SOP as COMPLETED
+        checkAndUpdateSopCompletionStatus(saved.getSop());
+
         return mapToDto(saved);
+    }
+
+    private void checkAndUpdateSopCompletionStatus(Sop sop) {
+        if (sop == null || sop.getSopId() == null) return;
+        try {
+            List<Task> sopTasks = taskRepository.findBySop_SopIdOrderByRecordNoAsc(sop.getSopId());
+            if (sopTasks != null && !sopTasks.isEmpty()) {
+                boolean allApproved = sopTasks.stream().allMatch(t -> t.getStatus() == TaskStatus.APPROVED);
+                if (allApproved) {
+                    sop.setStatus(SopStatus.COMPLETED);
+                    sopRepository.save(sop);
+                    log.info("SOP [{}] ({}) status updated to COMPLETED as all [{}] tasks have been approved.",
+                            sop.getSopCode(), sop.getSopId(), sopTasks.size());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to update SOP completion status for SOP [{}]: {}", sop.getSopId(), e.getMessage());
+        }
     }
 
     @Transactional

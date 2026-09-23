@@ -55,16 +55,6 @@ public class SopTemplateService {
     private final AuditLogRepository auditLogRepository;
     private final SopTemplateEventRepository sopTemplateEventRepository;
 
-    @Value("${spring.profiles.active:local}")
-    private String activeProfile;
-
-    private boolean isLocalOrDevEnvironment() {
-        if (activeProfile == null) return true;
-        String profile = activeProfile.toLowerCase().trim();
-        return profile.contains("local") || profile.contains("dev") || !profile.contains("prod");
-    }
-
-
     @Transactional
     public SopTemplateDto createTemplate(CreateSopTemplateRequest request) {
         if (sopTemplateRepository.existsByTemplateCode(request.getTemplateCode())) {
@@ -296,16 +286,6 @@ public SopTemplateDto updateTaskTemplate(
         SopTemplate saved = sopTemplateRepository.save(template);
         logTemplateAudit(saved, null, "APPROVE_TEMPLATE", "Approved and Activated SOP Template blueprint");
         log.info("Activated SOP Template [{}]", templateId);
-
-        if (isLocalOrDevEnvironment()) {
-            try {
-                taskSchedulerService.instantiateSingleSopTemplate(saved, java.time.LocalDate.now());
-                log.info("[Auto-Instantiation] Instantiated SOP instance for template [{}] upon approval (Profile: {}).", templateId, activeProfile);
-            } catch (Exception e) {
-                log.warn("[Auto-Instantiation] Auto-instantiation on template approval failed for template [{}]: {}", templateId, e.getMessage());
-            }
-        }
-
         return toDto(saved);
     }
 

@@ -47,11 +47,6 @@ public class TaskSchedulerService {
     private final RecurrenceStrategyFactory recurrenceStrategyFactory;
     private final AuditLogRepository auditLogRepository;
     private final NotificationPublisherService notificationPublisherService;
-
-
-    @Value("${spring.profiles.active:local}")
-    private String activeProfile;
-
     @Value("${app.cloud-run.self-url:http://localhost:8080}")
     private String backendWorkerUrl;
 
@@ -66,13 +61,6 @@ public class TaskSchedulerService {
 
     @Value("${gcp.cloud-tasks.queue-id:sop-instantiation-queue}")
     private String queueId;
-
-    private boolean isLocalOrDevEnvironment() {
-        if (activeProfile == null) return true;
-        String profile = activeProfile.toLowerCase().trim();
-        return profile.contains("local") || profile.contains("dev") || !profile.contains("prod");
-    }
-
     // @Scheduled(cron = "${app.task-scheduler.cron:0 0 0 * * ?}")
     @Transactional
     public void generateScheduledTasks() {
@@ -229,12 +217,7 @@ public class TaskSchedulerService {
         }
 
         boolean skipChecks = Boolean.TRUE.equals(bypassRecurrenceCheck);
-
-        if (isLocalOrDevEnvironment()) {
-            generateTemplatesLocally(schedulableTemplates, today, skipChecks);
-        } else {
-            enqueueTemplatesToCloudTasks(schedulableTemplates, today, skipChecks);
-        }
+        enqueueTemplatesToCloudTasks(schedulableTemplates, today, skipChecks);
     }
 
     private boolean isTemplateDueAndNotInstantiated(SopTemplate template, LocalDate today, boolean skipChecks) {
@@ -260,25 +243,6 @@ public class TaskSchedulerService {
         }
 
         return true;
-    }
-
-    private void generateTemplatesLocally(List<SopTemplate> templates, LocalDate today, boolean skipChecks) {
-        log.info("(Template Scheduler) Running in Local/Dev environment (Profile: {}). Instantiating due SOP templates directly...", activeProfile);
-        int localInstantiatedCount = 0;
-        for (SopTemplate template : templates) {
-            try {
-                if (!isTemplateDueAndNotInstantiated(template, today, skipChecks)) {
-                    continue;
-                }
-
-                instantiateSingleSopTemplate(template, today);
-                localInstantiatedCount++;
-                log.info("Locally instantiated SOP from Template [{}]", template.getTemplateCode());
-            } catch (Exception e) {
-                log.error("(Template) Failed to locally instantiate template [{}]: {}", template.getTemplateId(), e.getMessage(), e);
-            }
-        }
-        log.info("(Template) Locally created [{}] SOP instances directly.", localInstantiatedCount);
     }
 
     private void enqueueTemplatesToCloudTasks(List<SopTemplate> templates, LocalDate today, boolean skipChecks) {
