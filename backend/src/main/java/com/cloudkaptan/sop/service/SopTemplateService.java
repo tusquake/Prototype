@@ -18,6 +18,7 @@ import com.cloudkaptan.sop.repository.TaskTemplateRepository;
 import com.cloudkaptan.sop.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -54,6 +55,15 @@ public class SopTemplateService {
     private final AuditLogRepository auditLogRepository;
     private final SopTemplateEventRepository sopTemplateEventRepository;
     private final DemoRuntimeSettingsService demoRuntimeSettingsService;
+
+    @Value("${spring.profiles.active:local}")
+    private String activeProfile;
+
+    private boolean isLocalOrDevEnvironment() {
+        if (activeProfile == null) return true;
+        String profile = activeProfile.toLowerCase().trim();
+        return profile.contains("local") || profile.contains("dev") || !profile.contains("prod");
+    }
 
 
     @Transactional
@@ -288,12 +298,12 @@ public SopTemplateDto updateTaskTemplate(
         logTemplateAudit(saved, null, "APPROVE_TEMPLATE", "Approved and Activated SOP Template blueprint");
         log.info("Activated SOP Template [{}]", templateId);
 
-        if (demoRuntimeSettingsService.isAutoInstantiateOnApprovalEnabled()) {
+        if (isLocalOrDevEnvironment() || demoRuntimeSettingsService.isAutoInstantiateOnApprovalEnabled()) {
             try {
                 taskSchedulerService.instantiateSingleSopTemplate(saved, java.time.LocalDate.now());
-                log.info("[Demo Mode] Auto-instantiated SOP instance for template [{}] upon approval.", templateId);
+                log.info("[Auto-Instantiation] Instantiated SOP instance for template [{}] upon approval (Profile: {}).", templateId, activeProfile);
             } catch (Exception e) {
-                log.warn("[Demo Mode] Auto-instantiation on template approval failed for template [{}]: {}", templateId, e.getMessage());
+                log.warn("[Auto-Instantiation] Auto-instantiation on template approval failed for template [{}]: {}", templateId, e.getMessage());
             }
         }
 

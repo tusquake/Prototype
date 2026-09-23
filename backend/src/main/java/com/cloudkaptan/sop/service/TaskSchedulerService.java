@@ -50,6 +50,9 @@ public class TaskSchedulerService {
     private final DemoRuntimeSettingsService demoRuntimeSettingsService;
 
 
+    @Value("${spring.profiles.active:local}")
+    private String activeProfile;
+
     @Value("${app.cloud-run.self-url:http://localhost:8080}")
     private String backendWorkerUrl;
 
@@ -64,6 +67,12 @@ public class TaskSchedulerService {
 
     @Value("${gcp.cloud-tasks.queue-id:sop-instantiation-queue}")
     private String queueId;
+
+    private boolean isLocalOrDevEnvironment() {
+        if (activeProfile == null) return true;
+        String profile = activeProfile.toLowerCase().trim();
+        return profile.contains("local") || profile.contains("dev") || !profile.contains("prod");
+    }
 
     // @Scheduled(cron = "${app.task-scheduler.cron:0 0 0 * * ?}")
     @Transactional
@@ -179,73 +188,79 @@ public class TaskSchedulerService {
             return;
         }
 
-        String queuePath = QueueName.of(projectId, locationId, queueId).toString();
         boolean skipChecks = Boolean.TRUE.equals(bypassRecurrenceCheck) || demoRuntimeSettingsService.isBypassRecurrenceCheckEnabled();
+
+        if (isLocalOrDevEnvironment()) {
+            generateTemplatesLocally(schedulableTemplates, today, skipChecks);
+        } else {
+            enqueueTemplatesToCloudTasks(schedulableTemplates, today, skipChecks);
+        }
+    }
+
+    private boolean isTemplateDueAndNotInstantiated(SopTemplate template, LocalDate today, boolean skipChecks) {
+        if (skipChecks) {
+            log.info("[Demo Mode] Bypassing recurrence & DB existence checks for Template [{}]", template.getTemplateCode());
+            return true;
+        }
+
+        RecurrenceStrategy strategy = recurrenceStrategyFactory.getStrategy(template.getFrequency());
+        if (!strategy.isDueToday(today, template.getRecurrenceConfig())) {
+            log.debug("Template [{}] is not due today [{}] based on recurrenceConfig [{}]. Skipping.",
+                    template.getTemplateCode(), today, template.getRecurrenceConfig());
+            return false;
+        }
+
+        String periodKey = strategy.calculatePeriodKey(today);
+        boolean sopInstanceExists = sopRepository
+                .findBySopCode(buildSopCode(template.getTemplateCode(), periodKey)).isPresent();
+
+        if (sopInstanceExists) {
+            log.debug("SOP Instance for template [{}] and period [{}] already exists. Skipping.", template.getTemplateCode(), periodKey);
+            return false;
+        }
+
+        return true;
+    }
+
+    private void generateTemplatesLocally(List<SopTemplate> templates, LocalDate today, boolean skipChecks) {
+        log.info("(Template Scheduler) Running in Local/Dev environment (Profile: {}). Instantiating due SOP templates directly...", activeProfile);
+        int localInstantiatedCount = 0;
+        for (SopTemplate template : templates) {
+            try {
+                if (!isTemplateDueAndNotInstantiated(template, today, skipChecks)) {
+                    continue;
+                }
+
+                instantiateSingleSopTemplate(template, today);
+                localInstantiatedCount++;
+                log.info("Locally instantiated SOP from Template [{}]", template.getTemplateCode());
+            } catch (Exception e) {
+                log.error("(Template) Failed to locally instantiate template [{}]: {}", template.getTemplateId(), e.getMessage(), e);
+            }
+        }
+        log.info("(Template) Locally created [{}] SOP instances directly.", localInstantiatedCount);
+    }
+
+    private void enqueueTemplatesToCloudTasks(List<SopTemplate> templates, LocalDate today, boolean skipChecks) {
+        String queuePath = QueueName.of(projectId, locationId, queueId).toString();
 
         try (CloudTasksClient client = CloudTasksClient.create()) {
             int queuedCount = 0;
 
-            for (SopTemplate template : schedulableTemplates) {
+            for (SopTemplate template : templates) {
                 try {
-                    RecurrenceStrategy strategy = recurrenceStrategyFactory.getStrategy(template.getFrequency());
-
-                    if (!skipChecks) {
-                        // Check if template is due today based on recurrenceConfig JSON
-                        if (!strategy.isDueToday(today, template.getRecurrenceConfig())) {
-                            log.debug("Template [{}] is not due today [{}] based on recurrenceConfig [{}]. Skipping.",
-                                    template.getTemplateCode(), today, template.getRecurrenceConfig());
-                            continue;
-                        }
-
-                        // Pre-check if already generated to save Cloud Task enqueue costs
-                        String periodKey = strategy.calculatePeriodKey(today);
-                        boolean sopInstanceExists = sopRepository
-                                .findBySopCode(buildSopCode(template.getTemplateCode(), periodKey)).isPresent();
-
-                        if (sopInstanceExists) {
-                            continue;
-                        }
-                    } else {
-                        log.info("[Demo Mode] Bypassing recurrence & DB existence checks for Template [{}]", template.getTemplateCode());
+                    if (!isTemplateDueAndNotInstantiated(template, today, skipChecks)) {
+                        continue;
                     }
 
-                    // Build JSON payload for the worker
-                    String payload = String.format("{\"templateId\":\"%s\",\"executionDate\":\"%s\"}",
-                            template.getTemplateId(), today);
-
-                    // Idempotent Task Name (Prevents duplicate queueing on the same day)
-                    String taskName = String.format("%s/tasks/soptpl-%s-%s",
-                            queuePath, template.getTemplateId(), today);
-
-                    // CHANGED: added OIDC token so Cloud Run's built-in IAM auth accepts the
-                    // call, no need for --allow-unauthenticated or a load balancer.
-                    HttpRequest httpRequest = HttpRequest.newBuilder()
-                            .setUrl(backendWorkerUrl)
-                            .setHttpMethod(HttpMethod.POST)
-                            .putHeaders("Content-Type", "application/json")
-                            .setBody(ByteString.copyFromUtf8(payload))
-                            .setOidcToken(
-                                    OidcToken.newBuilder()
-                                            .setServiceAccountEmail(invokerServiceAccountEmail)
-                                            .setAudience(backendWorkerUrl)
-                                            .build())
-                            .build();
-
-                    com.google.cloud.tasks.v2.Task cloudTask = com.google.cloud.tasks.v2.Task.newBuilder()
-                            .setName(taskName)
-                            .setHttpRequest(httpRequest)
-                            .build();
-
-                    client.createTask(queuePath, cloudTask);
+                    enqueueSingleCloudTask(client, queuePath, template, today);
                     queuedCount++;
                     log.info("Enqueued Cloud Task for Template [{}]", template.getTemplateCode());
 
                 } catch (com.google.api.gax.rpc.AlreadyExistsException e) {
-                    log.debug("Task for Template [{}] already queued in Cloud Tasks for today.",
-                            template.getTemplateCode());
+                    log.debug("Task for Template [{}] already queued in Cloud Tasks for today.", template.getTemplateCode());
                 } catch (Exception e) {
-                    log.error("(Template) Failed to enqueue template [{}]: {}", template.getTemplateId(),
-                            e.getMessage(), e);
+                    log.error("(Template) Failed to enqueue template [{}]: {}", template.getTemplateId(), e.getMessage(), e);
                 }
             }
             log.info("(Template) Dispatched [{}] templates to Cloud Tasks.", queuedCount);
@@ -253,6 +268,33 @@ public class TaskSchedulerService {
         } catch (Exception e) {
             log.error("Failed to initialize Cloud Tasks Client: {}", e.getMessage(), e);
         }
+    }
+
+    private void enqueueSingleCloudTask(CloudTasksClient client, String queuePath, SopTemplate template, LocalDate today) {
+        String payload = String.format("{\"templateId\":\"%s\",\"executionDate\":\"%s\"}",
+                template.getTemplateId(), today);
+
+        String taskName = String.format("%s/tasks/soptpl-%s-%s",
+                queuePath, template.getTemplateId(), today);
+
+        HttpRequest httpRequest = HttpRequest.newBuilder()
+                .setUrl(backendWorkerUrl)
+                .setHttpMethod(HttpMethod.POST)
+                .putHeaders("Content-Type", "application/json")
+                .setBody(ByteString.copyFromUtf8(payload))
+                .setOidcToken(
+                        OidcToken.newBuilder()
+                                .setServiceAccountEmail(invokerServiceAccountEmail)
+                                .setAudience(backendWorkerUrl)
+                                .build())
+                .build();
+
+        com.google.cloud.tasks.v2.Task cloudTask = com.google.cloud.tasks.v2.Task.newBuilder()
+                .setName(taskName)
+                .setHttpRequest(httpRequest)
+                .build();
+
+        client.createTask(queuePath, cloudTask);
     }
 
     // SHARED WORKER LOGIC - Kept intact for both Cloud Tasks & Manual triggers
@@ -310,26 +352,47 @@ public class TaskSchedulerService {
             for (TaskTemplate taskTemplate : sortedSteps) {
                 try {
                     int startOffset = (taskTemplate.getEtaStartDay() != null) ? taskTemplate.getEtaStartDay() : 0;
-                    int durationDays = (taskTemplate.getEtaEndDay() != null
-                            && taskTemplate.getEtaEndDay() > startOffset)
-                                    ? (taskTemplate.getEtaEndDay() - startOffset)
-                                    : ((taskTemplate.getSlaHours() != null && taskTemplate.getSlaHours() / 24 > 0)
-                                            ? taskTemplate.getSlaHours() / 24
-                                            : 4);
+                    int endOffset = (taskTemplate.getEtaEndDay() != null) ? taskTemplate.getEtaEndDay() : 0;
+
+                    int durationDays;
+                    if (endOffset > startOffset) {
+                        durationDays = endOffset - startOffset;
+                    } else if (taskTemplate.getSlaHours() != null && taskTemplate.getSlaHours() > 0) {
+                        durationDays = Math.max(1, taskTemplate.getSlaHours() / 24);
+                    } else {
+                        durationDays = 4;
+                    }
 
                     LocalDate taskStartDate;
                     LocalDate taskDueDate;
                     TaskStatus initialStatus;
 
-                    if (previousTask == null || "INDEPENDENT".equalsIgnoreCase(taskTemplate.getDependencyMode())
-                            || taskTemplate.getStepSequence() == 1) {
+                    if (previousTask == null || taskTemplate.getStepSequence() == 1) {
                         taskStartDate = sopStartDate.plusDays(startOffset);
-                        taskDueDate = taskStartDate.plusDays(durationDays);
+                        taskDueDate = (endOffset > startOffset)
+                                ? sopStartDate.plusDays(endOffset)
+                                : taskStartDate.plusDays(durationDays);
                         initialStatus = TaskStatus.OPEN;
                     } else {
-                        taskStartDate = previousTask.getDueDate().plusDays(1);
-                        taskDueDate = taskStartDate.plusDays(durationDays);
-                        initialStatus = today.isBefore(taskStartDate) ? TaskStatus.LOCKED : TaskStatus.OPEN;
+                        LocalDate explicitStartDate = sopStartDate.plusDays(startOffset);
+                        if (startOffset > 0 && explicitStartDate.isAfter(previousTask.getStartDate())) {
+                            taskStartDate = explicitStartDate;
+                        } else {
+                            // Sequential execution: next task starts the day after previous task's due date
+                            taskStartDate = previousTask.getDueDate().plusDays(1);
+                        }
+
+                        if (endOffset > startOffset && sopStartDate.plusDays(endOffset).isAfter(taskStartDate)) {
+                            taskDueDate = sopStartDate.plusDays(endOffset);
+                        } else {
+                            taskDueDate = taskStartDate.plusDays(durationDays);
+                        }
+
+                        if ("INDEPENDENT".equalsIgnoreCase(taskTemplate.getDependencyMode())) {
+                            initialStatus = TaskStatus.OPEN;
+                        } else {
+                            initialStatus = today.isBefore(taskStartDate) ? TaskStatus.LOCKED : TaskStatus.OPEN;
+                        }
                     }
 
                     String taskRecordNo = String.format("%s-T%d", sopCode, taskTemplate.getStepSequence());
