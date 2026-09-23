@@ -95,6 +95,47 @@ public class TaskSchedulerService {
         log.info("Scheduled task generation cycle dispatched for date [{}].", today);
     }
 
+    /**
+     * Direct In-Memory SOP Instantiation for a specific date (defaults to today).
+     * Bypasses GCP Cloud Tasks & Cloud Scheduler completely so live demos / manual triggers work instantly.
+     */
+    @Transactional
+    public List<Sop> triggerDirectSopInstantiation(LocalDate overrideDate, Boolean bypassRecurrenceCheck) {
+        LocalDate targetDate = overrideDate != null ? overrideDate : demoRuntimeSettingsService.getEffectiveDate(LocalDate.now());
+        log.info("Directly instantiating SOP templates for date [{}] (bypassRecurrenceCheck: {})...", targetDate, bypassRecurrenceCheck);
+
+        List<SopTemplate> schedulableTemplates = sopTemplateRepository.findSchedulableTemplates(
+                SopTemplateStatus.ACTIVE, targetDate);
+
+        if (schedulableTemplates.isEmpty()) {
+            log.info("(Direct Instantiation) No active SOP Templates found for date [{}].", targetDate);
+            return List.of();
+        }
+
+        boolean skipChecks = Boolean.TRUE.equals(bypassRecurrenceCheck) || demoRuntimeSettingsService.isBypassRecurrenceCheckEnabled();
+        List<Sop> createdSops = new ArrayList<>();
+
+        for (SopTemplate template : schedulableTemplates) {
+            try {
+                if (!isTemplateDueAndNotInstantiated(template, targetDate, skipChecks)) {
+                    continue;
+                }
+
+                Sop createdSop = instantiateSingleSopTemplate(template, targetDate);
+                if (createdSop != null) {
+                    createdSops.add(createdSop);
+                    log.info("(Direct Instantiation) Created SOP [{}] from template [{}] for date [{}]",
+                            createdSop.getSopCode(), template.getTemplateCode(), targetDate);
+                }
+            } catch (Exception e) {
+                log.error("(Direct Instantiation) Failed to instantiate template [{}]: {}", template.getTemplateId(), e.getMessage(), e);
+            }
+        }
+
+        log.info("(Direct Instantiation) Successfully created [{}] SOP instances for date [{}].", createdSops.size(), targetDate);
+        return createdSops;
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // LEGACY PATH — SopVersion driven (existing behavior, untouched)
     // ─────────────────────────────────────────────────────────────────────────

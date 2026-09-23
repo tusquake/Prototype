@@ -1,7 +1,9 @@
 package com.cloudkaptan.sop.controller;
 
 import com.cloudkaptan.sop.dto.*;
+import com.cloudkaptan.sop.entity.Sop;
 import com.cloudkaptan.sop.service.SopTemplateService;
+import com.cloudkaptan.sop.service.TaskSchedulerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -9,10 +11,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -22,6 +27,7 @@ import java.util.UUID;
 public class SopTemplateController {
 
     private final SopTemplateService sopTemplateService;
+    private final TaskSchedulerService taskSchedulerService;
 
     @PostMapping
     @Operation(summary = "Create SOP Template (Step 1 draft save)",
@@ -152,6 +158,23 @@ public class SopTemplateController {
     ) {
         sopTemplateService.deleteTemplate(templateId);
         return ResponseEntity.ok(ApiResponse.success(null, "SOP Template and all associated task step templates deleted successfully."));
+    }
+
+    @PostMapping("/instantiate-scheduled")
+    @Operation(summary = "Directly Instantiate Scheduled SOPs for Date",
+               description = "Directly creates SOP instances and tasks in DB for templates scheduled on a specific date (defaults to today). Bypasses GCP Cloud Tasks & Scheduler for live demos.")
+    public ResponseEntity<ApiResponse<List<String>>> instantiateScheduledTemplates(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false, defaultValue = "false") boolean bypassRecurrenceCheck
+    ) {
+        LocalDate targetDate = date != null ? date : LocalDate.now();
+        List<Sop> createdSops = taskSchedulerService.triggerDirectSopInstantiation(targetDate, bypassRecurrenceCheck);
+        List<String> createdSopCodes = createdSops.stream().map(Sop::getSopCode).toList();
+
+        return ResponseEntity.ok(ApiResponse.success(
+                createdSopCodes,
+                String.format("Successfully instantiated %d SOP instances for date %s", createdSopCodes.size(), targetDate)
+        ));
     }
 }
 

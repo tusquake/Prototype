@@ -74,6 +74,23 @@ public class TaskController {
         return ResponseEntity.ok(ApiResponse.success(null, "Scheduled task generation dispatched to background queue successfully"));
     }
 
+    @PostMapping("/instantiate-scheduled")
+    @Operation(summary = "Directly Instantiate Scheduled SOPs for Date",
+               description = "Directly creates SOP instances and tasks in DB for templates scheduled on a specific date (defaults to today). Bypasses GCP Cloud Tasks & Scheduler for live demos.")
+    public ResponseEntity<ApiResponse<java.util.List<String>>> instantiateScheduledTasks(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date,
+            @RequestParam(required = false, defaultValue = "false") boolean bypassRecurrenceCheck
+    ) {
+        java.time.LocalDate targetDate = date != null ? date : java.time.LocalDate.now();
+        java.util.List<com.cloudkaptan.sop.entity.Sop> createdSops = taskSchedulerService.triggerDirectSopInstantiation(targetDate, bypassRecurrenceCheck);
+        java.util.List<String> createdSopCodes = createdSops.stream().map(com.cloudkaptan.sop.entity.Sop::getSopCode).toList();
+
+        return ResponseEntity.ok(ApiResponse.success(
+                createdSopCodes,
+                String.format("Successfully instantiated %d SOP instances for date %s", createdSopCodes.size(), targetDate)
+        ));
+    }
+
     @PutMapping("/{id}/reassign")
     @Operation(summary = "Reassign task makers and checkers", description = "Reassigns task assignment pools (Makers/Checkers) and records work continuity track.")
     public ResponseEntity<ApiResponse<TaskDto>> reassignTask(
