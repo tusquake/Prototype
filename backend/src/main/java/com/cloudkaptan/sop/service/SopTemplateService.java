@@ -54,7 +54,6 @@ public class SopTemplateService {
     private final TaskSchedulerService taskSchedulerService;
     private final AuditLogRepository auditLogRepository;
     private final SopTemplateEventRepository sopTemplateEventRepository;
-    private final DemoRuntimeSettingsService demoRuntimeSettingsService;
 
     @Value("${spring.profiles.active:local}")
     private String activeProfile;
@@ -298,7 +297,7 @@ public SopTemplateDto updateTaskTemplate(
         logTemplateAudit(saved, null, "APPROVE_TEMPLATE", "Approved and Activated SOP Template blueprint");
         log.info("Activated SOP Template [{}]", templateId);
 
-        if (isLocalOrDevEnvironment() || demoRuntimeSettingsService.isAutoInstantiateOnApprovalEnabled()) {
+        if (isLocalOrDevEnvironment()) {
             try {
                 taskSchedulerService.instantiateSingleSopTemplate(saved, java.time.LocalDate.now());
                 log.info("[Auto-Instantiation] Instantiated SOP instance for template [{}] upon approval (Profile: {}).", templateId, activeProfile);
@@ -308,13 +307,6 @@ public SopTemplateDto updateTaskTemplate(
         }
 
         return toDto(saved);
-    }
-
-    @Transactional
-    public void instantiateTemplate(UUID templateId) {
-        SopTemplate template = getTemplateOrThrow(templateId);
-        logTemplateAudit(template, null, "INSTANTIATE_TEMPLATE", "Manually triggered SOP instance generation");
-        taskSchedulerService.instantiateSingleSopTemplate(template, java.time.LocalDate.now());
     }
 
     @Transactional

@@ -140,16 +140,6 @@ public class SopTemplateController {
         return ResponseEntity.ok(ApiResponse.success(updated, "SOP Template status successfully updated to " + updated.getStatus() + "."));
     }
 
-    @PostMapping("/{templateId}/instantiate")
-    @Operation(summary = "Instantiate SOP from Template (On-Demand Demo Trigger)",
-               description = "Manually triggers generation of an active SOP Instance and Task instances from an active SOP Template.")
-    public ResponseEntity<ApiResponse<String>> instantiateTemplate(
-            @PathVariable UUID templateId
-    ) {
-        sopTemplateService.instantiateTemplate(templateId);
-        return ResponseEntity.ok(ApiResponse.success("SOP Instance and Task instances generated successfully from template.", "Instantiated successfully"));
-    }
-
     @DeleteMapping("/{templateId}")
     @Operation(summary = "Delete SOP Template",
                description = "Deletes an SOP Template blueprint and all associated task step templates.")

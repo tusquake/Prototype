@@ -47,7 +47,6 @@ public class TaskSchedulerService {
     private final RecurrenceStrategyFactory recurrenceStrategyFactory;
     private final AuditLogRepository auditLogRepository;
     private final NotificationPublisherService notificationPublisherService;
-    private final DemoRuntimeSettingsService demoRuntimeSettingsService;
 
 
     @Value("${spring.profiles.active:local}")
@@ -82,9 +81,9 @@ public class TaskSchedulerService {
 
     @Transactional
     public void generateScheduledTasks(LocalDate overrideDate, Boolean bypassRecurrenceCheck) {
-        LocalDate today = overrideDate != null ? overrideDate : demoRuntimeSettingsService.getEffectiveDate(LocalDate.now());
+        LocalDate today = overrideDate != null ? overrideDate : LocalDate.now();
         log.info("Executing scheduled task generation engine for date [{}] (Bypass checks: {})...", 
-                today, Boolean.TRUE.equals(bypassRecurrenceCheck) || demoRuntimeSettingsService.isBypassRecurrenceCheckEnabled());
+                today, Boolean.TRUE.equals(bypassRecurrenceCheck));
 
         // ─── PATH 1: Legacy SOP-version based generation (backward compat) ────
         // generateFromSopVersions(today);
@@ -101,7 +100,7 @@ public class TaskSchedulerService {
      */
     @Transactional
     public List<Sop> triggerDirectSopInstantiation(LocalDate overrideDate, Boolean bypassRecurrenceCheck) {
-        LocalDate targetDate = overrideDate != null ? overrideDate : demoRuntimeSettingsService.getEffectiveDate(LocalDate.now());
+        LocalDate targetDate = overrideDate != null ? overrideDate : LocalDate.now();
         log.info("Directly instantiating SOP templates for date [{}] (bypassRecurrenceCheck: {})...", targetDate, bypassRecurrenceCheck);
 
         List<SopTemplate> schedulableTemplates = sopTemplateRepository.findSchedulableTemplates(
@@ -112,7 +111,7 @@ public class TaskSchedulerService {
             return List.of();
         }
 
-        boolean skipChecks = Boolean.TRUE.equals(bypassRecurrenceCheck) || demoRuntimeSettingsService.isBypassRecurrenceCheckEnabled();
+        boolean skipChecks = Boolean.TRUE.equals(bypassRecurrenceCheck);
         List<Sop> createdSops = new ArrayList<>();
 
         for (SopTemplate template : schedulableTemplates) {
@@ -229,7 +228,7 @@ public class TaskSchedulerService {
             return;
         }
 
-        boolean skipChecks = Boolean.TRUE.equals(bypassRecurrenceCheck) || demoRuntimeSettingsService.isBypassRecurrenceCheckEnabled();
+        boolean skipChecks = Boolean.TRUE.equals(bypassRecurrenceCheck);
 
         if (isLocalOrDevEnvironment()) {
             generateTemplatesLocally(schedulableTemplates, today, skipChecks);
