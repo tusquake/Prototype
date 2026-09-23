@@ -11,8 +11,18 @@ import { getSession } from '../auth/auth';
 import { ENTITIES, getTasks, submitTask, approveTask, rejectTask, deleteTask } from '../services/api';
 import { ROLES } from '../auth/rbac';
 import { useEntity } from '../context/EntityContext';
+import UserAvatarGroup from '../components/UserAvatarGroup';
+import dayjs from 'dayjs';
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
+
+
+function formatDate(date, formatConfig = 'DD MMM YYYY') {
+  if (!date) return 'Invalid Date'
+  return dayjs(date).format(formatConfig)
+}
+
+
 
 export default function Inbox() {
   // const [selected, setSelected] = useState(ENTITIES.map(e => e.id));
@@ -103,7 +113,8 @@ export default function Inbox() {
   });
 
   const makerTasks = taskList.filter(t => {
-    if (t.status !== 'OPEN' && t.status !== 'REJECTED') return false;
+    if (t.status ==='OPEN' || t.status ==='LOCKED') return true;
+    if(t.status === "APPROVED") return false;
     if (isAdmin) return true;
     if (t.canUserSubmit) return true;
     return isUserMatch(t.maker) || isUserMatch(t.assignedMakers?.join(', ')) || isUserMatch(t.makerName);
@@ -138,14 +149,14 @@ export default function Inbox() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b border-[#f1f5f9]">
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">RECORD</th>
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">SOP</th>
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ENTITY</th>
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">PERIOD</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface min-w-[300px]">TASK NAME</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface min-w-[250px]">SOP</th>
+                    {/* <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ENTITY</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">PERIOD</th> */}
                     <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">SUBMITTED BY</th>
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">DUE DATE</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface min-w-[150px]">DUE DATE</th>
                     <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">STATUS</th>
-                    <th className="px-6 py-3 text-right text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ACTIONS</th>
+                    {/* <th className="px-6 py-3 text-right text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ACTIONS</th> */}
                   </tr>
                 </thead>
                 <tbody>
@@ -164,16 +175,16 @@ export default function Inbox() {
 
                       return (
                         <tr key={task.id} className="cursor-pointer border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]" onClick={() => setActiveTask(task)}>
-                          <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{task.record}</td>
+                          <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{task.taskName}</td>
                           <td className="px-6 py-3.5 text-[13.5px] font-semibold text-text-primary align-middle">{task.sop}</td>
-                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.entity}</td>
-                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.period}</td>
-                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.maker}</td>
-                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.dueDate}</td>
+                          {/* <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.entity}</td>
+                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.period}</td> */}
+                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle"><UserAvatarGroup users={[task.actualMaker ?? ''] } max={2}/></td>
+                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{ formatDate( task.dueDate)}</td>
                           <td className="px-6 py-3.5 text-[13.5px] align-middle">
                             <StatusBadge status={task.status} />
                           </td>
-                          <td className="px-6 py-3.5 text-[13.5px] align-middle">
+                          {/* <td className="px-6 py-3.5 text-[13.5px] align-middle">
                             <div className="flex gap-2 justify-end" onClick={e => e.stopPropagation()}>
                               <button
                                 type="button"
@@ -198,7 +209,7 @@ export default function Inbox() {
                                 </button>
                               )}
                             </div>
-                          </td>
+                          </td> */}
                         </tr>
                       );
                     })
@@ -238,14 +249,14 @@ export default function Inbox() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b border-[#f1f5f9]">
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">RECORD</th>
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">SOP</th>
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ENTITY</th>
-                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">PERIOD</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface min-w-[300px]">TASK NAME</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface min-w-[250px]">SOP</th>
+                    {/* <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ENTITY</th>
+                    <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">PERIOD</th> */}
                     <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ASSIGNED CHECKERS</th>
                     <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">DUE DATE</th>
                     <th className="px-6 py-3 text-left text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">STATUS</th>
-                    <th className="px-6 py-3 text-right text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ACTIONS</th>
+                    {/* <th className="px-6 py-3 text-right text-[11px] font-bold text-[#94a3b8] uppercase tracking-[0.6px] bg-bg-surface">ACTIONS</th> */}
                   </tr>
                 </thead>
                 <tbody>
@@ -262,16 +273,16 @@ export default function Inbox() {
                       const isLockedByOtherMaker = task.lockedMaker && !isUserMatch(task.lockedMaker) && userRole !== 'ADMIN';
                       return (
                         <tr key={task.id} className="cursor-pointer border-b border-[#f1f5f9] last:border-b-0 hover:bg-[#f8fafc]" onClick={() => setActiveTask(task)}>
-                          <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{task.record}</td>
+                          <td className="px-6 py-3.5 text-[12px] font-mono text-text-muted align-middle">{task.taskName}</td>
                           <td className="px-6 py-3.5 text-[13.5px] font-semibold text-text-primary align-middle">{task.sop}</td>
-                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.entity}</td>
-                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.period}</td>
-                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.checker}</td>
-                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.dueDate}</td>
+                          {/* <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.entity}</td>
+                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{task.period}</td> */}
+                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle"><UserAvatarGroup users={task.assignedCheckers ?? []} max={2}/></td>
+                          <td className="px-6 py-3.5 text-[13.5px] text-[#334155] align-middle">{formatDate( task.dueDate)}</td>
                           <td className="px-6 py-3.5 text-[13.5px] align-middle">
                             <StatusBadge status={task.status} />
                           </td>
-                          <td className="px-6 py-3.5 text-[13.5px] align-middle">
+                          {/* <td className="px-6 py-3.5 text-[13.5px] align-middle">
                             <div className="flex gap-2 justify-end" onClick={e => e.stopPropagation()}>
                               <button
                                 type="button"
@@ -296,7 +307,7 @@ export default function Inbox() {
                                 </button>
                               )}
                             </div>
-                          </td>
+                          </td> */}
                         </tr>
                       );
                     })
@@ -320,7 +331,7 @@ export default function Inbox() {
 
 
       {/* Task Details & Execution Modal */}
-      <TaskActionModal
+      {activeTask && <TaskActionModal
         isOpen={!!activeTask}
         task={activeTask}
         currentUser={currentUser}
@@ -328,7 +339,8 @@ export default function Inbox() {
         onSubmitTask={handleSubmit}
         onApproveTask={handleApprove}
         onRejectTask={handleReject}
-      />
+      /> }
+      
 
       {/* Confirmation Modal for Admin Task Deletion */}
       <ConfirmationModal

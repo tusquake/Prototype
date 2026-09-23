@@ -9,6 +9,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import com.cloudkaptan.sop.entity.RequiredDocument;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -42,7 +44,7 @@ public class TaskTemplateDto {
     private Integer slaHours;
     private List<String> makerIds;
     private List<String> checkerIds;
-    private List<RequiredDocument> requiredDocuments;
+    private List<RequiredDocumentDto> requiredDocuments;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

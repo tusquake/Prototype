@@ -164,6 +164,7 @@ export function mapSopTemplate(t) {
     taskTemplates: t.taskTemplates || [],
     createdById: t.createdById,
     isTemplate: true,
+    recurrenceConfig: t.recurrenceConfig || null,
   }
 
 }
@@ -219,6 +220,7 @@ export function mapSopTask(dto) {
     taskId: dto.taskId || dto.id,
     version: dto?.version ?? '',
     recordNo: dto.recordNo || dto.record || 'N/A',
+    taskName: dto.taskName ?? '',
     sopId: dto?.sopId ?? '',
     sopTitle: dto.sopTitle || dto.sop || 'N/A',
     sopCode: dto?.sopCode ?? '',
@@ -314,6 +316,8 @@ export function mapTask(dto) {
   return {
     id: dto.taskId || dto.id,
     taskId: dto.taskId || dto.id,
+    taskName: dto.taskName ?? '',
+    dependencyMode: dto.dependencyMode ?? '',
     record: dto.recordNo || dto.record || 'N/A',
     recordNo: dto.recordNo || dto.record || 'N/A',
     sop: dto.sopTitle || dto.sop || 'N/A',
@@ -1221,6 +1225,7 @@ export async function confirmTaskDocumentUpload(taskId, payload) {
       actorId: payload.actorId,
       isResubmission: payload.isResubmission,
       replacedDocumentId: payload.replacedDocumentId,
+      requiredDocumentId: payload.requiredDocumentId,
     }),
   });
 }

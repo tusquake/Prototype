@@ -28,18 +28,12 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import com.cloudkaptan.sop.config.security.SopSecurityEvaluator;
 import com.cloudkaptan.sop.dto.NotificationEventDto;
-import com.cloudkaptan.sop.dto.RequiredDocument;
+import com.cloudkaptan.sop.dto.RequiredDocumentDto;
 import com.cloudkaptan.sop.dto.TaskActionRequest;
 import com.cloudkaptan.sop.dto.TaskDocumentDto;
 import com.cloudkaptan.sop.dto.TaskEventDto;
 import com.cloudkaptan.sop.dto.TaskReassignmentHistoryDto;
 import com.cloudkaptan.sop.dto.TaskReassignRequest;
-import com.cloudkaptan.sop.entity.AuditLog;
-import com.cloudkaptan.sop.entity.ProcessCategory;
-import com.cloudkaptan.sop.entity.Sop;
-import com.cloudkaptan.sop.entity.TaskComment;
-import com.cloudkaptan.sop.entity.TaskEvent;
-import com.cloudkaptan.sop.entity.TaskReassignmentHistory;
 import com.cloudkaptan.sop.repository.AuditLogRepository;
 import com.cloudkaptan.sop.repository.ProcessCategoryRepository;
 import com.cloudkaptan.sop.repository.TaskCommentRepository;
@@ -101,7 +95,7 @@ public class TaskWorkflowService {
         User actor = getUserOrThrow(actorId);
 
         // Required Documents Validation: Ensure maker has uploaded all required documents before task can be submitted
-        List<RequiredDocument> requiredDocs = getRequiredDocumentsForTask(task);
+        List<RequiredDocumentDto> requiredDocs = getRequiredDocumentsForTask(task);
         if (requiredDocs != null && !requiredDocs.isEmpty()) {
             int requiredCount = requiredDocs.size();
             List<TaskDocument> docs = taskDocumentRepository.findByTaskTaskIdOrderByUploadedAtDesc(taskId);
@@ -731,6 +725,19 @@ public class TaskWorkflowService {
             daysOverdue = ChronoUnit.DAYS.between(task.getDueDate(), entityToday);
         }
 
+        String taskName = null;
+        String taskDescription = null;
+        String dependencyMode = null;
+        
+        if (task.getTaskTemplateId() != null) {
+            TaskTemplate tt = taskTemplateRepository.findById(task.getTaskTemplateId()).orElse(null);
+            if (tt != null) {
+                taskName = tt.getTaskName();
+                taskDescription = tt.getDescription();
+                dependencyMode = tt.getDependencyMode();
+            }
+        }
+
         List<String> mIds = (task.getAssignedMakerIds() != null && !task.getAssignedMakerIds().isEmpty())
             ? task.getAssignedMakerIds()
             : ((task.getSop().getDefaultMakerIds() != null && !task.getSop().getDefaultMakerIds().isEmpty())
@@ -846,6 +853,8 @@ public class TaskWorkflowService {
                         .actionedAt(doc.getActionedAt())
                         .isResubmission(Boolean.TRUE.equals(doc.getIsResubmission()))
                         .replacedDocumentId(doc.getReplacedDocumentId())
+                        .requiredDocumentId(doc.getRequiredDocument() != null ? doc.getRequiredDocument().getRequiredDocumentId(): null)
+                        .documentCategory(doc.getRequiredDocument() != null ? doc.getRequiredDocument().getName() : null)
                         .build())
                 .toList();
 
@@ -890,7 +899,7 @@ public class TaskWorkflowService {
         boolean isApprovableStatus = task.getStatus() == TaskStatus.PENDING_REVIEW;
         Boolean canUserApprove = isApprovableStatus && (isAssignedChecker || isManagerWithReadOrWriteAccess || isAdmin) && (!isSelfMaker || isAdmin);
 
-        List<RequiredDocument> reqDocObjects = getRequiredDocumentsForTask(task);
+        List<RequiredDocumentDto> reqDocObjects = getRequiredDocumentsForTask(task);
 
         return TaskDto.builder()
             .taskId(task.getTaskId())
@@ -898,6 +907,9 @@ public class TaskWorkflowService {
             .recordNo(task.getRecordNo())
             .sopId(task.getSop().getSopId())
             .sopTitle(task.getSop().getTitle())
+            .taskName(taskName)
+            .taskDescription(taskDescription)
+            .dependencyMode(dependencyMode)
             .sopCode(task.getSop().getSopCode())
             .categoryCode(task.getSop().getProcessCategory())
             .categoryName(task.getSop().getProcessCategory() != null ? 
@@ -942,18 +954,30 @@ public class TaskWorkflowService {
             .build();
     }
 
-    private List<RequiredDocument> getRequiredDocumentsForTask(Task task) {
-        List<RequiredDocument> reqDocObjects = new ArrayList<>();
-        if (task == null) return reqDocObjects;
+   private List<RequiredDocumentDto> getRequiredDocumentsForTask(Task task) {
+    List<RequiredDocumentDto> requiredDocuments = new ArrayList<>();
 
-        if (task.getTaskTemplateId() != null) {
-            taskTemplateRepository.findById(task.getTaskTemplateId())
+    if (task == null) {
+        return requiredDocuments;
+    }
+
+    if (task.getTaskTemplateId() != null) {
+        taskTemplateRepository.findById(task.getTaskTemplateId())
                 .ifPresent(tt -> {
                     if (tt.getRequiredDocuments() != null) {
-                        reqDocObjects.addAll(tt.getRequiredDocuments());
+                        requiredDocuments.addAll(
+                                tt.getRequiredDocuments().stream()
+                                        .map(doc -> RequiredDocumentDto.builder()
+                                                .requiredDocumentId(doc.getRequiredDocumentId())
+                                                .name(doc.getName())
+                                                .description(doc.getDescription())
+                                                .build())
+                                        .toList()
+                        );
                     }
                 });
-        }
-        return reqDocObjects;
     }
+
+    return requiredDocuments;
+}
 }

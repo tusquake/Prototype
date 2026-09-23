@@ -65,7 +65,7 @@ public class TaskDocumentController {
         TaskDocumentDto dto = taskDocumentService.confirmUpload(
                 taskId, request.getFileName(), request.getGcsObjectPath(),
                 request.getFileSize(), request.getContentType(), request.getActorId(),
-                request.getIsResubmission(), request.getReplacedDocumentId());
+                request.getIsResubmission(), request.getReplacedDocumentId(), request.getRequiredDocumentId());
         return ResponseEntity.ok(com.cloudkaptan.sop.dto.ApiResponse.success(dto));
     }
 

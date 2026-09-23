@@ -540,7 +540,6 @@ export default function AuditLogs() {
             <Pagination
               currentPage={currentPage}
               totalItems={totalItems}
-              totalItems={totalElemets}
               pageSize={PAGE_SIZE}
               onPageChange={setCurrentPage}
               itemLabel="audit records"

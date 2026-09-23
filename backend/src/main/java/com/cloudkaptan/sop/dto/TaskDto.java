@@ -2,6 +2,8 @@ package com.cloudkaptan.sop.dto;
 
 import com.cloudkaptan.sop.domain.enums.EntityCode;
 import com.cloudkaptan.sop.domain.enums.TaskStatus;
+import com.cloudkaptan.sop.entity.RequiredDocument;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,6 +24,10 @@ public class TaskDto {
     private String recordNo;
     private UUID sopId;
     private String sopTitle;
+    private String taskName;
+    private String taskDescription;
+    private String dependencyMode; 
+    
     private String sopCode;
     private String categoryCode;
     private String categoryName;
@@ -34,14 +40,12 @@ public class TaskDto {
     private List<String> assignedMakerNames;
     private String actualMakerId;
     private String actualMakerName;
-
     private String checkerId;
     private String checkerName;
     private List<String> assignedCheckerIds;
     private List<String> assignedCheckerNames;
     private String actualCheckerId;
     private String actualCheckerName;
-
     private TaskStatus status;
     private LocalDate startDate;
     private LocalDate dueDate;
@@ -57,5 +61,5 @@ public class TaskDto {
     private List<TaskEventDto> history;
     private List<TaskReassignmentHistoryDto> reassignmentHistory;
     private List<TaskDocumentDto> documents;
-    private List<RequiredDocument> requiredDocuments;
-}
+    private List<RequiredDocumentDto> requiredDocuments;
+    }

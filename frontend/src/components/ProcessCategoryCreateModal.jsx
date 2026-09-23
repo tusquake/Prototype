@@ -49,13 +49,13 @@ export default function ProcessCategoryCreateModal({ onSuccess, onClose, onError
           onClick={e => e.stopPropagation()}>
 
           <div className="flex items-start justify-between border-b border-slate-100 bg-slate-50 px-2 sm:px-7 pb-[18px] pt-6">
-            <h2 className="m-0 textModalTitle font-bold text-slate-900">
+            <h2 className="m-0 text-lg font-bold text-slate-900">
               Create Process Category
             </h2>
 
             <button
               type="button"
-              className="rounded-md p-1 text-slate-500 transition-all hover:bg-slate-200 hover:text-slate-900"
+              className="rounded-md p-1 text-slate-500 transition-all hover:bg-slate-200 hover:text-slate-900 cursor-pointer"
               onClick={onClose}
               title="Close modal"
             >
@@ -68,49 +68,49 @@ export default function ProcessCategoryCreateModal({ onSuccess, onClose, onError
 
           <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto px-2 sm:px-7 py-6">
 
-            <form onSubmit={handleSubmit(onSubmit)} className="textModalFormLabel flex flex-col gap-4">
+            <form onSubmit={handleSubmit(onSubmit)} className=" flex flex-col gap-4">
               <div className="flex flex-col gap-1">
-                <label className=" font-bold uppercase tracking-wider text-slate-500 ">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 ">
                   Category Code *
                 </label>
                 <input
                   type="text"
                   placeholder="e.g. TAX_COMPLIANCE"
                   {...register('code')}
-                  className="w-full p-[9px_12px] border border-[#cbd5e1] rounded-[6px]  bg-[#f8fafc] text-text-primary outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
+                  className="w-full p-[9px_12px] border border-[#cbd5e1] rounded-[6px]  bg-[#f8fafc] text-[13px] text-text-primary outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
                 />
                 {errors.code && (
-                  <p className=" text-red-500 font-medium mt-0.5">{errors.code.message}</p>
+                  <p className=" text-red-500 text-[12px] mt-1">{errors.code.message}</p>
                 )}
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className=" font-bold uppercase tracking-wider text-slate-500 ">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 ">
                   Category Name *
                 </label>
                 <input
                   type="text"
                   placeholder="e.g. Tax Compliance"
                   {...register('name')}
-                  className="w-full p-[9px_12px] border border-[#cbd5e1] rounded-[6px] bg-[#f8fafc] text-text-primary outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
+                  className="w-full p-[9px_12px] border border-[#cbd5e1] rounded-[6px] text-[13px] bg-[#f8fafc] text-text-primary outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
                 />
                 {errors.name && (
-                  <p className=" text-red-500 font-medium mt-0.5">{errors.name.message}</p>
+                  <p className=" text-red-500 text-[12px] mt-1">{errors.name.message}</p>
                 )}
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className=" font-bold uppercase tracking-wider text-slate-500 ">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 ">
                   Description
                 </label>
                 <textarea
                   rows={3}
                   placeholder="Operational scope of compliance area"
                   {...register('description')}
-                  className="w-full p-[9px_12px] border border-[#cbd5e1] rounded-[6px] bg-[#f8fafc] text-text-primary resize-y outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
+                  className="w-full p-[9px_12px] border border-[#cbd5e1] rounded-[6px] bg-[#f8fafc] text-[13px] text-text-primary resize-y outline-none transition-all duration-150 focus:border-[#2563eb] focus:bg-bg-surface focus:ring-3 focus:ring-[rgba(37,99,235,0.15)]"
                 />
                 {errors.description && (
-                  <p className=" text-red-500 font-medium mt-0.5">{errors.description.message}</p>
+                  <p className=" text-red-500 text-[12px] mt-1">{errors.description.message}</p>
                 )}
               </div>
 

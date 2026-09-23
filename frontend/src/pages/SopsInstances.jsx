@@ -587,7 +587,7 @@ export default function SopInstances() {
                             ? 'bg-[#64748b]'
                             : 'bg-[#f59e0b]'
                           }`} />
-                        {sop.status === 'ACTIVE' ? 'IN PROGRESS' : sop.status}
+                        {sop.status === 'ACTIVE' ? 'ACTIVE' : sop.status === 'IN_PROGRESS' ? 'IN PROGRESS'  : sop.status}
                       </span>
                     </td>
 

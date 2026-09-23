@@ -49,10 +49,11 @@ public class TaskSchedulerService {
     private final NotificationPublisherService notificationPublisherService;
     private final DemoRuntimeSettingsService demoRuntimeSettingsService;
 
-    @Value("${app.cloud-run.self-url}")
+
+    @Value("${app.cloud-run.self-url:http://localhost:8080}")
     private String backendWorkerUrl;
 
-    @Value("${gcp.cloud-tasks.invoker-service-account}")
+    @Value("${gcp.cloud-tasks.invoker-service-account:dummy-service-account}")
     private String invokerServiceAccountEmail;
 
     @Value("${gcp.project-id:finance-sop-portal}")
@@ -291,7 +292,7 @@ public class TaskSchedulerService {
                 .dueDate(sopDueDate)
                 .defaultMakerIds(template.getDefaultMakerIds() != null ? new ArrayList<>(template.getDefaultMakerIds()) : new ArrayList<>())
                 .defaultCheckerIds(template.getDefaultCheckerIds() != null ? new ArrayList<>(template.getDefaultCheckerIds()) : new ArrayList<>())
-                .status(SopStatus.ACTIVE)
+                .status(SopStatus.IN_PROGRESS)
                 .templateId(template.getTemplateId())
                 .createdBy(template.getCreatedBy())
                 .build();

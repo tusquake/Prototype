@@ -51,6 +51,19 @@ const CONFIG = {
       </svg>
     ),
   },
+  LOCKED: {
+    label: 'Locked',
+    cls: 'locked',
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="5" y="11" width="14" height="10" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </svg>
+    ),
+
+
+
+  }
 };
 
 export default function StatusBadge({ status }) {
@@ -61,9 +74,9 @@ export default function StatusBadge({ status }) {
     approved: 'bg-green-600/10 text-green-600',
     rejected: 'bg-red-600/10 text-red-600',
     permanentlyRejected: 'bg-red-50 text-red-800 border border-red-300',
+    locked: 'bg-slate-600/10 text-slate-600', // Grey combination for locked state
   };
 
-  
   const { label, cls, icon } = CONFIG[status] ?? { label: status, cls: 'open', icon: null };
   const currentVariant = badgeVariants[cls] || badgeVariants.open;
   return (

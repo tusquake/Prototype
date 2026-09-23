@@ -23,6 +23,6 @@ public class ActiveSopState implements SopState {
 
     @Override
     public SopStatus getStatus() {
-        return SopStatus.ACTIVE;
+        return SopStatus.IN_PROGRESS;
     }
 }

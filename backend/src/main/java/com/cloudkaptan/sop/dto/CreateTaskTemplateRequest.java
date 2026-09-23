@@ -1,5 +1,6 @@
 package com.cloudkaptan.sop.dto;
 
+import com.cloudkaptan.sop.entity.RequiredDocument;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Min;
@@ -71,7 +72,9 @@ public class CreateTaskTemplateRequest {
         for (Object item : rawDocs) {
             if (item instanceof String str) {
                 if (!str.isBlank()) {
-                    list.add(RequiredDocument.builder().name(str.trim()).description("").build());
+                    list.add(RequiredDocument.builder()
+                    .name(str.trim())
+                    .description("").build());
                 }
             } else if (item instanceof RequiredDocument rd) {
                 list.add(rd);

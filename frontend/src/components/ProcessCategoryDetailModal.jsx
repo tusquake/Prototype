@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { updateProcessCategory, getCategoryActivityLogs } from '../services/api';
 import Toast from './Toast';
 import CategoryActivityLogModal from './CategoryActivityLogModal.jsx';
+import { z } from 'zod';
+
+const processCategorySchema = z.object({
+  categoryName: z.string().min(3, 'Category Name must be at least 3 characters'),
+  description: z.string().max(200, 'Description cannot exceed 200 characters').optional(),
+});
 
 export default function ProcessCategoryDetailModal({ isOpen, category, onClose, onUpdated }) {
   const [activeTab, setActiveTab] = useState('DETAILS'); // 'DETAILS' | 'ACTIVITY'
@@ -12,6 +18,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showActivityLogModal, setShowActivityLogModal] = useState(false)
+  const [formErrors, setFormErrors] = useState({ name: '', description: '' });
 
   useEffect(() => {
     if (category) {
@@ -23,6 +30,27 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
       }
     }
   }, [category, activeTab]);
+
+  useEffect(() => {
+  const parsed = processCategorySchema.safeParse({
+    categoryName: name.trim(),
+    description: description.trim(),
+  });
+
+  if (parsed.success) {
+    setFormErrors({ name: '', description: '' });
+    // optional: clear Toast-level error when validation passes
+    setErrorMsg('');
+    return;
+  }
+
+  // map zod field errors to our formErrors shape
+  const fieldErrors = parsed.error.formErrors.fieldErrors;
+  setFormErrors({
+    name: fieldErrors.categoryName?.[0] || '',
+    description: fieldErrors.description?.[0] || '',
+  });
+}, [name, description]);
 
   if (!isOpen || !category) return null;
 
@@ -38,31 +66,40 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
     }
   }
 
-  async function handleSave(e) {
-    e.preventDefault();
-    if (!name.trim()) {
-      setErrorMsg('Category Name is required.');
-      return;
-    }
+async function handleSave(e) {
+  e.preventDefault();
 
-    setSaving(true);
-    setErrorMsg('');
+  const parsed = processCategorySchema.safeParse({
+    categoryName: name.trim(),
+    description: description.trim(),
+  });
 
-    try {
-      await updateProcessCategory(category.categoryCode, {
-        categoryCode: category.categoryCode,
-        categoryName: name.trim(),
-        description: description.trim(),
-      });
-      if (onUpdated) onUpdated(`Process Category '${category.categoryCode}' updated successfully.`);
-      onClose();
-    } catch (err) {
-      console.error('Failed to update process category:', err);
-      setErrorMsg(err.message || 'Failed to update process category');
-    } finally {
-      setSaving(false);
-    }
+  if (!parsed.success) {
+    setFormErrors({
+      name: parsed.error.errors[0].message,
+      description: ''
+    });
+    return;
   }
+
+  setSaving(true);
+  setErrorMsg('');
+
+  try {
+    await updateProcessCategory(category.categoryCode, {
+      categoryCode: category.categoryCode,
+      categoryName: parsed.data.categoryName,
+      description: parsed.data.description,
+    });
+    if (onUpdated) onUpdated(`Process Category '${category.categoryCode}' updated successfully.`);
+    onClose();
+  } catch (err) {
+    console.error('Failed to update process category:', err);
+    setErrorMsg(err.message || 'Failed to update process category');
+  } finally {
+    setSaving(false);
+  }
+}
 
   async function openActivityLogs(code){
     await fetchLogs(code)
@@ -96,7 +133,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
 
               <button
                 type="button"
-                className="flex items-center gap-1.5 rounded-lg border border-blue-600/25 bg-blue-600/[0.08] px-3 py-1.5 text-xs font-semibold text-blue-600 transition-all hover:bg-blue-600/[0.15]"
+                className="flex items-center gap-1.5 rounded-lg border border-blue-600/25 bg-blue-600/[0.08] px-3 py-1.5 text-xs font-semibold text-blue-600 transition-all hover:bg-blue-600/[0.15] cursor-pointer"
                 onClick={() => openActivityLogs(category.categoryCode)}
                 title="Open SOP Category Log History"
               >
@@ -110,7 +147,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
 
               <button
                 type="button"
-                className="rounded-md p-1 text-slate-500 transition-all hover:bg-slate-200 hover:text-slate-900"
+                className="rounded-md p-1 text-slate-500 transition-all hover:bg-slate-200 hover:text-slate-900 cursor-pointer"
                 onClick={onClose}
                 title="Close modal"
               >
@@ -129,7 +166,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
           <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto px-7 py-6">
             {/* Tab 1: Category Details Form */}
 
-            <form id="category-edit-form" onSubmit={handleSave} className="flex flex-col gap-4.5">
+          <form id="category-edit-form" onSubmit={handleSave} noValidate className="flex flex-col gap-4.5">
               <div className="flex flex-col gap-1">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Category Code (Read-Only)</span>
                 <input
@@ -146,10 +183,11 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
+                  onInvalid={e => e.preventDefault()}
                   placeholder="Enter Category Name"
-                  required
                   className="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[13.5px] text-slate-900 outline-none transition focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 />
+                {formErrors.name && <p className="text-red-500 text-[10px]">{formErrors.name}</p>}
               </div>
 
               <div className="flex flex-col gap-1">
@@ -161,6 +199,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
                   placeholder="Enter category scope and description"
                   className="w-full resize-y rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-[13.5px] text-slate-900 outline-none transition focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                 />
+                {formErrors.description && <p className="text-red-500 text-[10px]">{formErrors.description}</p>}
               </div>
             </form>
           </div>
@@ -169,7 +208,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
           <div className="flex items-center justify-end gap-3 border-t border-slate-100 bg-slate-50 px-7 py-4">
             <button
               type="button"
-              className="rounded-lg border border-slate-300 bg-white px-4.5 py-2 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900"
+              className="rounded-lg border border-slate-300 bg-white px-4.5 py-2 text-xs font-semibold text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-900 cursor-pointer"
               onClick={onClose}
             >
               Close
@@ -178,7 +217,7 @@ export default function ProcessCategoryDetailModal({ isOpen, category, onClose, 
             <button
               type="submit"
               form="category-edit-form"
-              className="rounded-lg border border-blue-600 bg-blue-600 px-4.5 py-2 text-xs font-semibold text-white transition-all hover:border-blue-700 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg border border-blue-600 bg-blue-600 px-4.5 py-2 text-xs font-semibold text-white transition-all hover:border-blue-700 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
               disabled={saving}
             >
               {saving ? 'Saving Changes...' : 'Save Changes'}

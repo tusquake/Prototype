@@ -2,6 +2,7 @@ import { useState } from 'react';
 import SopActivityLogModal from './SopActivityLogModal';
 import UserAvatarGroup from './UserAvatarGroup';
 import dayjs from 'dayjs';
+import { generateDownloadUrl } from '../services/api';
 
 const FREQ_LABEL = { MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', ANNUAL: 'Annual', DAILY: 'Daily', WEEKLY: 'Weekly' };
 
@@ -15,9 +16,12 @@ export default function SopDetailModal({
   sop,
   userMap = {},
   onClose,
+  currentUser = {}
 }) {
   const [showActivityLogModal, setShowActivityLogModal] = useState(false);
   const [activeTab, setActiveTab] = useState('tasks'); // 'tasks' or 'overview'
+  const [downloadingDocId, setDownloadingDocId] = useState(null);
+  const [toastError, setToastError] = useState(null)
 
   if (!isOpen || !sop) return null;
 
@@ -29,13 +33,58 @@ export default function SopDetailModal({
   const checkersList = sop.defaultCheckerIds || sop.checkers || [];
   const tasks = sop.tasks || [];
 
+  async function handleViewDocument(doc, task) {
+    const tId = task.taskId || task.id;
+    const actorId = currentUser?.id || currentUser?.userId || 'usr-tushar-304';
+
+    setDownloadingDocId(doc.documentId);
+    setToastError('');
+    try {
+      const downloadRes = await generateDownloadUrl(tId, doc.documentId, actorId);
+      if (downloadRes && downloadRes.downloadUrl) {
+        window.open(downloadRes.downloadUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        throw new Error('Failed to obtain view URL');
+      }
+    } catch (err) {
+      setToastError(err.message || 'Access Denied: You do not have permission to view this document');
+    } finally {
+      setDownloadingDocId(null);
+    }
+  }
+
+  async function handleDownload(doc, task) {
+    const tId = task.taskId || task.id;
+    const actorId = currentUser?.id || currentUser?.userId || 'usr-tushar-304';
+
+    setDownloadingDocId(doc.documentId);
+    setToastError('');
+    try {
+      const downloadRes = await generateDownloadUrl(tId, doc.documentId, actorId);
+      if (downloadRes && downloadRes.downloadUrl) {
+        const link = document.createElement('a');
+        link.href = downloadRes.downloadUrl;
+        link.download = doc.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        throw new Error('Failed to obtain download URL');
+      }
+    } catch (err) {
+      setToastError(err.message || 'Access Denied: You do not have permission to download this document');
+    } finally {
+      setDownloadingDocId(null);
+    }
+  }
+
   // Helper for Gantt Chart embedded inside the Drawer
 
   return (
     <>
       <div className="fixed inset-0 z-[1100] flex justify-end bg-slate-900/65 backdrop-blur-sm animate-fade-in">
 
-      <div className="absolute inset-0" onClick={onClose}/>
+        <div className="absolute inset-0" onClick={onClose} />
         {/* Drawer Container - Full height, wide width (950px) */}
         <div
           className="relative flex h-full w-full max-w-[1200px] flex-col bg-slate-50 shadow-2xl animate-[slideInRight_0.3s_ease-out]"
@@ -47,16 +96,65 @@ export default function SopDetailModal({
             <div className="flex items-start justify-between px-8 pt-6 pb-4">
               <div className="flex flex-col">
                 <h3 className="mb-1 text-xl font-bold text-slate-900">{sop.title || sop.name || 'SOP'}</h3>
-                <div className="flex items-center gap-2">
-                  <span className="rounded-md bg-blue-600/10 px-2.5 py-0.5 font-mono text-xs font-bold text-blue-700">
+                <div className="flex items-center gap-6 mt-1">
+                  {/* SOP Code Badge */}
+                  <span className="rounded-md bg-blue-600/10 px-2.5 py-1 font-mono text-xs font-bold text-blue-700 border border-blue-200/50">
                     {sop.sopCode || sop.code || ''}
                   </span>
-                  <span className={`rounded-md px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider
-                    ${sop.status === 'ACTIVE' || sop.status === 'APPROVED' ? 'bg-green-100 text-green-700' :
-                      sop.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}
-                  >
-                    {sop.status?.replace('_', ' ')}
-                  </span>
+
+                  {/* Compact Inline Lifecycle Timeline */}
+                  <div className="flex items-center">
+
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">
+                        {sop.status === 'ACTIVE' ? '1' : '✓'}
+                      </div>
+                      <div className="flex flex-col justify-center">
+                        <span className="text-[11px] font-bold text-slate-800 leading-tight">Initiated</span>
+                      </div>
+                    </div>
+
+                    {/* Line 1 -> 2 */}
+                    <div className={`h-[2px] w-8 mx-2 rounded-full transition-colors ${['IN_PROGRESS', 'OVERDUE', 'COMPLETED'].includes(sop.status) ? 'bg-blue-600' : 'bg-slate-200'
+                      }`} />
+
+                    {/* Step 2: Execution Phase */}
+                    <div className="flex items-center gap-1.5">
+                      <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-all ${sop.status === 'COMPLETED' ? 'bg-blue-600 text-white' :
+                        sop.status === 'IN_PROGRESS' ? 'bg-blue-600 text-white ring-2 ring-blue-600/20' :
+                          sop.status === 'OVERDUE' ? 'bg-red-500 text-white ring-2 ring-red-500/20' :
+                            'bg-slate-200 text-slate-500'
+                        }`}>
+                        {sop.status === 'COMPLETED' ? '✓' : '2'}
+                      </div>
+                      <div className="flex flex-col justify-center">
+                        <span className={`text-[11px] font-bold leading-tight ${sop.status === 'OVERDUE' ? 'text-red-700' : 'text-slate-800'}`}>
+                          {sop.status === 'OVERDUE' ? 'Overdue' : 'In Progress'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Line 2 -> 3 */}
+                    <div className={`h-[2px] w-8 mx-2 rounded-full transition-colors ${['COMPLETED', 'CANCELLED'].includes(sop.status) ? 'bg-blue-600' : 'bg-slate-200'
+                      }`} />
+
+                    {/* Step 3: Resolution / Outcome */}
+                    <div className="flex items-center gap-1.5">
+                      <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-all ${sop.status === 'COMPLETED' ? 'bg-teal-500 text-white' :
+                        sop.status === 'CANCELLED' ? 'bg-slate-700 text-white' :
+                          'bg-slate-200 text-slate-500'
+                        }`}>
+                        {sop.status === 'COMPLETED' ? '✓' : sop.status === 'CANCELLED' ? '✕' : '3'}
+                      </div>
+                      <div className="flex flex-col justify-center">
+                        <span className="text-[11px] font-bold text-slate-800 leading-tight">
+                          {sop.status === 'COMPLETED' ? 'Completed' :
+                            sop.status === 'CANCELLED' ? 'Cancelled' : 'Completed'}
+                        </span>
+                      </div>
+                    </div>
+
+                  </div>
                 </div>
               </div>
 
@@ -120,17 +218,24 @@ export default function SopDetailModal({
 
                 {tasks.length > 0 ? (
                   <div className="space-y-4">
-                    {tasks.sort((a, b) => new Date(a.startDateTime) - new Date(b.startDateTime)).map((task) => (
-                      <div key={task.taskId} className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+                    {tasks.sort((a, b) => new Date(a.dueDateTime) - new Date(b.dueDateTime)).map((task) => (
+                      <div key={task.taskId} className={`rounded-lg border border-slate-200 ${task.status === 'APPROVED' ? 'bg-teal-50 text-teal-700 border-teal-200' :
+                        task.status === 'REJECTED' || task.status === 'PERMANENTLY_REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                          task.status === 'PENDING_REVIEW' ? 'bg-violet-50 text-violet-700 border-violet-200' :
+                            task.status === 'OPEN' ? 'bg-sky-50 text-sky-700 border-sky-200' :
+                              'bg-slate-50 text-slate-600 border-slate-200'} p-4`}>
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-2.5">
-                            <span className="text-[13px] font-bold text-slate-800">{task.recordNo || task.title}</span>
-                            <span className="rounded bg-slate-200 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-600">
-                              {task.dependencyMode?.replace(/_/g, ' ')}
-                            </span>
+                            <span className="text-[13px] font-bold text-slate-800">{task.taskName || task.recordNo || task.title}</span>
                           </div>
-                          <span className="text-[10px] font-bold text-slate-500 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-sm">
-                            End Date: {formatDate(task.dueDateTime)}
+                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wider
+  ${task.status === 'APPROVED' ? 'bg-teal-50 text-teal-700 border-teal-200' :
+                              task.status === 'REJECTED' || task.status === 'PERMANENTLY_REJECTED' ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                                task.status === 'PENDING_REVIEW' ? 'bg-violet-50 text-violet-700 border-violet-200' :
+                                  task.status === 'OPEN' ? 'bg-sky-50 text-sky-700 border-sky-200' :
+                                    'bg-slate-50 text-slate-600 border-slate-200'}`}
+                          >
+                            {task.status}
                           </span>
                         </div>
 
@@ -139,34 +244,109 @@ export default function SopDetailModal({
                             <span className="block text-[9px] font-bold uppercase text-slate-400 mb-1.5">Makers</span>
                             <div className="flex flex-wrap gap-1">
                               {(task.assignedMakerNames).map((m, i) => (
-                                  <span key={i} className="text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">{m}</span>
-                                ))}
+                                <span key={i} className="text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">{m}</span>
+                              ))}
                               {/* <UserAvatarGroup users={task.assignedMakerNames} max={3} /> */}
                             </div>
                           </div>
                           <div>
                             <span className="block text-[9px] font-bold uppercase text-slate-400 mb-1.5">Checkers</span>
                             <div className="flex flex-wrap gap-1">
-                               {(task.assignedCheckerNames).map((c, i) => (
-                                  <span key={i} className="text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">{c}</span>
-                                ))}
+                              {(task.assignedCheckerNames).map((c, i) => (
+                                <span key={i} className="text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">{c}</span>
+                              ))}
                               {/* <UserAvatarGroup users={task.assignedCheckerNames} max={3} /> */}
                             </div>
                           </div>
                         </div>
 
-                        {task.requiredDocuments?.length > 0 && (
-                          <div className="mt-3 bg-blue-50 p-3 rounded-md border border-blue-100">
-                            <span className="block text-[9px] font-bold uppercase text-blue-700 mb-1.5">Required Documents</span>
-                            <div className="flex flex-wrap gap-1.5">
-                              {task.requiredDocuments.map((doc, i) => {
-                                const docName = typeof doc === 'string' ? doc : (doc.name || doc.title || doc.documentName || 'Document');
-                                const docDesc = typeof doc === 'object' ? (doc.description || doc.desc || '') : '';
+                        {task.documents?.length > 0 && (
+                          <div className="mt-3 bg-slate-50/50 p-3 rounded-lg border border-slate-200">
+                            <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-2.5">
+                              Task Documents
+                            </span>
+                            <div className="flex flex-col gap-2">
+                              {task.documents.map((doc, i) => {
+                                const isObj = typeof doc === 'object';
+                                const docName = isObj ? (doc.fileName || doc.name || doc.title || 'Document') : doc;
+                                const status = isObj ? doc.status : null;
+                                const uploader = isObj ? doc.uploadedByName : '';
+                                const actioner = isObj ? doc.actionedByName : '';
+
                                 return (
-                                  <span key={i} className="text-[10px] font-semibold text-blue-800 bg-white border border-blue-200 px-2 py-0.5 rounded shadow-sm inline-flex items-center gap-1">
-                                    <span>📄 {docName}</span>
-                                    {docDesc && <span className="font-normal text-slate-500">({docDesc})</span>}
-                                  </span>
+                                  <div
+                                    key={isObj ? doc.documentId || i : i}
+                                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-2.5 bg-white border border-slate-200 rounded-md shadow-sm transition-colors hover:border-blue-300"
+                                  >
+                                    {/* Left: Document Info */}
+                                    <div className="flex items-start gap-2.5 overflow-hidden">
+                                      <div className="mt-0.5 flex shrink-0 h-7 w-7 items-center justify-center rounded bg-blue-50 text-blue-600">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                          <polyline points="14 2 14 8 20 8" />
+                                          <line x1="16" y1="13" x2="8" y2="13" />
+                                          <line x1="16" y1="17" x2="8" y2="17" />
+                                          <polyline points="10 9 9 9 8 9" />
+                                        </svg>
+                                      </div>
+                                      <div className="flex flex-col min-w-0">
+                                        <span className="text-[11px] font-bold text-slate-700 truncate" title={docName}>
+                                          {docName}
+                                        </span>
+
+                                        {isObj && (uploader || actioner) && (
+                                          <span className="text-[9px] font-medium text-slate-500 mt-0.5 truncate">
+                                            {uploader && `Uploaded by ${uploader}`}
+                                            {uploader && actioner && <span className="mx-1.5 text-slate-300">•</span>}
+                                            {actioner && `Actioned by ${actioner}`}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Right: Status & Actions */}
+                                    <div className="flex items-center gap-3 shrink-0">
+
+                                      {/* Status Badge */}
+                                      {status && (
+                                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${status === 'APPROVED' ? 'bg-green-50 text-green-700 border-green-200' :
+                                          status === 'REJECTED' ? 'bg-red-50 text-red-700 border-red-200' :
+                                            'bg-amber-50 text-amber-700 border-amber-200'
+                                          }`}>
+                                          {status.replace('_', ' ')}
+                                        </span>
+                                      )}
+
+                                      {/* Action Buttons (Only visible if APPROVED) */}
+                                      {status === 'APPROVED' && (
+                                        <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
+                                          <button
+                                            type="button"
+                                            className="flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                            title="View Document"
+                                            onClick={() => handleViewDocument(doc, task)}
+                                          >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                                              <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                          </button>
+                                          {/* <button
+                                            type="button"
+                                            className="flex h-6 w-6 items-center justify-center rounded text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                            title="Download Document"
+                                            onClick={()=>handleDownload(doc,task)}
+                                          >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                              <polyline points="7 10 12 15 17 10" />
+                                              <line x1="12" y1="15" x2="12" y2="3" />
+                                            </svg>
+                                          </button> */}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
                                 );
                               })}
                             </div>
@@ -302,7 +482,7 @@ export default function SopDetailModal({
         </div>
 
 
-        
+
       </div>
 
       <SopActivityLogModal
@@ -487,7 +667,7 @@ function MiniGanttChart({ tasks = [] }) {
 
   // Prevent division by zero if all tasks start and end on the exact same millisecond
   if (maxTime <= minTime) {
-    maxTime = minTime + 86400000; // Add 24 hours
+    maxTime = minTime;
   }
 
   const totalDurationMs = maxTime - minTime;

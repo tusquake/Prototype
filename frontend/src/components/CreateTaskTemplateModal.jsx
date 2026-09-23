@@ -23,6 +23,7 @@ export default function CreateTaskTemplateModal({
   userMap,
   parentMakerPool,
   parentCheckerPool,
+  isRecurring,
   frequency,
   dueDayOffset,
   editingTask = null,
@@ -34,7 +35,7 @@ export default function CreateTaskTemplateModal({
 
   const maxDeadline = getMaxDays(frequency);
 
-  const calculatedMaxDeadline = Math.min(dueDayOffset, maxDeadline)
+  const calculatedMaxDeadline =! isRecurring ? 365 : Math.min(dueDayOffset, maxDeadline)
 
   const taskSchema = useMemo(() => {
     return z.object({
@@ -67,7 +68,7 @@ export default function CreateTaskTemplateModal({
     defaultValues: {
       taskTitle: '',
       taskDependencyMode: 'INDEPENDENT',
-      taskEndDate: Math.min(dueDayOffset, maxDeadline),
+      taskEndDate: calculatedMaxDeadline,
       taskMakers: [],
       taskCheckers: [],
       requiredDocuments: [],
@@ -155,14 +156,14 @@ export default function CreateTaskTemplateModal({
         reset({
           taskTitle: '',
           taskDependencyMode: existingTasksCount === 0 ? 'INDEPENDENT' : 'DEPENDENT_ON_PREVIOUS',
-          taskEndDate: Math.min(dueDayOffset, maxDeadline),
+          taskEndDate: calculatedMaxDeadline,
           taskMakers: [...parentMakerPool],
           taskCheckers: [...parentCheckerPool],
           requiredDocuments: [],
         });
       }
     }
-  }, [isOpen, editingTask, existingTasksCount, parentMakerPool, parentCheckerPool, reset, dueDayOffset, maxDeadline]);
+  }, [isOpen, editingTask, existingTasksCount, parentMakerPool, parentCheckerPool, reset, dueDayOffset,isRecurring, maxDeadline]);
 
   if (!isOpen) return null;
 
@@ -257,7 +258,7 @@ export default function CreateTaskTemplateModal({
                       <input
                         type="number"
                         min={1}
-                        max={Math.min(dueDayOffset, maxDeadline)}
+                        max={calculatedMaxDeadline}
                         disabled={isViewOnly}
                         {...register('taskEndDate', { valueAsNumber: true, onChange: () => clearErrors('taskEndDate') })}
                         className="w-full rounded-lg border border-blue-300 bg-white p-2 text-xs font-bold text-slate-800 focus:border-blue-600 focus:outline-none disabled:bg-slate-100"

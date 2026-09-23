@@ -30,4 +30,6 @@ public class TaskDocumentDto {
     private OffsetDateTime actionedAt;
     private Boolean isResubmission;
     private UUID replacedDocumentId;
+    private UUID requiredDocumentId;
+    private String documentCategory;
 }

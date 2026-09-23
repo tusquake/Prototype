@@ -93,13 +93,13 @@ function CustomSelect({ name, value, options, disabled, onChange }) {
 }
 
 const getOffsetMax = (freq) => {
-    switch (freq) {
-      case 'WEEKLY': return 7;
-      case 'MONTHLY': return 31;
-      case 'QUARTERLY': return 90;
-      case 'ANNUAL': return 365;
-      default: return 30;
-    }
+  switch (freq) {
+    case 'WEEKLY': return 7;
+    case 'MONTHLY': return 31;
+    case 'QUARTERLY': return 90;
+    case 'ANNUAL': return 365;
+    default: return 30;
+  }
 };
 
 function isSopTemplateApprover(sop, userId) {
@@ -120,8 +120,9 @@ export default function CreateSopDrawer({
   userMap = {},
   creatableCategories = [],
   onClose = () => { },
+  onCancel = () => { },
   onSuccess = () => { },
-  onStepSuccess=()=>{},
+  onStepSuccess = () => { },
 }) {
   // Requirement #1: Multi-step tracking
   const [currentStep, setCurrentStep] = useState(1);
@@ -148,12 +149,13 @@ export default function CreateSopDrawer({
   const [taskTemplates, setTaskTemplates] = useState([]);
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const [selectedWeekDays, setSelectedWeekDays] = useState(['MON']);
-  const [selectedDayOfMonth, setSelectedDayOfMonth] = useState(15);
+  const [selectedDayOfMonth, setSelectedDayOfMonth] = useState(1);
   const [selectedQuarterMonth, setSelectedQuarterMonth] = useState(1);
   const [selectedAnnualMonth, setSelectedAnnualMonth] = useState('MAR');
   const [selectedDailyMode, setSelectedDailyMode] = useState('BUSINESS_DAYS');
   const [openConfirmationModal, setOpenConfirmationModal] = useState(false);
   const [modalConfig, setModalConfig] = useState('APPROVE');
+  const [isManualOffset, setIsManualOffset] = useState(false);
 
 
   const {
@@ -178,7 +180,7 @@ export default function CreateSopDrawer({
       effectiveFrom: todayStr,
       effectiveUntil: '',
       frequency: 'MONTHLY',
-      dueDayOffset: getOffsetMax('MONTHLY')  ?? 31,
+      dueDayOffset: getOffsetMax('MONTHLY') ?? 31,
       isRecurring: true,
       defaultMakerIds: [],
       defaultCheckerIds: [],
@@ -251,7 +253,7 @@ export default function CreateSopDrawer({
       } else {
         await updateSopTemplate(templateId, payload);
       }
-      if(onStepSuccess) onStepSuccess();
+      if (onStepSuccess) onStepSuccess();
 
       setCurrentStep(2);
     } catch (err) {
@@ -271,16 +273,28 @@ export default function CreateSopDrawer({
       setErrorMsg('You must add at least one task template to the execution flow.');
       return;
     }
+    // if (taskTemplates.length > 1) {
+    //   console.log('Checking', dueDayOffset)
+    //   const hasInvalidDuration = taskTemplates.slice(0, -1).some(task => task.etaEndDay >= dueDayOffset);
+
+    //   if (hasInvalidDuration) {
+    //     setErrorMsg(`Only the final task in the sequence can end on the maximum SOP deadline (${dueDayOffset} days). Please adjust the earlier tasks.`);
+    //     return;
+    //   }
+    // }
     if (taskTemplates.length > 1) {
-      console.log('Checking',dueDayOffset)
-      const hasInvalidDuration = taskTemplates.slice(0, -1).some(task => task.etaEndDay >= dueDayOffset);
-      
-      if (hasInvalidDuration) {
-        setErrorMsg(`Only the final task in the sequence can end on the maximum SOP deadline (${dueDayOffset} days). Please adjust the earlier tasks.`);
+      const totalDuration = taskTemplates.reduce((sum, task,index) => {
+        if (task.dependencyMode === 'INDEPENDENT' && index != 0) return sum;
+        return sum + (Number(task.etaEndDay) || 0);
+      }, 0);
+
+      if (totalDuration > dueDayOffset) {
+        setErrorMsg(`The total execution time (${totalDuration} days) exceeds the overall SOP deadline of ${dueDayOffset} days. Please shorten task durations.`);
         return;
       }
+
     }
-    if(taskTemplates.length > 0 && taskTemplates[taskTemplates.length -1].etaEndDay > dueDayOffset){
+    if (taskTemplates.length > 0 && taskTemplates[taskTemplates.length - 1].etaEndDay > dueDayOffset) {
       setErrorMsg(`Task ETA cannot be greater than SOP deadline (${dueDayOffset} days). Please adjust the tasks. `);
       return;
     }
@@ -289,7 +303,7 @@ export default function CreateSopDrawer({
     try {
       // Save Step 2 state (Tasks)
       await saveTemplateDraftApiCall({ templateId, tasks: taskTemplates }, 2);
-      if(onStepSuccess) onStepSuccess();
+      if (onStepSuccess) onStepSuccess();
       setCurrentStep(3);
     } catch (err) {
       setErrorMsg('Failed to save Task Templates.');
@@ -333,7 +347,8 @@ export default function CreateSopDrawer({
 
   const handleFinalSubmit = async () => {
     if (isViewOnly && (editingTemplate?.status === 'DRAFT' || editingTemplate.status === 'ACTIVE' || editingTemplate.status === 'REJECTED')) {
-      onClose();
+      onCancel();
+      // onClose();
       return;
     }
     setErrorMsg('');
@@ -435,8 +450,6 @@ export default function CreateSopDrawer({
     }
   };
 
-  // 1. New state for the Autoconfigure toggle
-  const [isManualOffset, setIsManualOffset] = useState(false);
 
   // 2. Helper to get dynamic max offset based on frequency
 
@@ -477,12 +490,13 @@ export default function CreateSopDrawer({
           defaultMakerIds: editingTemplate.defaultMakerIds || editingTemplate.makers || [],
           defaultCheckerIds: editingTemplate.defaultCheckerIds || editingTemplate.checkers || [],
         });
-
+console.log('Editing Template:', editingTemplate);
         if (editingTemplate.recurrenceConfig) {
           try {
             const parsed = typeof editingTemplate.recurrenceConfig === 'string'
               ? JSON.parse(editingTemplate.recurrenceConfig)
               : editingTemplate.recurrenceConfig;
+              console.log('Parsed Recurrence Config:', parsed);
             if (Array.isArray(parsed.weekdays)) setSelectedWeekDays(parsed.weekdays);
             if (parsed.dayOfMonth) setSelectedDayOfMonth(parsed.dayOfMonth);
             if (parsed.quarterMonth) setSelectedQuarterMonth(parsed.quarterMonth);
@@ -569,7 +583,7 @@ export default function CreateSopDrawer({
                     savedToBackend: true,
                   }));
                   setTaskTemplates(mapped);
-                  setCurrentStep(2);
+                  setCurrentStep(1);
                 }
               }
             })
@@ -601,6 +615,7 @@ export default function CreateSopDrawer({
 
   // Load process categories dynamically from backend API (creatable categories for non-admin user)
   useEffect(() => {
+    if (isViewOnly) return;
     if (isOpen) {
       const targetUid = currentUser?.id || currentUser?.userId || currentUser?.email;
       if (isAdmin) {
@@ -640,10 +655,11 @@ export default function CreateSopDrawer({
           .catch(() => { });
       }
     }
-  }, [isOpen, isAdmin, currentUser, setValue, getValues]);
+  }, [isOpen, isAdmin, isViewOnly, currentUser, setValue, getValues]);
 
   // Load corporate entities dynamically from backend API
   useEffect(() => {
+    if (isViewOnly) return;
     if (isOpen) {
       fetchEntities()
         .then((entities) => {
@@ -661,14 +677,15 @@ export default function CreateSopDrawer({
         })
         .catch(() => { });
     }
-  }, [isOpen, setValue, getValues]);
+  }, [isOpen, isViewOnly, setValue, getValues]);
 
 
   useEffect(() => {
+    if (isViewOnly) return;
     if (isOpen && processCategory) {
       loadPermittedUsers(processCategory);
     }
-  }, [isOpen, processCategory, loadPermittedUsers]);
+  }, [isOpen, isViewOnly, processCategory, loadPermittedUsers]);
 
   if (!isOpen) return null;
 
@@ -740,17 +757,31 @@ export default function CreateSopDrawer({
                   <div className="grid grid-cols-2 gap-4 pt-2">
                     <div>
                       <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Process Category *</label>
-                      <select disabled={isViewOnly} {...register('processCategory')} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs focus:border-blue-600 focus:outline-none">
+                      {isViewOnly ? (
+                        <div className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs font-semibold text-slate-800">
+                          {editingTemplate?.processCategory || 'N/A'}
+                        </div>
+                      ) : (<select disabled={isViewOnly} {...register('processCategory', { onChange: (e) => { setValue('defaultMakerIds', []), setValue('defaultCheckerIds', []) } })} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs focus:border-blue-600 focus:outline-none">
                         {processOptions.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
-                      </select>
+                      </select>)}
+
                       {errors.processCategory && <p className="mt-1 text-[11px] text-red-500">{errors.processCategory.message}</p>}
                     </div>
 
                     <div>
                       <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Entity *</label>
-                      <select disabled={isViewOnly} {...register('entityCode')} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs focus:border-blue-600 focus:outline-none">
-                        {entityOptions.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
-                      </select>
+                      {isViewOnly ? (
+                        <div className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs font-semibold text-slate-800">
+                          {editingTemplate?.entity || 'N/A'}
+                        </div>
+                      ) : (
+                        <select disabled={isViewOnly} {...register('entityCode')} className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-xs focus:border-blue-600 focus:outline-none">
+                          {entityOptions.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+                        </select>
+                      )}
+
+
+
                     </div>
                   </div>
 
@@ -842,7 +873,12 @@ export default function CreateSopDrawer({
                           <button
                             type="button"
                             disabled={isViewOnly}
-                            onClick={() => setValue('isRecurring', false)}
+                            onClick={() => {
+                              setValue('isRecurring', false); setValue('dueDayOffset', 365, {
+                                shouldValidate: true,
+                                shouldDirty: true
+                              });
+                            }}
                             className={`w-1/2 rounded-md py-1.5 text-xs font-bold transition-all duration-200 ${!isRecurring
                               ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-900/5'
                               : 'text-slate-500 hover:text-slate-700'
@@ -873,7 +909,7 @@ export default function CreateSopDrawer({
                               (e) => {
                                 const newFrequency = e.target.value;
                                 field.onChange(newFrequency);
-                                const updatedDueDayOffset = getOffsetMax(newFrequency);                            
+                                const updatedDueDayOffset = getOffsetMax(newFrequency);
                                 setValue('dueDayOffset', updatedDueDayOffset, {
                                   shouldValidate: true,
                                   shouldDirty: true
@@ -898,7 +934,7 @@ export default function CreateSopDrawer({
                               checked={isManualOffset}
                               onChange={(e) => {
                                 setIsManualOffset(e.target.checked);
-                                const defaultDayOffset= editingTemplate && editingTemplate.dueDayOffset ? editingTemplate.dueDayOffset : getOffsetMax(frequency);
+                                const defaultDayOffset = editingTemplate && editingTemplate.dueDayOffset ? editingTemplate.dueDayOffset : getOffsetMax(frequency);
                                 if (!e.target.checked) setValue('dueDayOffset', defaultDayOffset); // Reset if they uncheck
                               }}
                             />
@@ -941,13 +977,14 @@ export default function CreateSopDrawer({
                                   type="button"
                                   disabled={isViewOnly}
                                   onClick={() => {
-                                    // Requirement 4: Single select / toggle logic
-                                    if (isSelected) {
-                                      setSelectedWeekDays([]); // Deselect if already active
-                                    } else {
-                                      setSelectedWeekDays([day]); // Select only this day, overriding others
-                                    }
-                                  }}
+                                      if (isSelected) {
+                                        // Remove the day
+                                        setSelectedWeekDays(selectedWeekDays.filter((d) => d !== day));
+                                      } else {
+                                        // Add the day
+                                        setSelectedWeekDays([...selectedWeekDays, day]);
+                                      }
+                                    }}
                                   className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${isSelected ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                                 >
                                   {day}
@@ -976,6 +1013,15 @@ export default function CreateSopDrawer({
                               </button>
                             ))}
                           </div>
+                          {selectedDayOfMonth > 30 ? (
+                            <span className="inline-block p-2 rounded bg-blue-100 text-blue-800 text-[10px]">
+                              <strong>Note:</strong> For months with 30 days (like April, June), the SOP will be created on the 30th. For February, it will be created on the 28th (or 29th in a leap year).
+                            </span>
+                          ) : selectedDayOfMonth > 28 ? (
+                            <span className="inline-block p-2 rounded bg-blue-100 text-blue-800 text-[10px]">
+                              <strong>Note:</strong> For February, the SOP will be created on the 28th (or 29th in a leap year).
+                            </span>
+                          ) : null}
                         </div>
                       )}
 
@@ -1213,7 +1259,7 @@ export default function CreateSopDrawer({
                                     return (
                                       <span key={idx} className="rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 inline-flex items-center gap-1" title={docDesc || docName}>
                                         <span>📄 {docName}</span>
-                                        {docDesc && <span className="font-normal text-indigo-500">({docDesc})</span>}
+                                        {/* {docDesc && <span className="font-normal text-indigo-500">({docDesc})</span>} */}
                                       </span>
                                     );
                                   })}
@@ -1253,7 +1299,7 @@ export default function CreateSopDrawer({
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">Visual Gantt View (Simulated)</h3>
                   <div className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4 opacity-75">
                     <div className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4">
-                      <GanttTimelineChart tasks={taskTemplates} maxTimeline={dueDayOffset}/>
+                      <GanttTimelineChart tasks={taskTemplates} maxTimeline={dueDayOffset} />
                       {/* <Willow>
                     <Gantt tasks={tasks} scales={scales} />
                   </Willow> */}
@@ -1267,9 +1313,9 @@ export default function CreateSopDrawer({
 
           <div className="flex items-center justify-between border-t border-slate-200 bg-white px-6 py-4 shadow-inner">
             <div className="text-[11px] text-slate-500 font-medium">
-              {currentStep === 1 && !isViewOnly  && 'Step 1: Configure Template and save to proceed.'}
-              {currentStep === 2  && !isViewOnly && `Step 2: ${taskTemplates.length} Tasks configured. Draft saved automatically.`}
-              {currentStep === 3  && !isViewOnly && 'Final Step: Review and Activate.'}
+              {currentStep === 1 && !isViewOnly && 'Step 1: Configure Template and save to proceed.'}
+              {currentStep === 2 && !isViewOnly && `Step 2: ${taskTemplates.length} Tasks configured. Draft saved automatically.`}
+              {currentStep === 3 && !isViewOnly && 'Final Step: Review and Activate.'}
             </div>
 
             <div className="flex items-center gap-3">
@@ -1285,7 +1331,7 @@ export default function CreateSopDrawer({
 
               {currentStep === 2 && (
                 <>
-                  <button type="button" onClick={() => {setErrorMsg(null),setCurrentStep(1)}} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                  <button type="button" onClick={() => { setErrorMsg(null), setCurrentStep(1) }} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                     ← Back to Step 1
                   </button>
                   <button type="button" onClick={handleProceedToStep3} disabled={isSavingDraft} className="rounded-lg bg-blue-600 px-6 py-2 text-xs font-bold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50">
@@ -1296,13 +1342,14 @@ export default function CreateSopDrawer({
 
               {currentStep === 3 && (
                 <>
-                  <button type="button" onClick={() => {setErrorMsg(null),setCurrentStep(2)}} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                  <button type="button" onClick={() => { setErrorMsg(null), setCurrentStep(2) }} className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                     ← Back to Step 2
                   </button>
-                  <button type="button" onClick={handleFinalSubmit} className="rounded-lg bg-blue-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700">
+                  {!(editingTemplate && editingTemplate?.status === 'PENDING_APPROVAL') && <button type="button" onClick={handleFinalSubmit} className="rounded-lg bg-blue-600 px-6 py-2 text-xs font-bold text-white shadow-md hover:bg-blue-700">
                     {isViewOnly ? 'Close SOP Template' : 'Create SOP Template'}
-                  </button>
-                  {editingTemplate?.status === 'PENDING_APPROVAL' && isViewOnly && ( isAdmin || isSopTemplateApprover(editingTemplate,currentUser?.id) ) && (<>
+                  </button>}
+
+                  {editingTemplate?.status === 'PENDING_APPROVAL' && isViewOnly && (isAdmin || isSopTemplateApprover(editingTemplate, currentUser?.id)) && (<>
                     <button type="button" onClick={() => {
                       setOpenConfirmationModal(true)
                       setModalConfig('APPROVE')
@@ -1365,6 +1412,7 @@ export default function CreateSopDrawer({
         effectiveUntil={effectiveUntil}
         sopEndDate={effectiveUntil}
         setCurrentStep={setCurrentStep}
+        isRecurring={isRecurring}
         frequency={frequency}
         dueDayOffset={dueDayOffset}
         onSaveTask={async (savedTask, isEdit) => {
@@ -1418,7 +1466,7 @@ export default function CreateSopDrawer({
           isOpen={openConfirmationModal}
           mode={modalConfig}
           title={modalConfig === 'APPROVE' ? "Approve SOP Draft" : "Reject SOP Draft"}
-          subtitle={ `Are you sure you want to ${modalConfig === 'APPROVE' ? "approve" : "reject"} sop template: ${editingTemplate?.title} ?`}
+          subtitle={`Are you sure you want to ${modalConfig === 'APPROVE' ? "approve" : "reject"} sop template: ${editingTemplate?.title} ?`}
           onClose={() => setOpenConfirmationModal(false)}
           onSubmit={(comment) => { handleApprove(comment), setOpenConfirmationModal(false) }}
         />
@@ -1441,16 +1489,16 @@ function GanttTimelineChart({ tasks = [], maxTimeline }) {
     );
   }
 
-  console.log('Tasks',tasks)
+  console.log('Tasks', tasks)
 
   // 1. Process tasks to chain them sequentially safely
   let currentStartDay = 0;
-  const computedTasks = tasks.map((task) => {
+  const computedTasks = tasks.map((task,index) => {
     const startDay = task.dependencyMode === 'INDEPENDENT' ? 0 : currentStartDay;
-    // Assuming etaEndDay is an absolute day. If it's a duration, change this to: startDay + (task.etaEndDay || 0)
-    const endDay = Math.max(startDay, task.etaEndDay || startDay);
-    
+    const endDay =task.dependencyMode === 'INDEPENDENT' ? task.etaEndDay :  Math.max(startDay, currentStartDay+ task.etaEndDay);
+
     // Set the start of the next task to the end of this one
+    if(! (task.dependencyMode === 'INDEPENDENT' && index != 0))
     currentStartDay = endDay;
 
     return { ...task, startDay, endDay };
@@ -1458,7 +1506,7 @@ function GanttTimelineChart({ tasks = [], maxTimeline }) {
 
   // 2. Calculate the max days for the timeline scale
   const lastTaskEndDay = computedTasks[computedTasks.length - 1].endDay;
-  
+
   // Max scale is either the last task, the maxTimeline prop, or at least 1
   const maxDay = Math.max(1, lastTaskEndDay, typeof maxTimeline === 'number' ? maxTimeline : 0);
   const totalDuration = maxDay; // Since minDay is always 0
@@ -1471,7 +1519,7 @@ function GanttTimelineChart({ tasks = [], maxTimeline }) {
 
   return (
     <div className="min-w-[650px] space-y-3 font-sans">
-      
+
       {/* Chart Header - FULL WIDTH */}
       <div className="relative flex justify-between border-b border-slate-200 pb-2 px-1 text-[10px] font-bold uppercase text-slate-400">
         <span>Day 0</span>
@@ -1489,7 +1537,7 @@ function GanttTimelineChart({ tasks = [], maxTimeline }) {
           return (
             // The track background spans 100% of the width
             <div key={task.id || idx} className="relative flex h-8 w-full items-center rounded bg-slate-100/70">
-              
+
               {/* The Blue Timeline Bar */}
               <div
                 className="absolute flex h-6 items-center justify-between rounded bg-blue-600 px-2.5 text-[10px] font-bold text-white shadow-sm transition-all"
@@ -1499,18 +1547,18 @@ function GanttTimelineChart({ tasks = [], maxTimeline }) {
                   // max-content ensures the bar always fits the text even if width is 0.5%
                   minWidth: 'max-content',
                   // Optional: prevents it from overflowing the right side of the screen if left is 99%
-                  maxWidth: `calc(100% - ${startPercent}%)` 
+                  maxWidth: `calc(100% - ${startPercent}%)`
                 }}
                 title={`Starts: Day ${task.startDay} | Ends: Day ${task.endDay}`}
               >
                 {/* Task Title inside the bar */}
                 <span className="truncate pr-3">
-                {task.title || task.taskName}
+                  {task.title || task.taskName} {task.dependencyMode === 'INDEPENDENT' && idx != 0 ? ' | Independent Task' : ''}
                 </span>
 
                 {/* Right side data inside the bar */}
                 <div className="flex shrink-0 items-center gap-1.5">
-                  <span>Day {task.endDay}</span>
+                  <span>By {task.endDay} days</span>
                   {task.requiredDocuments?.length > 0 && (
                     <span className="rounded bg-black/25 px-1 py-0.5 text-[9px] leading-none">
                       📄{task.requiredDocuments.length}
@@ -1523,7 +1571,7 @@ function GanttTimelineChart({ tasks = [], maxTimeline }) {
           );
         })}
       </div>
-      
+
     </div>
   );
 }

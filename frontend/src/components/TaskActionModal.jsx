@@ -12,6 +12,12 @@ import {
   deleteTaskDocument,
   actionTaskDocument,
 } from '../services/api';
+import dayjs from 'dayjs';
+
+function formatDate(date, formatConfig = 'DD MMM YYYY') {
+  if (!date) return 'Invalid Date'
+  return dayjs(date).format(formatConfig)
+}
 
 export default function TaskActionModal({
   isOpen,
@@ -43,6 +49,7 @@ export default function TaskActionModal({
   const [rejectingDoc, setRejectingDoc] = useState(null);
   const [docRejectionReason, setDocRejectionReason] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedDocIdx, setSelectedDocIdx] = useState(0);
 
   async function loadDocuments(targetTaskId) {
     const tId = targetTaskId || task?.taskId || task?.id;
@@ -73,6 +80,7 @@ export default function TaskActionModal({
       setIsDragging(false);
       const tId = task.taskId || task.id;
       loadDocuments(tId);
+      setSelectedDocIdx(task?.requiredDocuments[0].requiredDocumentId)
     }
   }, [isOpen, task]);
 
@@ -116,6 +124,7 @@ export default function TaskActionModal({
           contentType: file.type || 'application/octet-stream',
           actorId,
           isResubmission: isTaskRejected,
+          requiredDocumentId: selectedDocIdx || null
         });
 
         successCount++;
@@ -319,7 +328,7 @@ export default function TaskActionModal({
       return;
     }
     if (actionType === 'APPROVE' && hasUnapprovedDocs) {
-      setToastError('Task cannot be approved until all attached evidence documents are individually approved (✓) by the Checker.');
+      setToastError('Task cannot be approved until all attached evidence documents are individually approved by the Checker.');
       return;
     }
     if (actionType === 'REJECT' && !comment.trim()) {
@@ -506,7 +515,7 @@ export default function TaskActionModal({
             {/* Task Metadata Cards */}
             <div className="grid grid-cols-2 gap-3.5 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">SOP Procedure</span>
+                <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">SOP</span>
                 <span className="text-[13.5px] font-bold text-slate-900">{task.sop || task.sopTitle}</span>
               </div>
 
@@ -524,7 +533,7 @@ export default function TaskActionModal({
 
               <div className="flex flex-col gap-1">
                 <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Due Date</span>
-                <span className="text-xs font-semibold text-slate-800">{task.dueDate || (task.dueDateTime ? String(task.dueDateTime).slice(0, 10) : 'N/A')}</span>
+                <span className="text-xs font-semibold text-slate-800">{formatDate(task.dueDate)}</span>
               </div>
 
               <div className="col-span-2 flex flex-col gap-1">
@@ -544,139 +553,8 @@ export default function TaskActionModal({
               </div>
             </div>
 
-            {/* Required Task Documents Blueprint Checklist for Maker & Checker */}
-            {task.requiredDocuments?.length > 0 && (
-              <div className={`rounded-xl border p-4 shadow-sm transition-all ${isMissingDocs
-                  ? 'border-amber-300 bg-amber-50/70'
-                  : 'border-emerald-200 bg-emerald-50/60'
-                }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={isMissingDocs ? "#d97706" : "#059669"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                      <line x1="16" y1="13" x2="8" y2="13" />
-                      <line x1="16" y1="17" x2="8" y2="17" />
-                    </svg>
-                    <span className={`text-xs font-bold uppercase tracking-wide ${isMissingDocs ? 'text-amber-900' : 'text-emerald-900'}`}>
-                      Required Documents Checklist ({canSubmit ? 'Maker Requirement' : 'Checker Evaluation'})
-                    </span>
-                  </div>
-                  <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${isMissingDocs
-                      ? 'bg-amber-100 text-amber-800 border-amber-300'
-                      : 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                    }`}>
-                    {isMissingDocs ? `${uploadedCount}/${requiredCount} Uploaded` : `✓ All ${requiredCount} Uploaded`}
-                  </span>
-                </div>
-                <p className={`text-[11px] mb-3 ${isMissingDocs ? 'text-amber-800/90 font-medium' : 'text-emerald-700/80'}`}>
-                  {canSubmit
-                    ? (isMissingDocs
-                      ? `All ${requiredCount} required documents must be uploaded before submitting this task for review.`
-                      : 'All required evidence documents have been uploaded!')
-                    : 'Checker Evaluation Checklist: Ensure Maker has provided working papers matching the required documents below:'}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {task.requiredDocuments.map((doc, idx) => {
-                    const docName = typeof doc === 'string' ? doc : (doc.name || doc.title || doc.documentName || 'Document');
-                    const docDesc = typeof doc === 'object' ? (doc.description || doc.desc || '') : '';
-                    const isUploaded = idx < uploadedCount;
-                    return (
-                      <div key={idx} className={`flex flex-col bg-white border rounded-lg p-3 shadow-xs ${isUploaded ? 'border-emerald-200' : 'border-amber-300 bg-amber-50/30'
-                        }`}>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 truncate">
-                            <span className={isUploaded ? 'text-emerald-600' : 'text-amber-600'}>📄</span> {docName}
-                          </span>
-                          <span className={`text-[10px] font-bold px-1.5 py-0.25 rounded ${isUploaded ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'
-                            }`}>
-                            {isUploaded ? '✓ Attached' : '✕ Missing'}
-                          </span>
-                        </div>
-                        {docDesc && (
-                          <span className="text-[11px] text-slate-500 mt-1 pl-5">{docDesc}</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Attached Working Papers & Evidence Documents Section with Drag & Drop */}
-            <div
-              className={`relative flex flex-col gap-3 rounded-xl border p-4 transition-all ${isDragging && canSubmit
-                  ? 'border-blue-500 bg-blue-50/80 ring-4 ring-blue-500/20 shadow-md'
-                  : 'border-slate-200 bg-slate-50'
-                }`}
-              onDragOver={canSubmit ? handleDragOver : undefined}
-              onDragLeave={canSubmit ? handleDragLeave : undefined}
-              onDrop={canSubmit ? handleDrop : undefined}
-            >
-              {/* Drag Overlay Notice */}
-              {isDragging && canSubmit && (
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-xl bg-blue-600/90 text-white backdrop-blur-xs animate-[fadeIn_0.15s_ease-in-out]">
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-bounce">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                  <span className="mt-2 text-sm font-bold">Drop files here to upload instantly to Cloud Storage</span>
-                  <span className="text-xs text-white/80">Supports multiple document attachments</span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                  </svg>
-                  <span className="text-xs font-bold uppercase tracking-wide text-slate-800">
-                    Attached Working Papers &amp; Evidence Documents
-                  </span>
-                  <span className="rounded-full bg-blue-600 px-2 py-0.25 text-[11px] font-bold text-white">
-                    {documents.length}
-                  </span>
-                </div>
-
-                {canSubmit && (
-                  <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-blue-600/30 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-600 transition-all hover:bg-blue-100 disabled:opacity-50">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="17 8 12 3 7 8" />
-                      <line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
-                    <span>{uploadingFile ? 'Uploading...' : 'Attach File(s)'}</span>
-                    <input
-                      type="file"
-                      multiple
-                      className="hidden"
-                      disabled={uploadingFile}
-                      onChange={e => {
-                        if (e.target.files && e.target.files.length > 0) {
-                          handleAutoUploadFiles(e.target.files);
-                          e.target.value = '';
-                        }
-                      }}
-                    />
-                  </label>
-                )}
-              </div>
-
-              {/* Real-time Upload Progress Indicator */}
-              {uploadingFile && (
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-blue-300 bg-blue-50 p-3 shadow-xs">
-                  <div className="flex items-center gap-2.5">
-                    <svg className="h-4 w-4 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                    </svg>
-                    <span className="text-xs font-semibold text-blue-900">{uploadProgressMsg || 'Uploading file to storage...'}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Task Revision Mode Alert Callout */}
+            {/* Global Warnings / Callouts */}
+            <div className="flex flex-col gap-3 mb-4">
               {task.status === 'REJECTED' && canSubmit && (
                 <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50/90 p-3 text-xs text-amber-900 shadow-xs">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-amber-600">
@@ -685,12 +563,11 @@ export default function TaskActionModal({
                     <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
                   <div>
-                    <strong className="font-bold text-amber-950">Task Re-submission Mode:</strong> This task was returned for revision by the Checker. You can drag and drop or attach new evidence documents in place of rejected attachments. Newly uploaded documents will be tagged as <span className="font-bold text-indigo-700">Re-submitted</span>.
+                    <strong className="font-bold text-amber-950">Task Re-submission Mode:</strong> This task was returned for revision. Upload new evidence documents in place of rejected attachments.
                   </div>
                 </div>
               )}
 
-              {/* Task Approval Gating Warning Callout */}
               {canApproveOrReject && hasUnapprovedDocs && (
                 <div className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-xs">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="mt-0.5 shrink-0 text-amber-600">
@@ -699,215 +576,245 @@ export default function TaskActionModal({
                     <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
                   <div>
-                    <strong className="font-bold text-amber-950">Document Review Gating:</strong> All attached evidence documents must be individually reviewed and marked as Approved (<span className="font-bold text-emerald-700">✓</span>) by the Checker before this compliance task can be approved.
+                    <strong className="font-bold text-amber-950">Document Review Gating:</strong> All attached evidence documents must be individually marked as Approved (✓) by the Checker before task approval.
                   </div>
-                </div>
-              )}
-
-              {/* Document List */}
-              {loadingDocs ? (
-                <div className="py-4 text-center text-xs text-slate-500">Loading attached documents...</div>
-              ) : documents.length === 0 ? (
-                canSubmit ? (
-                  <div
-                    className="flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 p-6 text-center transition-all hover:border-blue-400 hover:bg-blue-50/40 cursor-pointer"
-                    onClick={() => {
-                      const el = document.querySelector('input[type="file"][multiple]');
-                      if (el) el.click();
-                    }}
-                  >
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="mb-2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="17 8 12 3 7 8" />
-                      <line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
-                    <span className="text-xs font-semibold text-slate-700">No documents attached yet</span>
-                    <span className="text-[11px] text-slate-500 mt-0.5">Drag &amp; drop evidence files here or click to browse</span>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-white p-6 text-center">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="mb-2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                    </svg>
-                    <span className="text-xs font-semibold text-slate-700">No documents attached yet</span>
-                    <span className="text-[11px] text-slate-500 mt-0.5">No evidence documents have been uploaded for this task</span>
-                  </div>
-                )
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {documents.map(doc => (
-                    <div
-                      key={doc.documentId}
-                      className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-2.5 px-3 transition-all hover:border-slate-300 hover:shadow-sm"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 overflow-hidden">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-blue-600">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                              <polyline points="14 2 14 8 20 8" />
-                            </svg>
-                          </div>
-                          <div className="flex flex-col overflow-hidden">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate text-xs font-semibold text-slate-800" title={doc.fileName}>
-                                {doc.fileName}
-                              </span>
-
-                              {/* Document Review Status Badges */}
-                              {doc.status === 'APPROVED' ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10.5px] font-bold text-emerald-800" title={doc.actionedByName ? `Approved by ${doc.actionedByName}` : 'Approved'}>
-                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="20 6 9 17 4 12" />
-                                  </svg>
-                                  <span>Approved</span>
-                                </span>
-                              ) : doc.status === 'REJECTED' ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-[10.5px] font-bold text-rose-800" title={doc.rejectionReason ? `Reason: ${doc.rejectionReason}` : 'Rejected'}>
-                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                    <line x1="18" y1="6" x2="6" y2="18" />
-                                    <line x1="6" y1="6" x2="18" y2="18" />
-                                  </svg>
-                                  <span>Rejected</span>
-                                </span>
-                              ) : doc.isResubmission ? (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-[10.5px] font-bold text-indigo-800" title="Re-submitted evidence file in place of rejected document">
-                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="23 4 23 10 17 10" />
-                                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                                  </svg>
-                                  <span>Re-submitted</span>
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">
-                                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <circle cx="12" cy="12" r="10" />
-                                    <polyline points="12 6 12 12 16 14" />
-                                  </svg>
-                                  <span>Pending Review</span>
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2 text-[11px] text-slate-500">
-                              <span>{formatFileSize(doc.fileSize)}</span>
-                              <span>•</span>
-                              <span>By {doc.uploadedByName || doc.uploadedById || 'User'}</span>
-                              {doc.uploadedAt && (
-                                <>
-                                  <span>•</span>
-                                  <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {/* Checker Approve (✓) / Reject (✕) Actions — Hidden on REJECTED documents */}
-                          {canApproveOrReject && doc.status !== 'REJECTED' && (
-                            <div className="flex items-center gap-1.5 border-r border-slate-200 pr-2 mr-1">
-                              <button
-                                type="button"
-                                className={`flex h-7 px-2 items-center justify-center gap-1 rounded-md text-xs font-bold transition-all ${doc.status === 'APPROVED'
-                                    ? 'bg-emerald-600 text-white shadow-xs'
-                                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-300'
-                                  }`}
-                                onClick={() => handleDocumentAction(doc, 'APPROVE')}
-                                disabled={actioningDocId === doc.documentId}
-                                title="Approve Document (✓)"
-                              >
-                                <span>✓</span>
-                                <span className="text-[11px]">Approve</span>
-                              </button>
-                              <button
-                                type="button"
-                                className={`flex h-7 px-2 items-center justify-center gap-1 rounded-md text-xs font-bold transition-all ${doc.status === 'REJECTED'
-                                    ? 'bg-rose-600 text-white shadow-xs'
-                                    : 'bg-rose-50 text-rose-700 hover:bg-rose-600 hover:text-white border border-rose-300'
-                                  }`}
-                                onClick={() => {
-                                  setRejectingDoc(doc);
-                                  setDocRejectionReason('');
-                                }}
-                                disabled={actioningDocId === doc.documentId}
-                                title="Reject Document (✕)"
-                              >
-                                <span>✕</span>
-                                <span className="text-[11px]">Reject</span>
-                              </button>
-                            </div>
-                          )}
-
-                          {/* View Button (Eye Icon) */}
-                          <button
-                            type="button"
-                            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11.5px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-all"
-                            onClick={() => handleViewDocument(doc)}
-                            disabled={downloadingDocId === doc.documentId}
-                            title="View document directly in browser tab"
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                              <circle cx="12" cy="12" r="3" />
-                            </svg>
-                            <span>View</span>
-                          </button>
-
-                          {/* Download Button (Arrow Icon) */}
-                          <button
-                            type="button"
-                            className="flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11.5px] font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-all"
-                            onClick={() => handleDownload(doc)}
-                            disabled={downloadingDocId === doc.documentId}
-                            title="Download document file attachment"
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                              <polyline points="7 10 12 15 17 10" />
-                              <line x1="12" y1="15" x2="12" y2="3" />
-                            </svg>
-                            <span>Download</span>
-                          </button>
-
-                          {/* Delete button (Hidden on APPROVED and REJECTED documents) */}
-                          {canSubmit && doc.status !== 'APPROVED' && doc.status !== 'REJECTED' && (
-                            <button
-                              type="button"
-                              className="flex items-center justify-center rounded-md p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-all"
-                              onClick={() => handleDeleteDocument(doc)}
-                              disabled={deletingDocId === doc.documentId}
-                              title="Delete document attachment"
-                            >
-                              {deletingDocId === doc.documentId ? (
-                                <svg className="h-3.5 w-3.5 animate-spin text-red-600" viewBox="0 0 24 24" fill="none">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                                </svg>
-                              ) : (
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="3 6 5 6 21 6" />
-                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                </svg>
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Rejection Note Display */}
-                      {doc.status === 'REJECTED' && doc.rejectionReason && (
-                        <div className="flex items-start gap-1.5 rounded-md bg-rose-50 p-2 text-[11.5px] text-rose-800 border border-rose-200">
-                          <strong className="shrink-0 font-bold">Rejection Reason:</strong>
-                          <span>{doc.rejectionReason}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
+
+            {/* Two-Column Document Interface */}
+
+            {task?.requiredDocuments?.length > 0 && <div className="flex flex-col md:flex-row gap-5">
+
+
+              <div className="w-full md:w-1/3 flex flex-col gap-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold uppercase tracking-wide text-slate-700">
+                    Required Documents
+                  </span>
+
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {task.requiredDocuments?.map((doc, idx) => {
+                    const docName = typeof doc === 'string' ? doc : (doc.name || doc.title || doc.documentName || 'Document');
+                    const isSelected = selectedDocIdx === doc.requiredDocumentId;
+                    const docId = doc.requiredDocumentId ?? '';
+
+                    // NOTE: Replace this logic based on how you link uploaded files to requirements
+                    const hasFiles = documents.some(d => d.requiredDocumentName === doc.requiredDocumentId || d.categoryId === doc.id);
+
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => setSelectedDocIdx(doc.requiredDocumentId)}
+                        className={`flex flex-col border rounded-lg p-3 shadow-xs cursor-pointer transition-all ${isSelected
+                          ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500'
+                          : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50'
+                          }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs font-bold flex items-center gap-2 truncate ${isSelected ? 'text-blue-800' : 'text-slate-700'}`}>
+                            <span className={hasFiles ? 'text-emerald-500' : 'text-amber-500'}>📄</span>
+                            {docName}
+                          </span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${hasFiles ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800'}`}>
+                            {hasFiles ? 'Attached' : 'Missing'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="w-full md:w-2/3 flex flex-col rounded-xl border border-slate-200 bg-slate-50 overflow-hidden shadow-sm">
+
+                {(() => {
+                  const activeReq = task.requiredDocuments?.find((t) => t.requiredDocumentId === selectedDocIdx);
+
+                  if (!activeReq) return <div className="p-8 text-center text-slate-500 text-sm">Select a document from the left list.</div>;
+
+                  const activeName = typeof activeReq === 'string' ? activeReq : (activeReq.name || activeReq.title || activeReq.documentName || 'Document');
+                  const activeDesc = typeof activeReq === 'object' ? (activeReq.description || activeReq.desc || '') : '';
+
+                  const activeUploadedDocs = documents.filter(d => d.requiredDocumentId === selectedDocIdx || d.requiredDocumentId === activeReq.requiredDocumentId);
+                  console.log('Active', activeUploadedDocs)
+
+                  return (
+                    <>
+                      {/* Header */}
+                      <div className="bg-white border-b border-slate-200 p-2">
+                        <h4 className="text-sm font-bold text-slate-800">{activeName}</h4>
+                        {activeDesc && <p className="text-xs text-slate-500 mt-1">{activeDesc}</p>}
+                      </div>
+
+                      <div className="p-4 flex flex-col gap-5">
+                        {/* 1. List of Uploaded Files for this Requirement */}
+                        <div className="flex flex-col gap-2">
+                          <h5 className="text-[11px] font-bold uppercase text-slate-500 tracking-wider mb-1">
+                            Uploaded Documents ({activeUploadedDocs.length})
+                          </h5>
+
+                          {loadingDocs ? (
+                            <div className="py-4 text-center text-xs text-slate-500">Loading documents...</div>
+                          ) : activeUploadedDocs.length === 0 ? (
+                            <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center">
+                              <span className="text-xs font-medium text-slate-500">No files uploaded for this document category yet.</span>
+                            </div>
+                          ) : (
+                            activeUploadedDocs.map(doc => (
+                              <div
+                                key={doc.documentId}
+                                className={`flex flex-col gap-2 rounded-lg border p-3 shadow-xs transition-colors ${doc.status === 'APPROVED' ? 'border-emerald-300 bg-emerald-50' :
+                                  doc.status === 'REJECTED' ? 'border-rose-300 bg-rose-50' :
+                                    doc.isResubmission ? 'border-indigo-300 bg-indigo-50' :
+                                      'border-amber-300 bg-amber-50'
+                                  }`}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-3 overflow-hidden">
+                                    {/* File Icon - Changed to white bg to contrast with colored parent wrapper */}
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-sm text-slate-600">
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                        <polyline points="14 2 14 8 20 8" />
+                                      </svg>
+                                    </div>
+                                    <div className="flex flex-col overflow-hidden">
+                                      <div className="flex items-center gap-2">
+                                        <span className="truncate text-xs font-semibold text-slate-800" title={doc.fileName}>
+                                          {doc.fileName}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2 text-[10px] text-slate-600 mt-0.5">
+                                        <span>{formatFileSize(doc.fileSize)}</span>
+                                        <span>•</span>
+                                        <span>By {doc.uploadedByName || doc.uploadedById || 'User'}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {/* Checker Approve/Reject Actions */}
+                                    {canApproveOrReject && doc.status !== 'REJECTED' && (
+                                      <div className="flex items-center gap-1 border-r border-slate-300/50 pr-2 mr-1">
+                                        <button
+                                          type="button"
+                                          className={`flex h-6 px-1.5 items-center justify-center gap-1 rounded text-[10px] font-bold transition-all ${doc.status === 'APPROVED'
+                                              ? 'bg-emerald-600 text-white shadow-sm'
+                                              : doc.status === 'REJECTED' || actioningDocId === doc.documentId
+                                                ? 'bg-slate-50 text-slate-400 border border-slate-200 opacity-50 cursor-not-allowed'
+                                                : 'bg-white text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-200'
+                                            }`}
+                                          onClick={() => handleDocumentAction(doc, 'APPROVE')}
+                                          disabled={actioningDocId === doc.documentId || doc.status === 'REJECTED'}
+                                        >
+                                          ✓
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className={`flex h-6 px-1.5 items-center justify-center gap-1 rounded text-[10px] font-bold transition-all ${doc.status === 'REJECTED'
+                                              ? 'bg-rose-600 text-white shadow-sm'
+                                              : doc.status === 'APPROVED' || actioningDocId === doc.documentId
+                                                ? 'bg-slate-50 text-slate-400 border border-slate-200 opacity-50 cursor-not-allowed'
+                                                : 'bg-white text-rose-700 hover:bg-rose-600 hover:text-white border border-rose-200'
+                                            }`}
+                                          onClick={() => { setRejectingDoc(doc); setDocRejectionReason(''); }}
+                                          disabled={actioningDocId === doc.documentId || doc.status === 'APPROVED'}
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {/* Action Buttons - Changed to white bg to contrast with colored parent wrapper */}
+                                    <button type="button" className="p-1.5 rounded bg-white text-slate-600 hover:bg-blue-100 hover:text-blue-700 shadow-sm border border-black/5" onClick={() => handleViewDocument(doc)} title="View">
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                                    </button>
+                                    <button type="button" className="p-1.5 rounded bg-white text-slate-600 hover:bg-blue-100 hover:text-blue-700 shadow-sm border border-black/5" onClick={() => handleDownload(doc)} title="Download">
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                                    </button>
+
+                                    {canSubmit && doc.status !== 'APPROVED' && doc.status !== 'REJECTED' && (
+                                      <button type="button" className="p-1.5 rounded bg-white text-slate-500 hover:bg-red-100 hover:text-red-700 shadow-sm border border-black/5" onClick={() => handleDeleteDocument(doc)} title="Delete">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Rejection Reason - Tweaked styling to fit inside the rose-colored wrapper */}
+                                {doc.status === 'REJECTED' && doc.rejectionReason && (
+                                  <div className="mt-1 flex items-start gap-1.5 rounded-md bg-white/60 p-2 text-[11px] text-rose-900 border border-white/50">
+                                    <strong className="shrink-0 font-bold">Rejection Reason:</strong>
+                                    <span>{doc.rejectionReason}</span>
+                                  </div>
+                                )}
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        {/* 2. Upload Zone for this Requirement */}
+                        {canSubmit && (
+                          <div
+                            className={`relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-all ${isDragging ? 'border-blue-500 bg-blue-50/80 ring-4 ring-blue-500/20' : 'border-slate-300 bg-white hover:border-blue-400 hover:bg-blue-50/30'
+                              }`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => {
+                              // Pass the activeName to your drop handler so the uploaded file maps to this requirement
+                              // handleDrop(e, activeName); 
+                              handleDrop(e);
+                            }}
+                          >
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-2">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                              <polyline points="17 8 12 3 7 8" />
+                              <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                            <span className="text-xs font-semibold text-slate-700 mb-1">Drag & drop files to upload</span>
+                            <span className="text-[10px] text-slate-500 mb-3">Upload evidence for: <strong className="text-slate-700">{activeName}</strong></span>
+
+                            <label className="cursor-pointer rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white transition-all hover:bg-blue-700 disabled:opacity-50">
+                              {uploadingFile ? 'Uploading...' : 'Browse Files'}
+                              <input
+                                type="file"
+                                multiple
+                                className="hidden"
+                                disabled={uploadingFile}
+                                onChange={e => {
+                                  if (e.target.files && e.target.files.length > 0) {
+                                    // Pass activeName/activeReq.id to your upload handler to link the file
+                                    // handleAutoUploadFiles(e.target.files, activeName);
+                                    handleAutoUploadFiles(e.target.files);
+                                    e.target.value = '';
+                                  }
+                                }}
+                              />
+                            </label>
+
+                            {uploadingFile && (
+                              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-xl bg-white/90 backdrop-blur-sm">
+                                <svg className="mb-2 h-6 w-6 animate-spin text-blue-600" viewBox="0 0 24 24" fill="none">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                                <span className="text-xs font-bold text-blue-900">{uploadProgressMsg || 'Uploading...'}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>}
+
+
+
 
             {/* Historical Submitter & Approver Remarks Section */}
             {activityComments.length > 0 && (
@@ -936,19 +843,19 @@ export default function TaskActionModal({
                       <div
                         key={evt.eventId || i}
                         className={`flex flex-col gap-1.5 rounded-lg border p-3 text-xs transition-all ${isReject
-                            ? 'border-rose-200 bg-rose-50/80 text-rose-950'
-                            : isApproverEvent
-                              ? 'border-emerald-200 bg-emerald-50/80 text-emerald-950'
-                              : 'border-blue-200 bg-blue-50/80 text-blue-950'
+                          ? 'border-rose-200 bg-rose-50/80 text-rose-950'
+                          : isApproverEvent
+                            ? 'border-emerald-200 bg-emerald-50/80 text-emerald-950'
+                            : 'border-blue-200 bg-blue-50/80 text-blue-950'
                           }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold ${isReject
-                                ? 'bg-rose-100 text-rose-800'
-                                : isApproverEvent
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-blue-100 text-blue-800'
+                              ? 'bg-rose-100 text-rose-800'
+                              : isApproverEvent
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-blue-100 text-blue-800'
                               }`}>
                               {isReject ? 'Approver Rejection' : isApproverEvent ? 'Approver Approval' : 'Submitter Note'}
                             </span>

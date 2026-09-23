@@ -31,10 +31,9 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import com.cloudkaptan.sop.entity.AuditLog;
-import com.cloudkaptan.sop.entity.TaskComment;
-import com.cloudkaptan.sop.entity.TaskEvent;
+
 import com.cloudkaptan.sop.repository.AuditLogRepository;
+import com.cloudkaptan.sop.repository.RequiredDocumentRepository;
 import com.cloudkaptan.sop.repository.TaskCommentRepository;
 import com.cloudkaptan.sop.repository.TaskEventRepository;
 
@@ -52,7 +51,8 @@ public class TaskDocumentService {
     private final AuditLogRepository auditLogRepository;
     private final TaskEventRepository taskEventRepository;
     private final TaskCommentRepository taskCommentRepository;
-
+    private final RequiredDocumentRepository requiredDocumentRepository;
+    
     @Value("${gcp.gcs.bucket-name:finsop-task-documents}")
     private String bucketName;
 
@@ -71,7 +71,8 @@ public class TaskDocumentService {
                                Environment environment,
                                AuditLogRepository auditLogRepository,
                                TaskEventRepository taskEventRepository,
-                               TaskCommentRepository taskCommentRepository) {
+                               TaskCommentRepository taskCommentRepository,
+                               RequiredDocumentRepository requiredDocumentRepository) {
         this.storage = storage;
         this.taskRepository = taskRepository;
         this.taskDocumentRepository = taskDocumentRepository;
@@ -81,6 +82,7 @@ public class TaskDocumentService {
         this.auditLogRepository = auditLogRepository;
         this.taskEventRepository = taskEventRepository;
         this.taskCommentRepository = taskCommentRepository;
+        this.requiredDocumentRepository = requiredDocumentRepository;
     }
 
     /**
@@ -170,13 +172,25 @@ public class TaskDocumentService {
      */
     @Transactional
     public TaskDocumentDto confirmUpload(UUID taskId, String fileName, String gcsObjectPath, Long fileSize, String contentType, String actorId) {
-        return confirmUpload(taskId, fileName, gcsObjectPath, fileSize, contentType, actorId, false, null);
+        return confirmUpload(taskId, fileName, gcsObjectPath, fileSize, contentType, actorId, false, null, null);
     }
 
     @Transactional
-    public TaskDocumentDto confirmUpload(UUID taskId, String fileName, String gcsObjectPath, Long fileSize, String contentType, String actorId, Boolean isResubmission, UUID replacedDocumentId) {
+    public TaskDocumentDto confirmUpload(UUID taskId, String fileName, String gcsObjectPath, Long fileSize, String contentType, String actorId, Boolean isResubmission, UUID replacedDocumentId, UUID requiredDocumentId) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new ResourceNotFoundException("Task not found with id: " + taskId));
+    RequiredDocument requiredDocument =
+        requiredDocumentRepository.findById(requiredDocumentId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Required document not found with id: " + requiredDocumentId));
+        
+    if (!requiredDocument.getTaskTemplate().getTaskTemplateId()
+        .equals(task.getTaskTemplateId())) {
+    throw new IllegalArgumentException(
+            "Required document does not belong to the task template"
+    );
+}
 
         User actor = resolveUser(actorId);
 
@@ -212,6 +226,7 @@ public class TaskDocumentService {
                 .isResubmission(resubmit)
                 .replacedDocumentId(replacedDocumentId)
                 .status(DocumentStatus.PENDING_REVIEW)
+                .requiredDocument(requiredDocument)
                 .build();
 
         TaskDocument saved = taskDocumentRepository.save(document);
@@ -562,6 +577,8 @@ public class TaskDocumentService {
                 .actionedAt(document.getActionedAt())
                 .isResubmission(Boolean.TRUE.equals(document.getIsResubmission()))
                 .replacedDocumentId(document.getReplacedDocumentId())
+                .requiredDocumentId(document.getRequiredDocument() != null ? document.getRequiredDocument().getRequiredDocumentId() : null)
+                .documentCategory(document.getRequiredDocument() != null ? document.getRequiredDocument().getName() : null)
                 .build();
     }
 

@@ -33,4 +33,7 @@ public class ConfirmUploadRequest {
     private Boolean isResubmission;
 
     private UUID replacedDocumentId;
+
+    @NotNull(message = "requiredDocumentId is required")
+    private UUID requiredDocumentId;
 }

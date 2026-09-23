@@ -5,10 +5,10 @@ import com.cloudkaptan.sop.domain.state.soptemplate.SopTemplateContext;
 import com.cloudkaptan.sop.dto.AuditLogDto;
 import com.cloudkaptan.sop.dto.CreateSopTemplateRequest;
 import com.cloudkaptan.sop.dto.CreateTaskTemplateRequest;
-import com.cloudkaptan.sop.dto.RequiredDocument;
 import com.cloudkaptan.sop.dto.SopTemplateDto;
 import com.cloudkaptan.sop.dto.TaskTemplateDto;
 import com.cloudkaptan.sop.entity.CorporateEntity;
+import com.cloudkaptan.sop.entity.RequiredDocument;
 import com.cloudkaptan.sop.entity.SopTemplate;
 import com.cloudkaptan.sop.entity.TaskTemplate;
 import com.cloudkaptan.sop.entity.User;
@@ -32,6 +32,7 @@ import com.cloudkaptan.sop.domain.enums.EntityCode;
 import com.cloudkaptan.sop.domain.enums.SopFrequency;
 import com.cloudkaptan.sop.dto.CategoryAccessAssignmentDto;
 import com.cloudkaptan.sop.dto.NotificationEventDto;
+import com.cloudkaptan.sop.dto.RequiredDocumentDto;
 import com.cloudkaptan.sop.dto.TaskEventDto;
 import com.cloudkaptan.sop.entity.AuditLog;
 import com.cloudkaptan.sop.entity.SopTemplateEvent;
@@ -150,29 +151,67 @@ public class SopTemplateService {
     }
 
     @Transactional
-    public SopTemplateDto updateTaskTemplate(UUID templateId, UUID taskTemplateId, CreateTaskTemplateRequest request) {
-        getTemplateOrThrow(templateId);
-        TaskTemplate task = taskTemplateRepository.findById(taskTemplateId)
-                .orElseThrow(() -> new IllegalArgumentException("Task template not found: " + taskTemplateId));
+public SopTemplateDto updateTaskTemplate(
+        UUID templateId,
+        UUID taskTemplateId,
+        CreateTaskTemplateRequest request) {
 
-        task.setTaskName(request.getTaskName());
-        task.setDescription(request.getDescription());
-        task.setDependencyMode(request.getDependencyMode() != null ? request.getDependencyMode() : task.getDependencyMode());
-        task.setPriority(request.getPriority() != null ? request.getPriority() : task.getPriority());
-        task.setEtaStartDay(request.getEtaStartDay());
-        task.setEtaEndDay(request.getEtaEndDay());
-        task.setSlaHours(request.getSlaHours() != null ? request.getSlaHours() : task.getSlaHours());
-        task.setMakerIds(request.getMakerIds());
-        task.setCheckerIds(request.getCheckerIds());
-        task.setRequiredDocuments(request.getRequiredDocuments());
+    getTemplateOrThrow(templateId);
 
-        taskTemplateRepository.save(task);
-        SopTemplate template = getTemplateOrThrow(templateId);
-        logTemplateAudit(template, null, "UPDATE_TASK_TEMPLATE", "Updated task step blueprint: " + task.getTaskName());
-        log.info("Updated task template [{}] on SOP Template [{}]", taskTemplateId, templateId);
-        return toDto(template);
+    TaskTemplate task = taskTemplateRepository.findById(taskTemplateId)
+            .orElseThrow(() ->
+                    new IllegalArgumentException(
+                            "Task template not found: " + taskTemplateId));
+
+    task.setTaskName(request.getTaskName());
+    task.setDescription(request.getDescription());
+
+    task.setDependencyMode(
+            request.getDependencyMode() != null
+                    ? request.getDependencyMode()
+                    : task.getDependencyMode());
+
+    task.setPriority(
+            request.getPriority() != null
+                    ? request.getPriority()
+                    : task.getPriority());
+
+    task.setEtaStartDay(request.getEtaStartDay());
+    task.setEtaEndDay(request.getEtaEndDay());
+
+    task.setSlaHours(
+            request.getSlaHours() != null
+                    ? request.getSlaHours()
+                    : task.getSlaHours());
+
+    task.setMakerIds(request.getMakerIds());
+    task.setCheckerIds(request.getCheckerIds());
+    task.getRequiredDocuments().clear();
+
+    for (RequiredDocument doc : request.getRequiredDocuments()) {
+        doc.setTaskTemplate(task);
+        task.getRequiredDocuments().add(doc);
     }
 
+    taskTemplateRepository.save(task);
+
+    SopTemplate template = getTemplateOrThrow(templateId);
+
+    logTemplateAudit(
+            template,
+            null,
+            "UPDATE_TASK_TEMPLATE",
+            "Updated task step blueprint: " + task.getTaskName()
+    );
+
+    log.info(
+            "Updated task template [{}] on SOP Template [{}]",
+            taskTemplateId,
+            templateId
+    );
+
+    return toDto(template);
+}
     @Transactional
     public SopTemplateDto deleteTaskTemplate(UUID templateId, UUID taskTemplateId) {
         SopTemplate template = getTemplateOrThrow(templateId);
@@ -418,22 +457,30 @@ public class SopTemplateService {
 
         List<String> makers = (req.getMakerIds() != null) ? new ArrayList<>(req.getMakerIds()) : new ArrayList<>();
         List<String> checkers = (req.getCheckerIds() != null) ? new ArrayList<>(req.getCheckerIds()) : new ArrayList<>();
-        List<RequiredDocument> docs = (req.getRequiredDocuments() != null) ? new ArrayList<>(req.getRequiredDocuments()) : new ArrayList<>();
+        List<RequiredDocument> docs = (req.getRequiredDocuments() != null)
+        ? new ArrayList<>(req.getRequiredDocuments())
+        : new ArrayList<>();
 
-        return TaskTemplate.builder()
-                .sopTemplate(parent)
-                .stepSequence(sequence)
-                .taskName(req.getTaskName())
-                .description(req.getDescription())
-                .dependencyMode(depMode)
-                .priority(req.getPriority() != null ? req.getPriority() : "Medium")
-                .etaStartDay(req.getEtaStartDay() != null ? req.getEtaStartDay() : 0)
-                .etaEndDay(req.getEtaEndDay() != null ? req.getEtaEndDay() : 7)
-                .slaHours(req.getSlaHours() != null ? req.getSlaHours() : 24)
-                .makerIds(makers)
-                .checkerIds(checkers)
-                .requiredDocuments(docs)
-                .build();
+TaskTemplate taskTemplate = TaskTemplate.builder()
+        .sopTemplate(parent)
+        .stepSequence(sequence)
+        .taskName(req.getTaskName())
+        .description(req.getDescription())
+        .dependencyMode(depMode)
+        .priority(req.getPriority() != null ? req.getPriority() : "Medium")
+        .etaStartDay(req.getEtaStartDay() != null ? req.getEtaStartDay() : 0)
+        .etaEndDay(req.getEtaEndDay() != null ? req.getEtaEndDay() : 7)
+        .slaHours(req.getSlaHours() != null ? req.getSlaHours() : 24)
+        .makerIds(makers)
+        .checkerIds(checkers)
+        .requiredDocuments(docs)
+        .build();
+
+for (RequiredDocument doc : docs) {
+    doc.setTaskTemplate(taskTemplate);
+}
+
+return taskTemplate;
     }
 
     public static int getEffectiveDueDayOffset(Integer customOffset, SopFrequency frequency, java.time.LocalDate startDate) {
@@ -616,7 +663,15 @@ public class SopTemplateService {
                 .slaHours(task.getSlaHours())
                 .makerIds(task.getMakerIds())
                 .checkerIds(task.getCheckerIds())
-                .requiredDocuments(task.getRequiredDocuments())
+                .requiredDocuments(
+        task.getRequiredDocuments().stream()
+                .map(doc -> RequiredDocumentDto.builder()
+                        .requiredDocumentId(doc.getRequiredDocumentId())
+                        .name(doc.getName())
+                        .description(doc.getDescription())
+                        .build())
+                .toList()
+)
                 .build();
     }
 }

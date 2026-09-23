@@ -28,6 +28,10 @@ public class TaskDocument {
     @JoinColumn(name = "task_id", nullable = false, updatable = false)
     private Task task;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "required_document_id", nullable = false)
+    private RequiredDocument requiredDocument;
+
     @Column(name = "file_name", length = 255, nullable = false)
     private String fileName;
 

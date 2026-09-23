@@ -820,6 +820,12 @@ export default function Sops() {
           currentUser={currentUser}
           userMap={userMap}
           onStepSuccess={() => loadData()}
+          onCancel={()=>{
+            setShowCreateCompleteModal(false);
+            setEditingDraftTemplate(null);
+            setIsViewOnly(false);
+            setSearchParams({}, { replace: true });
+          }}
           onClose={() => {
             setShowCreateCompleteModal(false);
             setEditingDraftTemplate(null);
