@@ -12,6 +12,8 @@ public interface ProcessCategoryRepository extends JpaRepository<ProcessCategory
 
     Optional<ProcessCategory> findByCategoryCode(String categoryCode);
 
+    Optional<ProcessCategory> findByCategoryNameIgnoreCase(String categoryName);
+
     boolean existsByCategoryCode(String categoryCode);
 
     void deleteByCategoryCode(String categoryCode);

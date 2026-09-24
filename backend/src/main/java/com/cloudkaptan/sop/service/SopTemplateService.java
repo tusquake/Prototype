@@ -364,6 +364,29 @@ public SopTemplateDto updateTaskTemplate(
                                                     SopFrequency frequency,
                                                     String search,
                                                     Pageable pageable) {
+        com.cloudkaptan.sop.dto.SopTemplateFilterRequest req = com.cloudkaptan.sop.dto.SopTemplateFilterRequest.builder()
+                .status(status)
+                .entities(entities)
+                .category(category)
+                .frequency(frequency)
+                .search(search)
+                .build();
+        return getFilteredTemplates(req, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<SopTemplateDto> getFilteredTemplates(com.cloudkaptan.sop.dto.SopTemplateFilterRequest request, Pageable pageable) {
+        if (request == null) request = new com.cloudkaptan.sop.dto.SopTemplateFilterRequest();
+
+        SopTemplateStatus status = request.getStatus();
+        java.util.List<EntityCode> entities = request.getEntities();
+        String category = request.getCategory();
+        SopFrequency frequency = request.getFrequency();
+        String search = request.getSearch();
+        String createdBy = request.getCreatedBy();
+        String makerId = request.getMakerId();
+        String checkerId = request.getCheckerId();
+
         List<SopTemplate> templates = sopTemplateRepository.findAll();
         List<SopTemplateDto> filtered = templates.stream()
                 .filter(t -> {
@@ -371,11 +394,16 @@ public SopTemplateDto updateTaskTemplate(
                     if (entities != null && !entities.isEmpty() && (t.getEntity() == null || !entities.contains(t.getEntity().getEntityCode()))) return false;
                     if (category != null && !category.isBlank() && !category.equalsIgnoreCase(t.getProcessCategory())) return false;
                     if (frequency != null && t.getFrequency() != frequency) return false;
+                    if (createdBy != null && !createdBy.isBlank() && (t.getCreatedBy() == null || !createdBy.equalsIgnoreCase(t.getCreatedBy().getUserId()))) return false;
+                    if (makerId != null && !makerId.isBlank() && (t.getDefaultMakerIds() == null || !t.getDefaultMakerIds().contains(makerId))) return false;
+                    if (checkerId != null && !checkerId.isBlank() && (t.getDefaultCheckerIds() == null || !t.getDefaultCheckerIds().contains(checkerId))) return false;
+
                     if (search != null && !search.isBlank()) {
                         String q = search.trim().toLowerCase();
                         boolean matchTitle = t.getTitle() != null && t.getTitle().toLowerCase().contains(q);
                         boolean matchCode = t.getTemplateCode() != null && t.getTemplateCode().toLowerCase().contains(q);
-                        if (!matchTitle && !matchCode) return false;
+                        boolean matchDesc = t.getDescription() != null && t.getDescription().toLowerCase().contains(q);
+                        if (!matchTitle && !matchCode && !matchDesc) return false;
                     }
                     return true;
                 })

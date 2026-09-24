@@ -1,5 +1,8 @@
 package com.cloudkaptan.sop.controller;
 
+import com.cloudkaptan.sop.domain.enums.EntityCode;
+import com.cloudkaptan.sop.domain.enums.SopFrequency;
+import com.cloudkaptan.sop.domain.enums.SopTemplateStatus;
 import com.cloudkaptan.sop.dto.*;
 import com.cloudkaptan.sop.entity.Sop;
 import com.cloudkaptan.sop.service.SopTemplateService;
@@ -40,23 +43,49 @@ public class SopTemplateController {
                 .body(ApiResponse.success(created, "SOP Template draft created successfully."));
     }
 
+    @GetMapping
+    @Operation(summary = "Get all SOP Templates with filtering and pagination (GET API)",
+               description = "Fetches paginated list of all SOP Templates (bulk Excel imported, single-row added, or wizard created). Filtering parameters can be passed via query parameters: status, entities, category, frequency, search, page (0-based), size.")
+    public ResponseEntity<ApiResponse<PageResponse<SopTemplateDto>>> getAllTemplates(
+            @RequestParam(required = false) SopTemplateStatus status,
+            @RequestParam(required = false) List<EntityCode> entities,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) SopFrequency frequency,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<SopTemplateDto> pageResult = sopTemplateService.getFilteredTemplates(
+                status,
+                entities,
+                category,
+                frequency,
+                search,
+                pageable
+        );
+        return ResponseEntity.ok(ApiResponse.success(PageResponse.from(pageResult)));
+    }
+
     @PostMapping("/search")
-    @Operation(summary = "Search / list SOP Templates",
-               description = "Returns paginated SOP Templates filtered by status, entities, category, frequency, and search term. Frontend sends page number (1-based) and size.")
+    @Operation(summary = "Search / list SOP Templates (POST API)",
+               description = "Returns paginated SOP Templates filtered by status, entities, category, frequency, search keyword, createdBy, makerId, checkerId. Frontend passes filtering parameters in JSON request body.")
     public ResponseEntity<ApiResponse<PageResponse<SopTemplateDto>>> searchTemplates(
             @RequestBody(required = false) SopTemplateFilterRequest request
     ) {
         if (request == null) request = new SopTemplateFilterRequest();
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
-        Page<SopTemplateDto> page = sopTemplateService.getFilteredTemplates(
-                request.getStatus(),
-                request.getEntities(),
-                request.getCategory(),
-                request.getFrequency(),
-                request.getSearch(),
-                pageable
-        );
+        Page<SopTemplateDto> page = sopTemplateService.getFilteredTemplates(request, pageable);
         return ResponseEntity.ok(ApiResponse.success(PageResponse.from(page)));
+    }
+
+    @PostMapping("/list")
+    @Operation(summary = "List all SOP Templates with filters (POST API)",
+               description = "Alternative POST endpoint to fetch all SOP Template details with JSON request body filters.")
+    public ResponseEntity<ApiResponse<PageResponse<SopTemplateDto>>> listTemplates(
+            @RequestBody(required = false) SopTemplateFilterRequest request
+    ) {
+        return searchTemplates(request);
     }
 
     @GetMapping("/{templateId}")

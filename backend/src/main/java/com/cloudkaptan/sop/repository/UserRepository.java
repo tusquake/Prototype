@@ -14,4 +14,7 @@ public interface UserRepository extends JpaRepository<User, String> {
     Optional<User> findByFullName(String fullName);
 
     Optional<User> findByFullNameIgnoreCase(String fullName);
+
+    /** Fallback: get the oldest user in the system (used by Excel import as last-resort creator). */
+    Optional<User> findFirstByOrderByCreatedAtAsc();
 }

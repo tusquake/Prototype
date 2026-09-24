@@ -1,5 +1,6 @@
 package com.cloudkaptan.sop.repository;
 
+import com.cloudkaptan.sop.domain.enums.EntityCode;
 import com.cloudkaptan.sop.domain.enums.SopTemplateStatus;
 import com.cloudkaptan.sop.entity.SopTemplate;
 import org.springframework.data.domain.Page;
@@ -44,4 +45,11 @@ public interface SopTemplateRepository extends JpaRepository<SopTemplate, UUID> 
     );
 
     List<SopTemplate> findByProcessCategoryOrderByCreatedAtDesc(String processCategory);
+
+    /**
+     * Targeted idempotency check for Excel bulk import.
+     * Avoids a full table scan when checking if a template with the same entity+category+title already exists.
+     */
+    Optional<SopTemplate> findByEntityEntityCodeAndProcessCategoryIgnoreCaseAndTitleIgnoreCase(
+            EntityCode entityCode, String processCategory, String title);
 }
