@@ -40,9 +40,11 @@ class SopTemplateExcelImportServiceTest {
     private AuditLogRepository auditLogRepository;
     @Mock
     private SopTemplateEventRepository sopTemplateEventRepository;
+    @Mock
+    private UserCategoryPermissionRepository userCategoryPermissionRepository;
 
     @InjectMocks
-    private SopTemplateExcelImportService service;
+    private SopTemplateRowProcessorService rowProcessorService;
 
     private User dummyUser;
 
@@ -101,7 +103,7 @@ class SopTemplateExcelImportServiceTest {
             return tt;
         });
 
-        SingleTemplateResponseDto response = service.createSingleTemplateRow(request);
+        SingleTemplateResponseDto response = rowProcessorService.createSingleTemplateRow(request);
 
         assertNotNull(response);
         assertEquals(templateId, response.getTemplateId());
@@ -113,6 +115,7 @@ class SopTemplateExcelImportServiceTest {
         assertEquals("usr-manoj-042", response.getCreatedById());
         verify(sopTemplateRepository, times(1)).save(any(SopTemplate.class));
         verify(taskTemplateRepository, times(1)).save(any(TaskTemplate.class));
+        verify(userCategoryPermissionRepository, atLeastOnce()).save(any(UserCategoryPermission.class));
     }
 
     @Test
@@ -147,7 +150,7 @@ class SopTemplateExcelImportServiceTest {
         when(sopTemplateRepository.findByEntityEntityCodeAndProcessCategoryIgnoreCaseAndTitleIgnoreCase(
                 eq(EntityCode.CK_INDIA), eq("GST"), anyString())).thenReturn(Optional.of(existing));
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> service.createSingleTemplateRow(request));
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> rowProcessorService.createSingleTemplateRow(request));
         assertTrue(ex.getMessage().contains("already exists"));
     }
 }

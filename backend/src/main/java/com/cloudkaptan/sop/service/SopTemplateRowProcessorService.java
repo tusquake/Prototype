@@ -33,6 +33,7 @@ public class SopTemplateRowProcessorService {
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
     private final SopTemplateEventRepository sopTemplateEventRepository;
+    private final UserCategoryPermissionRepository userCategoryPermissionRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public SingleTemplateResponseDto createSingleTemplateRow(CreateSingleSopTemplateRowRequest request) {
@@ -108,6 +109,9 @@ public class SopTemplateRowProcessorService {
         autoProvisionUserIfMissing(actId, UserRole.ADMIN, entity);
         for (String mId : makerIds) autoProvisionUserIfMissing(mId, UserRole.MAKER, entity);
         for (String cId : checkerIds) autoProvisionUserIfMissing(cId, UserRole.CHECKER, entity);
+
+        // 7b. Populate Access Control Table (UserCategoryPermission) for Makers and Checkers
+        populateUserCategoryPermissions(normalizedCategory, makerIds, checkerIds);
 
         // 8. Fetch the Creator
         User creator = userRepository.findById(actId).orElseGet(() -> userRepository.findFirstByOrderByCreatedAtAsc().orElse(null));
@@ -203,6 +207,50 @@ public class SopTemplateRowProcessorService {
                 .overwritten(isOverwritten)
                 .message(String.format("SOP Template [%s] %s successfully.", savedTemplate.getTemplateCode(), newlyCreated ? "created" : "updated"))
                 .build();
+    }
+
+    private void populateUserCategoryPermissions(String processCategory, List<String> makerIds, List<String> checkerIds) {
+        if (processCategory == null || processCategory.isBlank()) return;
+
+        if (makerIds != null) {
+            for (String makerId : makerIds) {
+                if (makerId == null || makerId.isBlank()) continue;
+                UserCategoryPermission perm = userCategoryPermissionRepository
+                        .findByUserIdAndProcessCategoryIgnoreCase(makerId, processCategory)
+                        .orElseGet(() -> UserCategoryPermission.builder()
+                                .userId(makerId)
+                                .processCategory(processCategory)
+                                .canCreateSop(true)
+                                .canApproveSop(false)
+                                .canMakeTask(true)
+                                .canCheckTask(false)
+                                .build());
+
+                perm.setCanMakeTask(true);
+                perm.setCanCreateSop(true);
+                userCategoryPermissionRepository.save(perm);
+            }
+        }
+
+        if (checkerIds != null) {
+            for (String checkerId : checkerIds) {
+                if (checkerId == null || checkerId.isBlank()) continue;
+                UserCategoryPermission perm = userCategoryPermissionRepository
+                        .findByUserIdAndProcessCategoryIgnoreCase(checkerId, processCategory)
+                        .orElseGet(() -> UserCategoryPermission.builder()
+                                .userId(checkerId)
+                                .processCategory(processCategory)
+                                .canCreateSop(false)
+                                .canApproveSop(true)
+                                .canMakeTask(false)
+                                .canCheckTask(true)
+                                .build());
+
+                perm.setCanCheckTask(true);
+                perm.setCanApproveSop(true);
+                userCategoryPermissionRepository.save(perm);
+            }
+        }
     }
 
     private void autoProvisionUserIfMissing(String userId, UserRole role, CorporateEntity entity) {
