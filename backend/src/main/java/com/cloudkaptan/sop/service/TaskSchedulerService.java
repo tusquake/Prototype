@@ -61,6 +61,7 @@ public class TaskSchedulerService {
 
     @Value("${gcp.cloud-tasks.queue-id:sop-instantiation-queue}")
     private String queueId;
+
     // @Scheduled(cron = "${app.task-scheduler.cron:0 0 0 * * ?}")
     @Transactional
     public void generateScheduledTasks() {
@@ -70,7 +71,7 @@ public class TaskSchedulerService {
     @Transactional
     public void generateScheduledTasks(LocalDate overrideDate, Boolean bypassRecurrenceCheck) {
         LocalDate today = overrideDate != null ? overrideDate : LocalDate.now();
-        log.info("Executing scheduled task generation engine for date [{}] (Bypass checks: {})...", 
+        log.info("Executing scheduled task generation engine for date [{}] (Bypass checks: {})...",
                 today, Boolean.TRUE.equals(bypassRecurrenceCheck));
 
         // ─── PATH 1: Legacy SOP-version based generation (backward compat) ────
@@ -84,12 +85,14 @@ public class TaskSchedulerService {
 
     /**
      * Direct In-Memory SOP Instantiation for a specific date (defaults to today).
-     * Bypasses GCP Cloud Tasks & Cloud Scheduler completely so live demos / manual triggers work instantly.
+     * Bypasses GCP Cloud Tasks & Cloud Scheduler completely so live demos / manual
+     * triggers work instantly.
      */
     @Transactional
     public List<Sop> triggerDirectSopInstantiation(LocalDate overrideDate, Boolean bypassRecurrenceCheck) {
         LocalDate targetDate = overrideDate != null ? overrideDate : LocalDate.now();
-        log.info("Directly instantiating SOP templates for date [{}] (bypassRecurrenceCheck: {})...", targetDate, bypassRecurrenceCheck);
+        log.info("Directly instantiating SOP templates for date [{}] (bypassRecurrenceCheck: {})...", targetDate,
+                bypassRecurrenceCheck);
 
         List<SopTemplate> schedulableTemplates = sopTemplateRepository.findSchedulableTemplates(
                 SopTemplateStatus.ACTIVE, targetDate);
@@ -115,97 +118,111 @@ public class TaskSchedulerService {
                             createdSop.getSopCode(), template.getTemplateCode(), targetDate);
                 }
             } catch (Exception e) {
-                log.error("(Direct Instantiation) Failed to instantiate template [{}]: {}", template.getTemplateId(), e.getMessage(), e);
-            }
-        }
-
-        log.info("(Direct Instantiation) Successfully created [{}] SOP instances for date [{}].", createdSops.size(), targetDate);
-        return createdSops;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // LEGACY PATH — SopVersion driven (existing behavior, untouched)
-    // ─────────────────────────────────────────────────────────────────────────
-    private void generateFromSopVersions(LocalDate today) {
-        List<SopVersion> activeVersions = sopVersionRepository.findActiveRunningVersions();
-        int generatedCount = 0;
-        for (SopVersion version : activeVersions) {
-            try {
-                Sop sop = version.getSop();
-                LocalDate entityToday = (sop.getEntity() != null && sop.getEntity().getEntityCode() != null)
-                        ? sop.getEntity().getEntityCode().getCurrentLocalDate()
-                        : today;
-                LocalDate sopStartDate = (sop.getStartDate() != null)
-                        ? sop.getStartDate()
-                        : ((version.getStartDateTime() != null) ? version.getStartDateTime().toLocalDate()
-                                : entityToday);
-
-                if (sopStartDate.isAfter(entityToday)) {
-                    continue;
-                }
-
-                RecurrenceStrategy strategy = recurrenceStrategyFactory.getStrategy(version.getFrequency());
-                String periodKey = strategy.calculatePeriodKey(entityToday);
-
-                if (Boolean.FALSE.equals(version.getIsRecurring())
-                        && taskRepository.existsBySop_SopId(sop.getSopId())) {
-                    continue;
-                }
-
-                if (!taskRepository.existsBySop_SopIdAndPeriodKey(sop.getSopId(), periodKey)) {
-                    LocalDate taskStartDate = sopStartDate;
-                    LocalDate taskDueDate = (sop.getDueDate() != null)
-                            ? sop.getDueDate()
-                            : ((version.getDueDateTime() != null) ? version.getDueDateTime().toLocalDate()
-                                    : taskStartDate.plusDays(sop.getDueDayOffset() != null ? sop.getDueDayOffset() : 7));
-
-                    String recordNo = String.format("%s-%s", sop.getSopCode(), periodKey);
-
-                    List<String> makerPool = (sop.getDefaultMakerIds() != null && !sop.getDefaultMakerIds().isEmpty())
-                            ? new ArrayList<>(sop.getDefaultMakerIds())
-                            : new ArrayList<>(List.of("usr-tushar-304"));
-
-                    List<String> checkerPool = (sop.getDefaultCheckerIds() != null && !sop.getDefaultCheckerIds().isEmpty())
-                                    ? new ArrayList<>(sop.getDefaultCheckerIds())
-                                    : new ArrayList<>(List.of("usr-prayasa-410"));
-
-                    Task task = Task.builder()
-                            .sop(sop)
-                            .sopVersion(version)
-                            .recordNo(recordNo)
-                            .periodKey(periodKey)
-                            .entity(sop.getEntity())
-                            .assignedMakerIds(makerPool)
-                            .assignedCheckerIds(checkerPool)
-                            .status(TaskStatus.OPEN)
-                            .startDate(taskStartDate)
-                            .dueDate(taskDueDate)
-                            .build();
-
-                    Task savedTask = taskRepository.save(task);
-
-                    auditLogRepository.save(AuditLog.builder()
-                            .actorId(sop.getCreatedBy() != null ? sop.getCreatedBy().getUserId() : "usr-manoj-042")
-                            .action("CREATE_TASK")
-                            .entityType("TASK")
-                            .entityId(recordNo)
-                            .correlationId(UUID.randomUUID().toString())
-                            .build());
-
-                    notifyMakers(savedTask, sop.getTitle());
-                    generatedCount++;
-                }
-            } catch (Exception e) {
-                log.error("(Legacy) Failed to generate task for SOP Version [{}]: {}", version.getVersionId(),
+                log.error("(Direct Instantiation) Failed to instantiate template [{}]: {}", template.getTemplateId(),
                         e.getMessage(), e);
             }
         }
-        log.info("(Legacy) Idempotently created [{}] tasks from SOP versions.", generatedCount);
+
+        log.info("(Direct Instantiation) Successfully created [{}] SOP instances for date [{}].", createdSops.size(),
+                targetDate);
+        return createdSops;
     }
 
-    private void generateFromSopTemplates(LocalDate today) {
-        generateFromSopTemplates(today, null);
-    }
+    // LEGACY PATH — SopVersion driven (existing behavior for backward
+    // compatibility)
+
+    // private void generateFromSopVersions(LocalDate today) {
+    // List<SopVersion> activeVersions =
+    // sopVersionRepository.findActiveRunningVersions();
+    // int generatedCount = 0;
+    // for (SopVersion version : activeVersions) {
+    // try {
+    // Sop sop = version.getSop();
+    // LocalDate entityToday = (sop.getEntity() != null &&
+    // sop.getEntity().getEntityCode() != null)
+    // ? sop.getEntity().getEntityCode().getCurrentLocalDate()
+    // : today;
+    // LocalDate sopStartDate = (sop.getStartDate() != null)
+    // ? sop.getStartDate()
+    // : ((version.getStartDateTime() != null) ?
+    // version.getStartDateTime().toLocalDate()
+    // : entityToday);
+
+    // if (sopStartDate.isAfter(entityToday)) {
+    // continue;
+    // }
+
+    // RecurrenceStrategy strategy =
+    // recurrenceStrategyFactory.getStrategy(version.getFrequency());
+    // String periodKey = strategy.calculatePeriodKey(entityToday);
+
+    // if (Boolean.FALSE.equals(version.getIsRecurring())
+    // && taskRepository.existsBySop_SopId(sop.getSopId())) {
+    // continue;
+    // }
+
+    // if (!taskRepository.existsBySop_SopIdAndPeriodKey(sop.getSopId(), periodKey))
+    // {
+    // LocalDate taskStartDate = sopStartDate;
+    // LocalDate taskDueDate = (sop.getDueDate() != null)
+    // ? sop.getDueDate()
+    // : ((version.getDueDateTime() != null) ?
+    // version.getDueDateTime().toLocalDate()
+    // : taskStartDate.plusDays(sop.getDueDayOffset() != null ?
+    // sop.getDueDayOffset() : 7));
+
+    // String recordNo = String.format("%s-%s", sop.getSopCode(), periodKey);
+
+    // List<String> makerPool = (sop.getDefaultMakerIds() != null &&
+    // !sop.getDefaultMakerIds().isEmpty())
+    // ? new ArrayList<>(sop.getDefaultMakerIds())
+    // : new ArrayList<>(List.of("usr-tushar-304"));
+
+    // List<String> checkerPool = (sop.getDefaultCheckerIds() != null &&
+    // !sop.getDefaultCheckerIds().isEmpty())
+    // ? new ArrayList<>(sop.getDefaultCheckerIds())
+    // : new ArrayList<>(List.of("usr-prayasa-410"));
+
+    // Task task = Task.builder()
+    // .sop(sop)
+    // .sopVersion(version)
+    // .recordNo(recordNo)
+    // .periodKey(periodKey)
+    // .entity(sop.getEntity())
+    // .assignedMakerIds(makerPool)
+    // .assignedCheckerIds(checkerPool)
+    // .status(TaskStatus.OPEN)
+    // .startDate(taskStartDate)
+    // .dueDate(taskDueDate)
+    // .build();
+
+    // Task savedTask = taskRepository.save(task);
+
+    // auditLogRepository.save(AuditLog.builder()
+    // .actorId(sop.getCreatedBy() != null ? sop.getCreatedBy().getUserId() :
+    // "usr-manoj-042")
+    // .action("CREATE_TASK")
+    // .entityType("TASK")
+    // .entityId(recordNo)
+    // .correlationId(UUID.randomUUID().toString())
+    // .build());
+
+    // notifyMakers(savedTask, sop.getTitle());
+    // generatedCount++;
+    // }
+    // } catch (Exception e) {
+    // log.error("(Legacy) Failed to generate task for SOP Version [{}]: {}",
+    // version.getVersionId(),
+    // e.getMessage(), e);
+    // }
+    // }
+    // log.info("(Legacy) Idempotently created [{}] tasks from SOP versions.",
+    // generatedCount);
+    // }
+
+    // private void generateFromSopTemplates(LocalDate today) {
+    // generateFromSopTemplates(today, null);
+    // }
 
     private void generateFromSopTemplates(LocalDate today, Boolean bypassRecurrenceCheck) {
         List<SopTemplate> schedulableTemplates = sopTemplateRepository.findSchedulableTemplates(
@@ -222,7 +239,8 @@ public class TaskSchedulerService {
 
     private boolean isTemplateDueAndNotInstantiated(SopTemplate template, LocalDate today, boolean skipChecks) {
         if (skipChecks) {
-            log.info("[Demo Mode] Bypassing recurrence & DB existence checks for Template [{}]", template.getTemplateCode());
+            log.info("[Demo Mode] Bypassing recurrence & DB existence checks for Template [{}]",
+                    template.getTemplateCode());
             return true;
         }
 
@@ -238,7 +256,8 @@ public class TaskSchedulerService {
                 .findBySopCode(buildSopCode(template.getTemplateCode(), periodKey)).isPresent();
 
         if (sopInstanceExists) {
-            log.debug("SOP Instance for template [{}] and period [{}] already exists. Skipping.", template.getTemplateCode(), periodKey);
+            log.debug("SOP Instance for template [{}] and period [{}] already exists. Skipping.",
+                    template.getTemplateCode(), periodKey);
             return false;
         }
 
@@ -262,9 +281,11 @@ public class TaskSchedulerService {
                     log.info("Enqueued Cloud Task for Template [{}]", template.getTemplateCode());
 
                 } catch (com.google.api.gax.rpc.AlreadyExistsException e) {
-                    log.debug("Task for Template [{}] already queued in Cloud Tasks for today.", template.getTemplateCode());
+                    log.debug("Task for Template [{}] already queued in Cloud Tasks for today.",
+                            template.getTemplateCode());
                 } catch (Exception e) {
-                    log.error("(Template) Failed to enqueue template [{}]: {}", template.getTemplateId(), e.getMessage(), e);
+                    log.error("(Template) Failed to enqueue template [{}]: {}", template.getTemplateId(),
+                            e.getMessage(), e);
                 }
             }
             log.info("(Template) Dispatched [{}] templates to Cloud Tasks.", queuedCount);
@@ -274,7 +295,8 @@ public class TaskSchedulerService {
         }
     }
 
-    private void enqueueSingleCloudTask(CloudTasksClient client, String queuePath, SopTemplate template, LocalDate today) {
+    private void enqueueSingleCloudTask(CloudTasksClient client, String queuePath, SopTemplate template,
+            LocalDate today) {
         String payload = String.format("{\"templateId\":\"%s\",\"executionDate\":\"%s\"}",
                 template.getTemplateId(), today);
 
@@ -302,9 +324,9 @@ public class TaskSchedulerService {
     }
 
     // SHARED WORKER LOGIC - Kept intact for both Cloud Tasks & Manual triggers
-    @Transactional
     public Sop instantiateSingleSopTemplate(SopTemplate template, LocalDate today) {
-        if (template == null) return null;
+        if (template == null)
+            return null;
 
         RecurrenceStrategy strategy = recurrenceStrategyFactory
                 .getStrategy(template.getFrequency() != null ? template.getFrequency()
@@ -336,8 +358,11 @@ public class TaskSchedulerService {
                 .dueDayOffset(effectiveDueDayOffset)
                 .startDate(sopStartDate)
                 .dueDate(sopDueDate)
-                .defaultMakerIds(template.getDefaultMakerIds() != null ? new ArrayList<>(template.getDefaultMakerIds()) : new ArrayList<>())
-                .defaultCheckerIds(template.getDefaultCheckerIds() != null ? new ArrayList<>(template.getDefaultCheckerIds()) : new ArrayList<>())
+                .defaultMakerIds(template.getDefaultMakerIds() != null ? new ArrayList<>(template.getDefaultMakerIds())
+                        : new ArrayList<>())
+                .defaultCheckerIds(
+                        template.getDefaultCheckerIds() != null ? new ArrayList<>(template.getDefaultCheckerIds())
+                                : new ArrayList<>())
                 .status(SopStatus.IN_PROGRESS)
                 .templateId(template.getTemplateId())
                 .createdBy(template.getCreatedBy())
@@ -371,7 +396,10 @@ public class TaskSchedulerService {
                     LocalDate taskDueDate;
                     TaskStatus initialStatus;
 
-                    if (previousTask == null || taskTemplate.getStepSequence() == 1) {
+                    boolean isIndependent = "INDEPENDENT".equalsIgnoreCase(taskTemplate.getDependencyMode());
+
+                    // FIX 1: If task is first or INDEPENDENT, calculate strictly from sopStartDate
+                    if (previousTask == null || taskTemplate.getStepSequence() == 1 || isIndependent) {
                         taskStartDate = sopStartDate.plusDays(startOffset);
                         taskDueDate = (endOffset > startOffset)
                                 ? sopStartDate.plusDays(endOffset)
@@ -379,11 +407,12 @@ public class TaskSchedulerService {
                         initialStatus = TaskStatus.OPEN;
                     } else {
                         LocalDate explicitStartDate = sopStartDate.plusDays(startOffset);
-                        if (startOffset > 0 && explicitStartDate.isAfter(previousTask.getStartDate())) {
+
+                        // FIX 2: Removed .plusDays(1) to eliminate the extra day gap
+                        if (startOffset > 0 && explicitStartDate.isAfter(previousTask.getDueDate())) {
                             taskStartDate = explicitStartDate;
                         } else {
-                            // Sequential execution: next task starts the day after previous task's due date
-                            taskStartDate = previousTask.getDueDate().plusDays(1);
+                            taskStartDate = previousTask.getDueDate();
                         }
 
                         if (endOffset > startOffset && sopStartDate.plusDays(endOffset).isAfter(taskStartDate)) {
@@ -392,21 +421,23 @@ public class TaskSchedulerService {
                             taskDueDate = taskStartDate.plusDays(durationDays);
                         }
 
-                        if ("INDEPENDENT".equalsIgnoreCase(taskTemplate.getDependencyMode())) {
-                            initialStatus = TaskStatus.OPEN;
-                        } else {
-                            initialStatus = today.isBefore(taskStartDate) ? TaskStatus.LOCKED : TaskStatus.OPEN;
-                        }
+                        initialStatus = today.isBefore(taskStartDate) ? TaskStatus.LOCKED : TaskStatus.OPEN;
                     }
 
                     String taskRecordNo = String.format("%s-T%d", sopCode, taskTemplate.getStepSequence());
-                    List<String> taskMakers = (taskTemplate.getMakerIds() != null && !taskTemplate.getMakerIds().isEmpty())
-                            ? new ArrayList<>(taskTemplate.getMakerIds())
-                            : (template.getDefaultMakerIds() != null ? new ArrayList<>(template.getDefaultMakerIds()) : new ArrayList<>());
+                    List<String> taskMakers = (taskTemplate.getMakerIds() != null
+                            && !taskTemplate.getMakerIds().isEmpty())
+                                    ? new ArrayList<>(taskTemplate.getMakerIds())
+                                    : (template.getDefaultMakerIds() != null
+                                            ? new ArrayList<>(template.getDefaultMakerIds())
+                                            : new ArrayList<>());
 
-                    List<String> taskCheckers = (taskTemplate.getCheckerIds() != null && !taskTemplate.getCheckerIds().isEmpty())
-                            ? new ArrayList<>(taskTemplate.getCheckerIds())
-                            : (template.getDefaultCheckerIds() != null ? new ArrayList<>(template.getDefaultCheckerIds()) : new ArrayList<>());
+                    List<String> taskCheckers = (taskTemplate.getCheckerIds() != null
+                            && !taskTemplate.getCheckerIds().isEmpty())
+                                    ? new ArrayList<>(taskTemplate.getCheckerIds())
+                                    : (template.getDefaultCheckerIds() != null
+                                            ? new ArrayList<>(template.getDefaultCheckerIds())
+                                            : new ArrayList<>());
 
                     Task task = Task.builder()
                             .sop(savedSop)
@@ -449,7 +480,8 @@ public class TaskSchedulerService {
     }
 
     private void notifyMakers(Task task, String sopTitle) {
-        if (task.getAssignedMakerIds() == null || task.getAssignedMakerIds().isEmpty()) return;
+        if (task.getAssignedMakerIds() == null || task.getAssignedMakerIds().isEmpty())
+            return;
         for (String makerId : task.getAssignedMakerIds()) {
             notificationPublisherService.publishNotification(NotificationEventDto.builder()
                     .recipientUserId(makerId)

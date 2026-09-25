@@ -94,7 +94,7 @@ public class DashboardService {
                     .count();
                 long entityApproved = entityTasks.stream().filter(t -> t.getStatus() == TaskStatus.APPROVED).count();
 
-                String rate = total > 0 ? Math.round(((double) entityApproved / total) * 100) + "%" : "100%";
+                String rate = total > 0 ? Math.round(((double) entityApproved / total) * 100) + "%" : "-";
 
                 return DashboardSummaryDto.ScorecardRowDto.builder()
                     .entityId(e.getEntityCode())

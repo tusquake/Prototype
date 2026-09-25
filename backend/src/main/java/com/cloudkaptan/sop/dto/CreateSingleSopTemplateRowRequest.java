@@ -1,6 +1,7 @@
 package com.cloudkaptan.sop.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,6 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
+import jakarta.validation.constraints.Pattern;
 
 @Data
 @Builder
@@ -55,9 +57,11 @@ public class CreateSingleSopTemplateRowRequest {
     private Boolean overwriteExisting;
 
     @Schema(description = "Priority of task template ('High', 'Medium', 'Low'). Defaults to 'Medium'.", example = "Medium")
+    @Pattern(regexp = "^(High|Medium|Low)$", message = "Priority must be High, Medium, or Low")
     private String priority;
 
     @Schema(description = "SLA hours for task template. Defaults to 72.", example = "72")
+    @Min(value = 1, message = "SLA hours must be at least 1")
     private Integer slaHours;
 
     @Schema(description = "Effective from date. Defaults to current date if not specified.", example = "2026-09-24")
